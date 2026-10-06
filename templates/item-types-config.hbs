@@ -1,0 +1,14 @@
+<div class="gc-types-body">
+  <p class="gc-hint">{{localize "GRIDCRAFTER.Settings.ItemTypes.Explain"}}</p>
+  <div class="gc-types-list">
+    {{#each types}}
+    <label class="gc-type">
+      <input type="checkbox" class="gc-toggle" name="types" value="{{type}}" {{#if checked}}checked{{/if}}>
+      <span>{{label}}</span>
+    </label>
+    {{/each}}
+  </div>
+  <footer>
+    <button type="submit" class="gc-button"><i class="fa-solid fa-floppy-disk" inert></i> {{localize "GRIDCRAFTER.Editor.Save"}}</button>
+  </footer>
+</div>

@@ -1,0 +1,137 @@
+/*!
+ * Grid Crafter
+ * 2026 https://github.com/brunocalado
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3.
+ */
+
+.grid-crafter.gc-chat-card {
+  padding: 8px;
+  border: 1px solid var(--gc-trim);
+  border-radius: var(--gc-radius);
+  background: linear-gradient(180deg, var(--gc-bg-2), var(--gc-bg-0));
+  color: var(--gc-text);
+  box-shadow: inset 0 0 18px rgba(var(--gc-glow-rgb), 0.15);
+
+  &.gc-failure {
+    border-color: var(--gc-danger);
+  }
+
+  .gc-chat-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    i {
+      color: var(--gc-glow);
+      text-shadow: 0 0 8px var(--gc-glow);
+    }
+
+    h3 {
+      margin: 0;
+      border: none;
+      color: var(--gc-trim-hi);
+      font-family: var(--gc-font-title);
+      font-size: var(--font-size-18);
+    }
+  }
+
+  &.gc-failure .gc-chat-header i {
+    color: var(--gc-danger);
+    text-shadow: 0 0 8px var(--gc-danger);
+  }
+
+  .gc-chat-result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0;
+    padding: 6px;
+    border-radius: var(--gc-radius);
+    background: rgba(0, 0, 0, 0.35);
+
+    img {
+      width: 44px;
+      height: 44px;
+      border: 1px solid var(--gc-trim);
+      border-radius: 6px;
+      box-shadow: 0 0 12px rgba(var(--gc-glow-rgb), 0.6);
+    }
+
+    div {
+      display: flex;
+      flex-direction: column;
+    }
+
+    strong {
+      font-family: var(--gc-font-title);
+      font-size: var(--font-size-18);
+      color: var(--gc-trim-hi);
+    }
+
+    small {
+      color: var(--gc-text-dim);
+    }
+  }
+
+  .gc-chat-message {
+    margin: 8px 0;
+    font-style: italic;
+  }
+
+  h4 {
+    margin: 6px 0 4px;
+    border-bottom: 1px solid var(--gc-metal-hi);
+    color: var(--gc-text-dim);
+    font-size: var(--font-size-12);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .gc-chat-items {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    img {
+      width: 24px;
+      height: 24px;
+      border: none;
+      border-radius: 3px;
+    }
+
+    .gc-chat-name {
+      flex: 1;
+    }
+  }
+
+  /* Items that were not spent stand out, so the table can spot a free craft. */
+  .gc-origin {
+    padding: 0 5px;
+    border-radius: 3px;
+    font-size: var(--font-size-11);
+    background: var(--gc-metal);
+    color: var(--gc-text-dim);
+
+    &.gc-origin-world,
+    &.gc-origin-compendium {
+      background: #7a5a00;
+      color: #fff3c4;
+    }
+  }
+
+  .gc-chat-loss {
+    margin: 6px 0 0;
+    color: var(--gc-text-dim);
+  }
+}

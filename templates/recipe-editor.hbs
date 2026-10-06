@@ -1,0 +1,90 @@
+<div class="gc-editor-body">
+  <aside class="gc-recipe-list">
+    <button type="button" class="gc-button gc-new" data-action="newRecipe"><i class="fa-solid fa-plus" inert></i> {{localize "GRIDCRAFTER.Editor.New"}}</button>
+    {{#each groups}}
+    <h3>{{label}}</h3>
+    <ol>
+      {{#each recipes}}
+      <li>
+        <button type="button" class="gc-recipe-entry {{#if active}}gc-active{{/if}}" data-action="selectRecipe" data-recipe-id="{{id}}">
+          {{#if img}}<img src="{{img}}" alt="">{{else}}<span class="gc-noimg"></span>{{/if}}
+          <span>{{name}}</span>
+        </button>
+      </li>
+      {{/each}}
+    </ol>
+    {{else}}
+    <p class="gc-empty">{{localize "GRIDCRAFTER.Editor.Empty"}}</p>
+    {{/each}}
+  </aside>
+
+  <section class="gc-recipe-detail">
+    {{#if readOnly}}
+    <p class="gc-readonly"><i class="fa-solid fa-lock" inert></i> {{localize "GRIDCRAFTER.Editor.ReadOnly"}}</p>
+    {{/if}}
+
+    <div class="gc-recipe-fields">
+      <fieldset class="gc-field gc-name" {{#if readOnly}}disabled{{/if}}>
+        <legend>{{localize "GRIDCRAFTER.Recipe.Name"}}</legend>
+        <input type="text" name="name" value="{{draft.name}}" placeholder="{{draft.result.name}}">
+      </fieldset>
+      <fieldset class="gc-field gc-shape" {{#if readOnly}}disabled{{/if}}>
+        <legend>{{localize "GRIDCRAFTER.Recipe.Shape"}}</legend>
+        <label><input type="radio" name="shaped" value="shaped" {{#if draft.shaped}}checked{{/if}}> {{localize "GRIDCRAFTER.Recipe.Shaped"}}</label>
+        <label><input type="radio" name="shaped" value="shapeless" {{#unless draft.shaped}}checked{{/unless}}> {{localize "GRIDCRAFTER.Recipe.Shapeless"}}</label>
+        <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{shapeHelp}}"
+           data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="LEFT"></i>
+      </fieldset>
+      <fieldset class="gc-field gc-loss" {{#if readOnly}}disabled{{/if}}>
+        <legend>{{localize "GRIDCRAFTER.Recipe.FailLoss"}}</legend>
+        <label class="gc-inherit">
+          <input type="checkbox" class="gc-toggle" name="inherit" {{#if inherit}}checked{{/if}}>
+          <span>{{localize "GRIDCRAFTER.Recipe.Inherit"}}</span>
+        </label>
+        {{#unless inherit}}
+        <input type="range" name="failLossChance" min="0" max="100" step="5" value="{{lossChance}}">
+        {{/unless}}
+        <output class="gc-loss-value">{{lossChance}}%</output>
+      </fieldset>
+      <fieldset class="gc-field gc-quantity" {{#if readOnly}}disabled{{/if}}>
+        <legend>{{localize "GRIDCRAFTER.Recipe.Quantity"}}</legend>
+        <input type="range" name="quantity" min="1" max="10" step="1" value="{{draft.quantity}}">
+        <output class="gc-quantity-value">{{draft.quantity}}</output>
+        <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{quantityHelp}}"
+           data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="LEFT"></i>
+      </fieldset>
+    </div>
+
+    <div class="gc-recipe-board">
+      <div class="gc-grid {{#unless draft.shaped}}gc-shapeless{{/unless}}">
+        {{#each cells}}
+        <div class="gc-cell" data-drop="cell" data-index="{{index}}" {{#if item}}data-tooltip="{{item.name}}"{{/if}}>
+          {{#if item}}
+          <img src="{{item.img}}" alt="{{item.name}}">
+          {{#unless @root.readOnly}}<button type="button" class="gc-cell-clear" data-action="clearCell" aria-label="{{localize "GRIDCRAFTER.Forge.Remove"}}"><i class="fa-solid fa-xmark" inert></i></button>{{/unless}}
+          {{/if}}
+        </div>
+        {{/each}}
+      </div>
+      <i class="fa-solid fa-angles-right gc-board-arrow" inert></i>
+      <div class="gc-cell gc-result" data-drop="result" data-tooltip="{{#if draft.result}}{{draft.result.name}}{{else}}{{localize "GRIDCRAFTER.Editor.DropResult"}}{{/if}}">
+        {{#if draft.result}}
+        <img src="{{draft.result.img}}" alt="{{draft.result.name}}">
+        {{#unless readOnly}}<button type="button" class="gc-cell-clear" data-action="clearResult" aria-label="{{localize "GRIDCRAFTER.Forge.Remove"}}"><i class="fa-solid fa-xmark" inert></i></button>{{/unless}}
+        {{/if}}
+      </div>
+    </div>
+
+    <footer class="gc-editor-controls">
+      {{#if readOnly}}
+      <button type="button" class="gc-button" data-action="copyRecipe"><i class="fa-solid fa-copy" inert></i> {{localize "GRIDCRAFTER.Editor.CopyToWorld"}}</button>
+      {{else}}
+      <button type="button" class="gc-button gc-danger" data-action="deleteRecipe"><i class="fa-solid fa-trash" inert></i> {{#if isNew}}{{localize "GRIDCRAFTER.Editor.Discard"}}{{else}}{{localize "GRIDCRAFTER.Editor.Delete"}}{{/if}}</button>
+      {{/if}}
+      <button type="button" class="gc-button gc-share" data-action="shareRecipe" data-tooltip="{{localize "GRIDCRAFTER.Editor.ShareHint"}}"><i class="fa-solid fa-eye" inert></i> {{localize "GRIDCRAFTER.Editor.Share"}}</button>
+      {{#unless readOnly}}
+      <button type="button" class="gc-button gc-save {{#if dirty}}gc-dirty{{/if}}" data-action="saveRecipe"><i class="fa-solid fa-floppy-disk" inert></i> {{localize "GRIDCRAFTER.Editor.Save"}}</button>
+      {{/unless}}
+    </footer>
+  </section>
+</div>

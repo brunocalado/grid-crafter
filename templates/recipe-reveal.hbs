@@ -1,0 +1,39 @@
+<div class="gc-reveal-body">
+  <div class="gc-backdrop" aria-hidden="true">
+    {{#if isArcane}}
+    <svg class="gc-circle" viewBox="-100 -100 200 200">
+      <circle r="96"/>
+      <circle r="88" class="gc-c2"/>
+      <polygon class="gc-star" points="0,-88 76.2,44 -76.2,44"/>
+      <polygon class="gc-star" points="0,88 76.2,-44 -76.2,-44"/>
+      <g class="gc-glyphs">
+        {{#each glyphs}}<path d="{{d}}" transform="rotate({{angle}}) translate(-5 -95)"/>{{/each}}
+      </g>
+    </svg>
+    {{else}}
+    <div class="gc-parchment"></div>
+    {{/if}}
+  </div>
+  <canvas class="gc-fx"></canvas>
+
+  <p class="gc-reveal-intro">{{localize "GRIDCRAFTER.Reveal.Intro"}}</p>
+  {{#if shaped}}
+  <div class="gc-reveal-grid">
+    {{#each cells}}
+    <div class="gc-cell gc-reveal-cell" style="--gc-i: {{@index}}" {{#if this}}data-tooltip="{{name}}"{{/if}}>
+      {{#if this}}<img src="{{img}}" alt="{{name}}">{{/if}}
+    </div>
+    {{/each}}
+  </div>
+  {{else}}
+  <div class="gc-reveal-ring">
+    {{#each cells}}
+    <div class="gc-cell gc-reveal-cell" data-tooltip="{{name}}"><img src="{{img}}" alt="{{name}}"></div>
+    {{/each}}
+  </div>
+  <p class="gc-reveal-note">{{localize "GRIDCRAFTER.Reveal.Shapeless"}}</p>
+  {{/if}}
+  <ul class="gc-reveal-names">
+    {{#each names}}<li>{{this}}</li>{{/each}}
+  </ul>
+</div>

@@ -1,0 +1,132 @@
+{
+  "GRIDCRAFTER": {
+    "Forge": {
+      "Title": "Crafting Table",
+      "Open": "Forge",
+      "Book": "Recipe Book",
+      "BookEmpty": "Craft something to record its recipe here.",
+      "FillHint": "Lay out this recipe from your inventory",
+      "MissingHint": "You are missing ingredients for this recipe",
+      "Remove": "Remove",
+      "DragResult": "Already in your inventory. Drag it to the map or another sheet.",
+      "Craft": "Craft"
+    },
+    "Recipe": {
+      "Name": "Recipe name",
+      "Shape": "Shape",
+      "Shaped": "Shaped",
+      "Shapeless": "Shapeless",
+      "Quantity": "Makes",
+      "FailLoss": "Failure: chance to lose materials",
+      "Inherit": "World default"
+    },
+    "Editor": {
+      "Title": "Recipe Book (GM)",
+      "Open": "Recipes",
+      "New": "New Recipe",
+      "Empty": "No recipes yet.",
+      "WorldRecipes": "This World",
+      "ReadOnly": "Added by a module. Copy it to the world to change it.",
+      "DropResult": "Drop the item this recipe makes",
+      "ShapedHint": "Items must keep these positions. The pattern may sit anywhere on the grid, or mirrored.",
+      "ShapelessHint": "Only the items count, not where they are placed.",
+      "CopyToWorld": "Copy to World",
+      "Discard": "Discard",
+      "Delete": "Delete",
+      "DeleteConfirm": "Delete the recipe {name}?",
+      "Share": "Share Recipe",
+      "ShareHint": "Show this pattern to every connected player, without what it makes.",
+      "Save": "Save",
+      "Unsaved": "Unsaved Changes",
+      "DiscardChanges": "This recipe has unsaved changes. Discard them?",
+      "QuantityHint": "How many of the result one successful craft makes. Items with a quantity get one stack; items without one arrive as separate copies."
+    },
+    "Reveal": {
+      "Title": "A Recipe Is Revealed",
+      "Intro": "Study the pattern well…",
+      "Shapeless": "The order does not matter."
+    },
+    "Origin": {
+      "actor": "inventory",
+      "world": "world item",
+      "compendium": "compendium"
+    },
+    "Chat": {
+      "Success": "{name} crafted an item!",
+      "Failure": "{name}'s craft failed",
+      "FailureMessage": "The materials refuse to come together.",
+      "Spent": "Spent",
+      "Attempted": "Attempted",
+      "Lost": "The materials were destroyed ({chance}% chance).",
+      "Kept": "The materials survived ({chance}% chance of loss).",
+      "NoLoss": "The materials were not lost."
+    },
+    "Theme": {
+      "forge": "Forge (fire, sparks, metal)",
+      "arcane": "Arcane (runes, magic circle, blue light)"
+    },
+    "Errors": {
+      "NoActor": "You need a character assigned to your user to craft.",
+      "EmptyGrid": "Place some materials on the grid first.",
+      "ItemGone": "{name} is no longer available.",
+      "NotEnough": "There is not enough {name} for that.",
+      "ResultGone": "The item this recipe makes ({name}) no longer exists. Ask the GM to fix the recipe.",
+      "TypeNotAllowed": "{name} cannot be used for crafting.",
+      "NotOwner": "You do not own {name}.",
+      "MissingIngredients": "You are missing ingredients for {name}.",
+      "ResultFromActor": "The result must be an item from the Items directory or a compendium.",
+      "NoResult": "Drop the item this recipe makes in the result slot.",
+      "NoIngredients": "Place at least one ingredient on the grid.",
+      "GMOnly": "Only a GM can do that."
+    },
+    "Settings": {
+      "RecipeEditor": {
+        "Name": "Recipes",
+        "Label": "Open Recipe Book",
+        "Hint": "Create and edit the world's crafting recipes."
+      },
+      "ItemTypes": {
+        "Name": "Craftable Item Types",
+        "Label": "Choose Item Types",
+        "Hint": "Which item types can be placed on a crafting grid.",
+        "Explain": "Only checked item types can be used as crafting materials. With none checked, every type is allowed."
+      },
+      "Theme": {
+        "Name": "Visual Theme",
+        "Hint": "The look and sound of the crafting table for everyone at the table."
+      },
+      "QuantityPath": {
+        "Name": "Quantity Path",
+        "Hint": "Where this system keeps an item's quantity, such as system.quantity. Crafting spends one unit per grid cell; items without a number there are used up whole."
+      },
+      "FailLossChance": {
+        "Name": "Failure: Chance to Lose Materials",
+        "Hint": "Percent chance that a failed craft destroys the materials. 0 means failure has no consequences. Each recipe can override it."
+      },
+      "SoundVolume": {
+        "Name": "Base volume"
+      },
+      "SoundCraft": {
+        "Name": "Sound: Craft"
+      },
+      "SoundSuccess": {
+        "Name": "Sound: Success"
+      },
+      "SoundFailure": {
+        "Name": "Sound: Failure"
+      },
+      "SoundShare": {
+        "Name": "Sound: Share Recipe"
+      },
+      "SoundHint": "Leave empty to use the visual theme's own sound.",
+      "Sounds": {
+        "Name": "Crafting Sounds",
+        "Label": "Configure Sounds",
+        "Hint": "Base volume and the sound files for crafting, success, failure and shared recipes. Players hear them on their Interface volume.",
+        "Browse": "Choose a file",
+        "Reset": "Use the theme's sound",
+        "Preview": "Play"
+      }
+    }
+  }
+}

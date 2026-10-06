@@ -1,0 +1,61 @@
+/*!
+ * Grid Crafter
+ * 2026 https://github.com/brunocalado
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3.
+ */
+
+.grid-crafter.gc-sound-config {
+  .gc-sound-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .gc-volume-value {
+    min-width: 3.2em;
+    color: var(--gc-trim-hi);
+    font-family: var(--gc-font-title);
+    font-size: var(--font-size-18);
+    text-align: right;
+  }
+
+  .gc-sound-row {
+    gap: 6px;
+
+    input[type="text"] {
+      flex: 1;
+      min-width: 0;
+      height: 28px;
+    }
+  }
+
+  .gc-icon-button {
+    flex: none;
+    width: 30px;
+    height: 28px;
+    padding: 0;
+    background: linear-gradient(180deg, var(--gc-metal-hi), var(--gc-metal));
+    border: 1px solid var(--gc-trim);
+    border-radius: var(--gc-radius);
+    color: var(--gc-text);
+
+    &:hover {
+      border-color: var(--gc-trim-hi);
+      box-shadow: 0 0 8px rgba(var(--gc-glow-rgb), 0.5);
+    }
+  }
+
+  .gc-hint {
+    margin: 0;
+    color: var(--gc-text-dim);
+    font-style: italic;
+  }
+
+  footer {
+    display: flex;
+    justify-content: flex-end;
+  }
+}

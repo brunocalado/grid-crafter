@@ -1,0 +1,276 @@
+/*!
+ * Grid Crafter
+ * 2026 https://github.com/brunocalado
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3.
+ */
+
+/* Theme tokens. Every app and chat card carries one theme class next to the module class. */
+.grid-crafter {
+  --gc-font-title: "Modesto Condensed", var(--font-serif);
+  --gc-cell: 74px;
+  --gc-gap: 10px;
+  --gc-radius: 6px;
+
+  &.gc-theme-forge {
+    --gc-bg-0: #120e0b;
+    --gc-bg-1: #1d1713;
+    --gc-bg-2: #2b221c;
+    --gc-metal: #3a312a;
+    --gc-metal-hi: #5b4b3e;
+    --gc-trim: #b8873b;
+    --gc-trim-hi: #f0c27a;
+    --gc-glow: #ff8a2a;
+    --gc-glow-2: #ffcf70;
+    --gc-glow-rgb: 255, 138, 42;
+    --gc-text: #f3e3c3;
+    --gc-text-dim: #a8957a;
+    --gc-danger: #ff4a2a;
+  }
+
+  &.gc-theme-arcane {
+    --gc-font-title: var(--font-serif);
+    --gc-bg-0: #070a1c;
+    --gc-bg-1: #0d1330;
+    --gc-bg-2: #172050;
+    --gc-metal: #1b2452;
+    --gc-metal-hi: #2d3b80;
+    --gc-trim: #6fb7ff;
+    --gc-trim-hi: #c8f3ff;
+    --gc-glow: #5fe0ff;
+    --gc-glow-2: #b28cff;
+    --gc-glow-rgb: 95, 224, 255;
+    --gc-text: #dff6ff;
+    --gc-text-dim: #8ea6d6;
+    --gc-danger: #ff4f8b;
+  }
+}
+
+/* Shared window chrome for the module's apps. */
+.grid-crafter.gc-app {
+  background: var(--gc-bg-0);
+  color: var(--gc-text);
+  border: 1px solid var(--gc-trim);
+  box-shadow: 0 0 0 1px #000, 0 0 28px rgba(var(--gc-glow-rgb), 0.25), 0 12px 40px #000c;
+
+  .window-header {
+    background: linear-gradient(180deg, var(--gc-bg-2), var(--gc-bg-1));
+    border-bottom: 1px solid var(--gc-trim);
+    color: var(--gc-trim-hi);
+    font-family: var(--gc-font-title);
+    letter-spacing: 0.04em;
+
+    .window-title {
+      font-size: var(--font-size-20);
+      text-shadow: 0 0 8px rgba(var(--gc-glow-rgb), 0.6);
+    }
+
+    button {
+      color: var(--gc-trim-hi);
+    }
+  }
+
+  .window-content {
+    background: var(--gc-bg-0);
+    color: var(--gc-text);
+    padding: 0;
+  }
+
+  /* A themed button used across the apps. */
+  .gc-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: auto;
+    padding: 4px 12px;
+    background: linear-gradient(180deg, var(--gc-metal-hi), var(--gc-metal));
+    border: 1px solid var(--gc-trim);
+    border-radius: var(--gc-radius);
+    color: var(--gc-text);
+    font-family: var(--gc-font-title);
+    font-size: var(--font-size-16);
+    letter-spacing: 0.03em;
+
+    &:hover:not(:disabled) {
+      border-color: var(--gc-trim-hi);
+      box-shadow: 0 0 10px rgba(var(--gc-glow-rgb), 0.5);
+    }
+
+    &:disabled {
+      opacity: 0.45;
+    }
+  }
+
+  /* A grid cell as drawn by the forge, the editor and the reveal. */
+  .gc-cell {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: var(--gc-cell);
+    height: var(--gc-cell);
+    border-radius: var(--gc-radius);
+    background:
+      radial-gradient(circle at 50% 40%, rgba(var(--gc-glow-rgb), 0.06), transparent 70%),
+      linear-gradient(160deg, var(--gc-bg-2), var(--gc-bg-0));
+    border: 1px solid var(--gc-metal-hi);
+    box-shadow: inset 0 3px 8px #000c, inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    transition: border-color 150ms, box-shadow 150ms;
+
+    > img {
+      width: 78%;
+      height: 78%;
+      object-fit: contain;
+      border: none;
+      filter: drop-shadow(0 2px 4px #000);
+    }
+
+    &.gc-drop-target,
+    &:hover {
+      border-color: var(--gc-glow);
+      box-shadow: inset 0 3px 8px #000c, 0 0 12px rgba(var(--gc-glow-rgb), 0.55);
+    }
+  }
+}
+
+/* An on/off switch. The module never shows a plain checkbox: every boolean is one of these. Foundry
+   draws checkboxes with Font Awesome glyphs on ::before/::after, so both are taken over here. */
+.grid-crafter input[type="checkbox"].gc-toggle {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 22px;
+  margin: 0;
+  border: 1px solid var(--gc-metal-hi);
+  border-radius: 11px;
+  background: var(--gc-bg-0);
+  box-shadow: inset 0 1px 3px #000c;
+  cursor: pointer;
+  transition: background 200ms, border-color 200ms, box-shadow 200ms;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--gc-text-dim);
+    box-shadow: 0 1px 3px #000a;
+    font: inherit;
+    outline: none;
+    transition: transform 200ms cubic-bezier(.3, 1.4, .6, 1), background 200ms;
+  }
+
+  &::after {
+    content: none;
+  }
+
+  &:checked {
+    background: linear-gradient(180deg, var(--gc-glow-2), var(--gc-glow));
+    border-color: var(--gc-trim-hi);
+    box-shadow: inset 0 1px 3px #0006, 0 0 8px rgba(var(--gc-glow-rgb), 0.55);
+  }
+
+  &:checked::before {
+    position: absolute;
+    transform: translateX(18px);
+    background: #fff;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--gc-trim-hi);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+}
+
+/* A field framed by a border with its label sitting in the border line. */
+.grid-crafter fieldset.gc-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 4px 10px 8px;
+  border: 1px solid var(--gc-metal-hi);
+  border-radius: var(--gc-radius);
+
+  > legend {
+    padding: 0 4px;
+    color: var(--gc-text-dim);
+    font-size: var(--font-size-12);
+    letter-spacing: 0.03em;
+  }
+
+  input[type="text"],
+  input[type="number"] {
+    background: var(--gc-bg-1);
+    border: 1px solid var(--gc-metal-hi);
+    color: var(--gc-text);
+  }
+
+  input[type="range"] {
+    flex: 1;
+    accent-color: var(--gc-glow);
+  }
+}
+
+/* The "?" that explains a field. */
+.grid-crafter .gc-help {
+  margin-left: auto;
+  color: var(--gc-trim);
+  cursor: help;
+
+  &:hover {
+    color: var(--gc-trim-hi);
+    text-shadow: 0 0 6px var(--gc-glow);
+  }
+}
+
+/* Foundry's shared tooltip, dressed in the module's theme when an element asks for it through
+   data-tooltip-class. */
+#tooltip.grid-crafter.gc-tooltip,
+#tooltip.grid-crafter.gc-tooltip.text-center {
+  max-width: 320px;
+  padding: 8px 12px;
+  border: 1px solid var(--gc-trim);
+  border-radius: var(--gc-radius);
+  background: linear-gradient(180deg, var(--gc-bg-2), var(--gc-bg-0));
+  color: var(--gc-text);
+  box-shadow: 0 0 16px rgba(var(--gc-glow-rgb), 0.35), 0 6px 18px #000c;
+  text-align: left;
+  line-height: 1.35;
+
+  strong {
+    color: var(--gc-trim-hi);
+    font-family: var(--gc-font-title);
+    font-size: var(--font-size-16);
+  }
+
+  p {
+    margin: 0 0 6px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+/* Item directory buttons. */
+.grid-crafter.gc-directory-buttons {
+  display: flex;
+  gap: 8px;
+  padding: 0 8px;
+
+  button {
+    flex: 1;
+  }
+}

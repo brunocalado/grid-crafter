@@ -1,0 +1,22 @@
+<div class="gc-sound-body">
+  <fieldset class="gc-field gc-volume">
+    <legend>{{localize "GRIDCRAFTER.Settings.SoundVolume.Name"}}</legend>
+    <input type="range" name="volume" min="0" max="100" step="5" value="{{volume}}">
+    <output class="gc-volume-value">{{volume}}%</output>
+  </fieldset>
+
+  {{#each cues}}
+  <fieldset class="gc-field gc-sound-row">
+    <legend>{{localize label}}</legend>
+    <input type="text" name="{{key}}" value="{{value}}" placeholder="{{placeholder}}">
+    <button type="button" class="gc-icon-button" data-action="browse" data-tooltip="GRIDCRAFTER.Settings.Sounds.Browse"><i class="fa-solid fa-folder-open" inert></i></button>
+    <button type="button" class="gc-icon-button" data-action="reset" data-tooltip="GRIDCRAFTER.Settings.Sounds.Reset"><i class="fa-solid fa-rotate-left" inert></i></button>
+    <button type="button" class="gc-icon-button" data-action="preview" data-tooltip="GRIDCRAFTER.Settings.Sounds.Preview"><i class="fa-solid fa-play" inert></i></button>
+  </fieldset>
+  {{/each}}
+
+  <p class="gc-hint">{{localize "GRIDCRAFTER.Settings.SoundHint"}}</p>
+  <footer>
+    <button type="submit" class="gc-button"><i class="fa-solid fa-floppy-disk" inert></i> {{localize "GRIDCRAFTER.Editor.Save"}}</button>
+  </footer>
+</div>

@@ -1,0 +1,86 @@
+<div class="gc-forge-body">
+  <aside class="gc-book">
+    <h2 class="gc-book-title"><i class="fa-solid fa-scroll-old" inert></i> {{localize "GRIDCRAFTER.Forge.Book"}}</h2>
+    {{#if book.length}}
+    <ol class="gc-book-list">
+      {{#each book}}
+      <li>
+        <button type="button" class="gc-book-entry {{#unless ready}}gc-missing{{/unless}}" data-action="fillRecipe"
+                data-recipe-id="{{id}}" data-tooltip="{{#if ready}}{{localize "GRIDCRAFTER.Forge.FillHint"}}{{else}}{{localize "GRIDCRAFTER.Forge.MissingHint"}}{{/if}}">
+          <img class="gc-book-result" src="{{img}}" alt="">
+          <span class="gc-book-name">{{name}}</span>
+          {{#if shaped}}
+          <span class="gc-mini-grid">
+            {{#each cells}}<span class="gc-mini-cell">{{#if this}}<img src="{{img}}" alt="">{{/if}}</span>{{/each}}
+          </span>
+          {{else}}
+          <span class="gc-mini-list" data-tooltip="{{localize "GRIDCRAFTER.Recipe.Shapeless"}}">
+            {{#each cells}}<img src="{{img}}" alt="">{{/each}}
+          </span>
+          {{/if}}
+        </button>
+      </li>
+      {{/each}}
+    </ol>
+    {{else}}
+    <p class="gc-book-empty">{{localize "GRIDCRAFTER.Forge.BookEmpty"}}</p>
+    {{/if}}
+  </aside>
+
+  <section class="gc-bench">
+    <div class="gc-backdrop" aria-hidden="true">
+      {{#if isArcane}}
+      <svg class="gc-circle" viewBox="-100 -100 200 200">
+        <circle r="96" class="gc-c1"/>
+        <circle r="88" class="gc-c2"/>
+        <circle r="62" class="gc-c3"/>
+        <polygon class="gc-star" points="0,-88 76.2,44 -76.2,44"/>
+        <polygon class="gc-star" points="0,88 76.2,-44 -76.2,-44"/>
+        <g class="gc-glyphs">
+          {{#each glyphs}}
+          <path d="{{d}}" transform="rotate({{angle}}) translate(-5 -95)"/>
+          {{/each}}
+        </g>
+      </svg>
+      {{else}}
+      <div class="gc-hearth"></div>
+      <div class="gc-anvil-glow"></div>
+      {{/if}}
+    </div>
+    <canvas class="gc-fx"></canvas>
+
+    {{#unless actor}}
+    <p class="gc-no-actor"><i class="fa-solid fa-triangle-exclamation" inert></i> {{localize "GRIDCRAFTER.Errors.NoActor"}}</p>
+    {{/unless}}
+
+    <div class="gc-workspace">
+      <div class="gc-grid">
+        {{#each slots}}
+        <div class="gc-cell {{#if item}}gc-filled{{/if}}" data-index="{{index}}" {{#if item}}draggable="true" data-tooltip="{{item.name}}"{{/if}}>
+          {{#if item}}
+          <img src="{{item.img}}" alt="{{item.name}}" draggable="false">
+          <button type="button" class="gc-cell-clear" data-action="clearCell" aria-label="{{localize "GRIDCRAFTER.Forge.Remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
+          {{/if}}
+        </div>
+        {{/each}}
+      </div>
+
+      <div class="gc-arrow" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+
+      <div class="gc-result-slot {{#if result}}gc-filled{{/if}}" {{#if result}}draggable="true" data-tooltip="{{result.name}}{{#if result.quantity}} ×{{result.quantity}}{{/if}}<br>{{localize "GRIDCRAFTER.Forge.DragResult"}}"{{/if}}>
+        {{#if result}}<img src="{{result.img}}" alt="{{result.name}}" draggable="false">{{/if}}
+      </div>
+    </div>
+
+    <footer class="gc-controls">
+      <button type="button" class="gc-craft" data-action="craft" {{#unless actor}}disabled{{/unless}}>
+        <i class="fa-solid {{#if isArcane}}fa-wand-sparkles{{else}}fa-hammer{{/if}}" inert></i>
+        <span>{{localize "GRIDCRAFTER.Forge.Craft"}}</span>
+      </button>
+    </footer>
+
+    <div class="gc-overlay" aria-hidden="true"></div>
+  </section>
+</div>
