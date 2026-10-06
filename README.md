@@ -2,6 +2,8 @@
 
 **Lay the materials out on a 3×3 grid, strike, and forge something new — in any system.**
 
+![Forging an item on the crafting table](docs/forging.gif)
+
 ![The crafting table, forge theme](docs/forge-table.webp)
 
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-Donate-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/mestredigital) [![More Modules](https://img.shields.io/badge/Foundry%20VTT-More%20Modules-red?style=for-the-badge&logo=gamepad)](https://mestredigital.online/pages/projetos-en)
