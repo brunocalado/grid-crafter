@@ -13,6 +13,11 @@
   --gc-gap: 10px;
   --gc-radius: 6px;
 
+  /* Core styles every scrollbar from these two variables (a `*` rule in foundry2.css), so
+     redefining them here themes the module's scrollbars and nothing outside it. */
+  --color-scrollbar: var(--gc-trim);
+  --color-scrollbar-track: var(--gc-bg-1);
+
   &.gc-theme-forge {
     --gc-bg-0: #120e0b;
     --gc-bg-1: #1d1713;
