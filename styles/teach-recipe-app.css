@@ -1,0 +1,117 @@
+/*!
+ * Grid Crafter
+ * 2026 https://github.com/brunocalado
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3.
+ */
+
+.grid-crafter.gc-teach {
+  .gc-teach-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .gc-teach-list {
+    position: relative;
+    flex-direction: column;
+    align-items: stretch;
+    padding-top: 8px;
+  }
+
+  /* Sits in the border line opposite the legend, as part of the frame. */
+  .gc-show-characters {
+    position: absolute;
+    top: -23px;
+    right: 10px;
+    width: 26px;
+    height: 22px;
+    font-size: var(--font-size-12);
+  }
+
+  /* About eight rows, then the list scrolls instead of the window growing off screen. */
+  .gc-teach-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 360px;
+    overflow-y: auto;
+  }
+
+  .gc-teach-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 6px;
+    border-radius: var(--gc-radius);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--gc-bg-1);
+    }
+
+    img {
+      flex: none;
+      width: 36px;
+      height: 36px;
+      object-fit: cover;
+      border: 1px solid var(--gc-metal-hi);
+      border-radius: var(--gc-radius);
+    }
+  }
+
+  .gc-teach-names {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .gc-teach-name,
+  .gc-teach-players {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .gc-teach-name {
+    color: var(--gc-text);
+    font-family: var(--gc-font-title);
+    font-size: var(--font-size-16);
+  }
+
+  .gc-teach-players {
+    color: var(--gc-text-dim);
+    font-size: var(--font-size-12);
+  }
+
+  .gc-empty {
+    margin: 4px 0;
+    color: var(--gc-text-dim);
+    font-style: italic;
+  }
+
+  .gc-icon-button {
+    flex: none;
+    width: 30px;
+    height: 28px;
+    padding: 0;
+    background: linear-gradient(180deg, var(--gc-metal-hi), var(--gc-metal));
+    border: 1px solid var(--gc-trim);
+    border-radius: var(--gc-radius);
+    color: var(--gc-text);
+
+    &:hover {
+      border-color: var(--gc-trim-hi);
+      box-shadow: 0 0 8px rgba(var(--gc-glow-rgb), 0.5);
+    }
+  }
+
+  footer {
+    display: flex;
+    justify-content: center;
+  }
+}

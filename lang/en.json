@@ -36,10 +36,20 @@
       "DeleteConfirm": "Delete the recipe {name}?",
       "Share": "Share Recipe",
       "ShareHint": "Show this pattern to every connected player, without what it makes.",
+      "Teach": "Teach…",
+      "TeachHint": "Choose which characters know this recipe.",
       "Save": "Save",
       "Unsaved": "Unsaved Changes",
       "DiscardChanges": "This recipe has unsaved changes. Discard them?",
       "QuantityHint": "How many of the result one successful craft makes. Items with a quantity get one stack; items without one arrive as separate copies."
+    },
+    "Teach": {
+      "Title": "Teach: {name}",
+      "Characters": "Characters",
+      "Tokens": "Selected tokens",
+      "ShowCharacters": "Clear the selection and show the characters",
+      "Empty": "No user has a character assigned. Select tokens on the map to teach them.",
+      "Apply": "Apply"
     },
     "Reveal": {
       "Title": "A Recipe Is Revealed",
@@ -63,7 +73,8 @@
       "Attempted": "Attempted",
       "Lost": "The materials were destroyed ({chance}% chance).",
       "Kept": "The materials survived ({chance}% chance of loss).",
-      "NoLoss": "The materials were not lost."
+      "NoLoss": "The materials were not lost.",
+      "Taught": "{names} learned a recipe"
     },
     "Theme": {
       "forge": "Forge (fire, sparks, metal)",

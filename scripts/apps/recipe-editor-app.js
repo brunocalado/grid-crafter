@@ -10,6 +10,7 @@ import { MODULE_ID, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH } from "../constants
 import { getDropData, getTheme, isTypeAllowed, itemOrigin, toItemRef } from "../helpers.js";
 import { blankRecipe, getAllRecipes, getWorldRecipes, setWorldRecipes } from "../recipes.js";
 import { shareRecipe } from "../share.js";
+import { TeachRecipeApp } from "./teach-recipe-app.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -33,6 +34,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       deleteRecipe: RecipeEditorApp.#onDelete,
       copyRecipe: RecipeEditorApp.#onCopy,
       shareRecipe: RecipeEditorApp.#onShare,
+      teachRecipe: RecipeEditorApp.#onTeach,
       clearCell: RecipeEditorApp.#onClearCell,
       clearResult: RecipeEditorApp.#onClearResult
     }
@@ -260,6 +262,15 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoIngredients"));
     }
     shareRecipe(this.draft);
+  }
+
+  /**
+   * One Teach window at a time: opening it for another recipe replaces it, unapplied toggles and all.
+   * @this {RecipeEditorApp}
+   */
+  static async #onTeach() {
+    await foundry.applications.instances.get(`${MODULE_ID}-teach`)?.close();
+    new TeachRecipeApp(this.draft.id).render({ force: true });
   }
 
   /** @this {RecipeEditorApp} */

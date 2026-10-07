@@ -46,8 +46,8 @@ lost in the attempt.
   Systems with slots or weight limits are respected: the materials make room for what they become,
   and if the result still doesn't fit, nothing is spent.
 * 📖 **A recipe book for every character.** The first time a character forges something, its
-  recipe is written into that character's recipe book. Next time, one click lays the recipe out on
-  the grid from their inventory.
+  recipe is written into that character's recipe book, or when the GM teaches it. Next time, one
+  click lays the recipe out on the grid from their inventory.
 * 👁️ **Share a recipe, keep the secret.** From the GM's Recipe Book, **Share Recipe** shows the
   pattern to every player — the ingredients and their places, never what it makes. You describe
   the result; they have to remember the pattern.
@@ -89,6 +89,10 @@ To teach a recipe in play — the old smith shows the apprentice how it's done �
 **Share Recipe**. Every player sees the pattern light up, cell by cell.
 
 ![A shared recipe, as the players see it](docs/share-recipe.webp)
+
+**Teach…** opens the list of characters, or of the tokens you have selected. Switch on who knows
+the recipe, switch off who should forget it, and press **Apply**. Those who learned get a
+whispered message in chat.
 
 ### For the GM — set it up once
 

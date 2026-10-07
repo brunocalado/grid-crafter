@@ -25,6 +25,7 @@
     "styles/item-types-config.css",
     "styles/recipe-reveal-app.css",
     "styles/sound-config.css",
+    "styles/teach-recipe-app.css",
     "styles/chat-card.css"
   ],
   "languages": [
