@@ -32,22 +32,6 @@
     }
   }
 
-  .gc-icon-button {
-    flex: none;
-    width: 30px;
-    height: 28px;
-    padding: 0;
-    background: linear-gradient(180deg, var(--gc-metal-hi), var(--gc-metal));
-    border: 1px solid var(--gc-trim);
-    border-radius: var(--gc-radius);
-    color: var(--gc-text);
-
-    &:hover {
-      border-color: var(--gc-trim-hi);
-      box-shadow: 0 0 8px rgba(var(--gc-glow-rgb), 0.5);
-    }
-  }
-
   .gc-hint {
     margin: 0;
     color: var(--gc-text-dim);

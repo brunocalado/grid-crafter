@@ -7,6 +7,7 @@
       "BookEmpty": "Craft something to record its recipe here.",
       "FillHint": "Lay out this recipe from your inventory",
       "MissingHint": "You are missing ingredients for this recipe",
+      "ReadyOnly": "Only what you can craft now",
       "Remove": "Remove",
       "DragResult": "Already in your inventory. Drag it to the map or another sheet.",
       "Craft": "Craft"

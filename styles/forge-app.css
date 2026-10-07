@@ -16,6 +16,7 @@
   }
 
   /* ---------- Recipe book ---------- */
+  /* The title and the tools stay put; only the recipes below them scroll. */
   .gc-book {
     display: flex;
     flex-direction: column;
@@ -25,8 +26,34 @@
       linear-gradient(90deg, transparent 92%, rgba(0, 0, 0, 0.5)),
       linear-gradient(180deg, var(--gc-bg-1), var(--gc-bg-0));
     border-right: 1px solid var(--gc-metal-hi);
-    overflow-y: auto;
     max-height: 560px;
+  }
+
+  .gc-book-tools {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    .gc-search {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* As tall as the search beside it. */
+    .gc-ready-filter {
+      height: 30px;
+    }
+  }
+
+  /* The side padding lives inside the scroller, or it would clip the entries' hover glow. */
+  .gc-book-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    margin: 0 -10px;
+    padding: 0 10px 4px;
+    overflow-y: auto;
   }
 
   .gc-book-title {

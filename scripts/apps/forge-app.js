@@ -8,7 +8,8 @@
 
 import { CELL_COUNT, MODULE_ID, TEMPLATE_PATH } from "../constants.js";
 import {
-  getCraftingActor, getDropData, getQuantity, getTheme, isTypeAllowed, itemDragData, itemOrigin, toItemRef
+  filterGroups, getCollapsed, getCraftingActor, getDropData, getQuantity, getTheme, isTypeAllowed, itemDragData,
+  itemOrigin, recipeSearchText, setCollapsed, toItemRef
 } from "../helpers.js";
 import { CraftError, craft, fillFromInventory, getKnownRecipeIds } from "../crafting.js";
 import { getAllRecipes } from "../recipes.js";
@@ -19,6 +20,9 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 /** Drag payload for moving an item between cells of the grid. */
 const CELL_DRAG = `${MODULE_ID}.cell`;
+
+/** Where this browser remembers the book's "only what you can craft now" filter. */
+const READY_ONLY_KEY = `${MODULE_ID}.forge.readyOnly`;
 
 /**
  * The crafting table: a 3x3 grid players fill with items, a result slot, and the recipe book of what
@@ -37,12 +41,13 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     actions: {
       craft: ForgeApp.#onCraft,
       fillRecipe: ForgeApp.#onFillRecipe,
-      clearCell: ForgeApp.#onClearCell
+      clearCell: ForgeApp.#onClearCell,
+      toggleReady: ForgeApp.#onToggleReady
     }
   };
 
   static PARTS = {
-    main: { template: `${TEMPLATE_PATH}/forge.hbs` }
+    main: { template: `${TEMPLATE_PATH}/forge.hbs`, scrollable: [".gc-book-scroll"] }
   };
 
   /** @type {(import("../helpers.js").ItemRef|null)[]} */
@@ -62,6 +67,21 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Hook ids registered while open. */
   #hooks = [];
 
+  /** The recipe book's search, as typed. */
+  #query = "";
+
+  /** Show only the recipes the inventory can make right now. */
+  #readyOnly = (() => {
+    try {
+      return localStorage.getItem(READY_ONLY_KEY) === "true";
+    } catch {
+      return false;
+    }
+  })();
+
+  /** Categories the user closed in the recipe book. */
+  #collapsed = getCollapsed("forge");
+
   /** @override */
   async _prepareContext(options) {
     const actor = getCraftingActor();
@@ -73,8 +93,25 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       img: r.result?.img,
       shaped: r.shaped,
       cells: r.shaped ? r.cells : r.cells.filter(Boolean),
+      category: r.category,
+      search: recipeSearchText(r),
       ready: !!(actor && fillFromInventory(r, actor))
     }));
+    // Players don't care which package a recipe came from, so the book groups by category alone:
+    // in order of first appearance, uncategorised last. Craftable recipes lead each group.
+    const byCategory = Map.groupBy(book, r => r.category);
+    const other = byCategory.get("");
+    byCategory.delete("");
+    if ( other ) byCategory.set("", other);
+    for ( const recipes of byCategory.values() ) recipes.sort((a, b) => b.ready - a.ready);
+    // A book spanning one category or none stays a plain list, without headings.
+    const groups = (byCategory.size > 1) ? [...byCategory].map(([category, recipes]) => ({
+      key: category,
+      label: category || game.i18n.localize("GRIDCRAFTER.Recipe.CategoryNone"),
+      count: recipes.length,
+      collapsed: this.#collapsed.has(category),
+      recipes
+    })) : null;
     const result = this.resultUuid ? foundry.utils.fromUuidSync(this.resultUuid) : null;
     const glyphs = ForgeApp.#glyphs.map((d, i) => ({ d, angle: (360 / ForgeApp.#glyphs.length) * i }));
     return {
@@ -82,7 +119,10 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isArcane: theme === "arcane",
       actor: actor ? { name: actor.name, img: actor.img } : null,
       slots: this.slots.map((s, index) => ({ index, item: s })),
-      book,
+      book: [...byCategory.values()].flat(),
+      groups,
+      query: this.#query,
+      readyOnly: this.#readyOnly,
       result: result ? { uuid: result.uuid, name: result.name, img: result.img, quantity: getQuantity(result) } : null,
       glyphs
     };
@@ -94,6 +134,7 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const theme = getTheme();
     for ( const t of ["forge", "arcane"] ) this.element.classList.toggle(`gc-theme-${t}`, t === theme);
     this.fx.attach(this.element.querySelector(".gc-fx"), theme);
+    if ( context.book.length ) this.#bindBook();
 
     for ( const cell of this.element.querySelectorAll(".gc-cell") ) {
       cell.addEventListener("dragover", this.#onDragOver.bind(this));
@@ -117,6 +158,42 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /**
+   * Wire the book's search and folding categories, and reapply the filters. The forge re-renders on
+   * every change to the crafting actor's items, and the search must survive each of those.
+   */
+  #bindBook() {
+    const book = this.element.querySelector(".gc-book");
+    const search = book.querySelector("input[name=search]");
+    // Typing never re-renders: a re-render under the cursor eats input.
+    search.addEventListener("input", () => {
+      this.#query = search.value;
+      this.#filterBook();
+    });
+    search.addEventListener("keydown", ev => {
+      if ( ev.key !== "Escape" ) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      search.value = this.#query = "";
+      this.#filterBook();
+    });
+    for ( const group of book.querySelectorAll("details.gc-group") ) {
+      group.addEventListener("toggle", () => {
+        // While a search or the ready filter is on, groups are opened by the filter, not by the user.
+        if ( this.#query.trim() || this.#readyOnly ) return;
+        if ( group.open ) this.#collapsed.delete(group.dataset.group);
+        else this.#collapsed.add(group.dataset.group);
+        setCollapsed("forge", this.#collapsed);
+      });
+    }
+    this.#filterBook();
+  }
+
+  #filterBook() {
+    filterGroups(this.element.querySelector(".gc-book"),
+      { query: this.#query, readyOnly: this.#readyOnly, collapsed: this.#collapsed });
+  }
+
+  /**
    * Show an item's sheet: the one on the grid, wherever it lives, or the forged one.
    * @param {string|undefined} uuid
    */
@@ -129,18 +206,15 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @override */
   _onFirstRender(context, options) {
     super._onFirstRender(context, options);
-    // The forged item can leave the actor by other means: dragged to the canvas, to another sheet, or
-    // deleted. The slot then empties instead of pointing at nothing.
-    const refresh = item => {
-      if ( (item.uuid === this.resultUuid) || this.slots.some(s => s?.uuid === item.uuid) ) {
-        if ( item.uuid === this.resultUuid ) this.resultUuid = null;
-        if ( !this.busy ) this.render();
-      }
-    };
     const relevant = doc => (doc.documentName === "Item") && (doc.parent === getCraftingActor());
+    // The forged item can leave the actor by other means: dragged to the canvas, to another sheet, or
+    // deleted. The slot then empties instead of pointing at nothing. Any item leaving the inventory also
+    // changes which recipes the book can make now.
     this.#hooks.push(["deleteItem", Hooks.on("deleteItem", item => {
+      const shown = (item.uuid === this.resultUuid) || this.slots.some(s => s?.uuid === item.uuid);
       this.slots = this.slots.map(s => (s?.uuid === item.uuid ? null : s));
-      refresh(item);
+      if ( item.uuid === this.resultUuid ) this.resultUuid = null;
+      if ( (shown || relevant(item)) && !this.busy ) this.render();
     })]);
     this.#hooks.push(["updateItem", Hooks.on("updateItem", item => relevant(item) && !this.busy && this.render())]);
     this.#hooks.push(["createItem", Hooks.on("createItem", item => relevant(item) && !this.busy && this.render())]);
@@ -266,6 +340,22 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     this.slots = filled;
     this.render();
+  }
+
+  /**
+   * Show only what can be crafted now, or everything. Patched in place rather than re-rendered.
+   * @this {ForgeApp}
+   */
+  static #onToggleReady(event, target) {
+    this.#readyOnly = !this.#readyOnly;
+    try {
+      localStorage.setItem(READY_ONLY_KEY, String(this.#readyOnly));
+    } catch {
+      // Storage is blocked: the filter lasts as long as the window.
+    }
+    target.classList.toggle("gc-active", this.#readyOnly);
+    target.setAttribute("aria-pressed", String(this.#readyOnly));
+    this.#filterBook();
   }
 
   /** @this {ForgeApp} */

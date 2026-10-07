@@ -1,27 +1,57 @@
 <div class="gc-forge-body">
+  {{#*inline "entries"}}
+  <ol class="gc-book-list">
+    {{#each recipes}}
+    <li data-search="{{search}}" {{#if ready}}data-ready{{/if}}>
+      <button type="button" class="gc-book-entry {{#unless ready}}gc-missing{{/unless}}" data-action="fillRecipe"
+              data-recipe-id="{{id}}" data-tooltip="{{#if ready}}{{localize "GRIDCRAFTER.Forge.FillHint"}}{{else}}{{localize "GRIDCRAFTER.Forge.MissingHint"}}{{/if}}">
+        <img class="gc-book-result" src="{{img}}" alt="">
+        <span class="gc-book-name">{{name}}</span>
+        {{#if shaped}}
+        <span class="gc-mini-grid">
+          {{#each cells}}<span class="gc-mini-cell">{{#if this}}<img src="{{img}}" alt="">{{/if}}</span>{{/each}}
+        </span>
+        {{else}}
+        <span class="gc-mini-list" data-tooltip="{{localize "GRIDCRAFTER.Recipe.Shapeless"}}">
+          {{#each cells}}<img src="{{img}}" alt="">{{/each}}
+        </span>
+        {{/if}}
+      </button>
+    </li>
+    {{/each}}
+  </ol>
+  {{/inline}}
   <aside class="gc-book">
     <h2 class="gc-book-title"><i class="fa-solid fa-scroll-old" inert></i> {{localize "GRIDCRAFTER.Forge.Book"}}</h2>
     {{#if book.length}}
-    <ol class="gc-book-list">
-      {{#each book}}
-      <li>
-        <button type="button" class="gc-book-entry {{#unless ready}}gc-missing{{/unless}}" data-action="fillRecipe"
-                data-recipe-id="{{id}}" data-tooltip="{{#if ready}}{{localize "GRIDCRAFTER.Forge.FillHint"}}{{else}}{{localize "GRIDCRAFTER.Forge.MissingHint"}}{{/if}}">
-          <img class="gc-book-result" src="{{img}}" alt="">
-          <span class="gc-book-name">{{name}}</span>
-          {{#if shaped}}
-          <span class="gc-mini-grid">
-            {{#each cells}}<span class="gc-mini-cell">{{#if this}}<img src="{{img}}" alt="">{{/if}}</span>{{/each}}
-          </span>
-          {{else}}
-          <span class="gc-mini-list" data-tooltip="{{localize "GRIDCRAFTER.Recipe.Shapeless"}}">
-            {{#each cells}}<img src="{{img}}" alt="">{{/each}}
-          </span>
-          {{/if}}
-        </button>
-      </li>
+    <div class="gc-book-tools">
+      <div class="gc-search">
+        <i class="fa-solid fa-magnifying-glass" inert></i>
+        <input type="text" name="search" value="{{query}}" autocomplete="off"
+               placeholder="{{localize "GRIDCRAFTER.Search.Placeholder"}}" aria-label="{{localize "GRIDCRAFTER.Search.Label"}}">
+      </div>
+      <button type="button" class="gc-icon-button gc-ready-filter {{#if readyOnly}}gc-active{{/if}}"
+              data-action="toggleReady" aria-pressed="{{readyOnly}}" data-tooltip="GRIDCRAFTER.Forge.ReadyOnly">
+        <i class="fa-solid {{#if isArcane}}fa-wand-sparkles{{else}}fa-hammer{{/if}}" inert></i>
+      </button>
+    </div>
+    <div class="gc-book-scroll">
+      {{#if groups}}
+      {{#each groups}}
+      <details class="gc-group" data-group="{{key}}" {{#unless collapsed}}open{{/unless}}>
+        <summary class="gc-group-head">
+          <i class="fa-solid fa-chevron-right gc-chevron" inert></i>
+          <span class="gc-group-label">{{label}}</span>
+          <span class="gc-group-count">{{count}}</span>
+        </summary>
+        {{> entries}}
+      </details>
       {{/each}}
-    </ol>
+      {{else}}
+      {{> entries recipes=book}}
+      {{/if}}
+      <p class="gc-book-empty gc-no-match" hidden>{{localize "GRIDCRAFTER.Search.NoMatch"}}</p>
+    </div>
     {{else}}
     <p class="gc-book-empty">{{localize "GRIDCRAFTER.Forge.BookEmpty"}}</p>
     {{/if}}
