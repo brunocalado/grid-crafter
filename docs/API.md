@@ -1,8 +1,8 @@
 # Grid Crafter API
 
 Ship a ready-made recipe book with your module or system. The recipes you register appear on
-every crafting table, in the GM's Recipe Book (marked with your package's name) and in the players'
-recipe books once they craft them, with no setup from the GM.
+every crafting table, in the GM's Recipe Book (marked with your package's name) and in each
+character's recipe book once it crafts them, with no setup from the GM.
 
 The API is available as `GridCrafter` and as `game.modules.get("grid-crafter").api`.
 
@@ -183,9 +183,10 @@ Every recipe on this client: the world's recipes first, then registered ones. Ea
 `result`, `quantity`, `failLossChance` (`null` when it follows the world setting) and `source`
 (`"world"` or the package id). The objects are copies; changing them changes nothing.
 
-### `getKnownRecipes(user = game.user)` → `string[]`
+### `getKnownRecipes(actor)` → `string[]`
 
-Ids of the recipes a user has crafted at least once: what their recipe book shows.
+Ids of the recipes an actor knows: what its recipe book shows. Defaults to the current user's
+crafting actor — their assigned character, or for a GM the first selected token.
 
 ### `shareRecipe(id)` *(GM only)*
 

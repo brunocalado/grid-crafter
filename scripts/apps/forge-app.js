@@ -66,7 +66,7 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   async _prepareContext(options) {
     const actor = getCraftingActor();
     const theme = getTheme();
-    const known = new Set(getKnownRecipeIds());
+    const known = new Set(getKnownRecipeIds(actor));
     const book = getAllRecipes().filter(r => known.has(r.id)).map(r => ({
       id: r.id,
       name: r.name || r.result?.name,
@@ -144,6 +144,11 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     })]);
     this.#hooks.push(["updateItem", Hooks.on("updateItem", item => relevant(item) && !this.busy && this.render())]);
     this.#hooks.push(["createItem", Hooks.on("createItem", item => relevant(item) && !this.busy && this.render())]);
+    // The recipe book lives on the crafting actor. Compared by uuid because a GM's crafting actor may be
+    // a token's synthetic actor, and nothing guarantees the same instance survives the update.
+    this.#hooks.push(["updateActor", Hooks.on("updateActor",
+      actor => (actor.uuid === getCraftingActor()?.uuid) && !this.busy && this.render())]);
+    // Still needed: assigning the user a different character changes the crafting actor.
     this.#hooks.push(["updateUser", Hooks.on("updateUser", user => (user === game.user) && !this.busy && this.render())]);
     this.#hooks.push(["controlToken", Hooks.on("controlToken", () => game.user.isGM && !this.busy && this.render())]);
   }

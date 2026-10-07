@@ -45,9 +45,9 @@ lost in the attempt.
   sheet, and the new item lands right on that sheet, stacking with any copies already there.
   Systems with slots or weight limits are respected: the materials make room for what they become,
   and if the result still doesn't fit, nothing is spent.
-* 📖 **A recipe book for every player.** The first time a player forges something, its recipe is
-  written into their personal recipe book. Next time, one click lays the recipe out on the grid
-  from their inventory.
+* 📖 **A recipe book for every character.** The first time a character forges something, its
+  recipe is written into that character's recipe book. Next time, one click lays the recipe out on
+  the grid from their inventory.
 * 👁️ **Share a recipe, keep the secret.** From the GM's Recipe Book, **Share Recipe** shows the
   pattern to every player — the ingredients and their places, never what it makes. You describe
   the result; they have to remember the pattern.

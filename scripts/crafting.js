@@ -27,9 +27,12 @@ import { findNearRecipe, findRecipe } from "./recipes.js";
  */
 export class CraftError extends Error {}
 
-/** @returns {string[]} ids of the recipes the current user has crafted */
-export function getKnownRecipeIds(user = game.user) {
-  return user.getFlag(MODULE_ID, FLAG_KNOWN_RECIPES) ?? [];
+/**
+ * @param {Actor|null} actor
+ * @returns {string[]} ids of the recipes an actor knows
+ */
+export function getKnownRecipeIds(actor) {
+  return actor?.getFlag(MODULE_ID, FLAG_KNOWN_RECIPES) ?? [];
 }
 
 /**
@@ -86,7 +89,7 @@ export async function craft(slots) {
         used: incomplete ? used.filter(d => missing.includes(d.id)) : used });
       return { success: false, recipe, item: null, lost: false, refused: !incomplete, incomplete };
     }
-    await learnRecipe(recipe.id);
+    await learnRecipe(actor, recipe.id);
     await report({ actor, state: "success", recipe, used, item, quantity: recipe.quantity });
     return { success: true, recipe, item, lost: false, refused: false, incomplete: false };
   }
@@ -226,13 +229,16 @@ function consumeOperations(actor, usage) {
 }
 
 /**
- * Remember that the current user knows a recipe. Players may update their own User document.
+ * Remember that an actor knows a recipe. The caller must own the actor.
+ * @param {Actor} actor
  * @param {string} recipeId
+ * @returns {Promise<boolean>} false when the actor already knew it
  */
-async function learnRecipe(recipeId) {
-  const known = getKnownRecipeIds();
-  if ( known.includes(recipeId) ) return;
-  await game.user.setFlag(MODULE_ID, FLAG_KNOWN_RECIPES, [...known, recipeId]);
+export async function learnRecipe(actor, recipeId) {
+  const known = getKnownRecipeIds(actor);
+  if ( known.includes(recipeId) ) return false;
+  await actor.setFlag(MODULE_ID, FLAG_KNOWN_RECIPES, [...known, recipeId]);
+  return true;
 }
 
 /**

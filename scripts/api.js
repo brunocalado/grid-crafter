@@ -9,6 +9,7 @@
 import { ForgeApp } from "./apps/forge-app.js";
 import { RecipeEditorApp } from "./apps/recipe-editor-app.js";
 import { getKnownRecipeIds } from "./crafting.js";
+import { getCraftingActor } from "./helpers.js";
 import { getAllRecipes, getRecipe, registerRecipes, unregisterRecipes } from "./recipes.js";
 import { shareRecipe } from "./share.js";
 
@@ -67,10 +68,10 @@ export const api = {
   getRecipes: () => foundry.utils.deepClone(getAllRecipes()),
 
   /**
-   * @param {User} [user]
-   * @returns {string[]} ids of the recipes a user has crafted
+   * @param {Actor} [actor]   defaults to the current user's crafting actor
+   * @returns {string[]} ids of the recipes an actor knows
    */
-  getKnownRecipes: (user = game.user) => getKnownRecipeIds(user),
+  getKnownRecipes: (actor = getCraftingActor()) => getKnownRecipeIds(actor),
 
   /**
    * Show a recipe's pattern to everyone connected, without its result. GM only.
