@@ -6,7 +6,7 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { CATEGORY_MAX, CELL_COUNT, GRID_SIZE, MODULE_ID, SETTING_PUBLIC_RECIPES, SETTING_RECIPES } from "./constants.js";
+import { CATEGORY_MAX, CELL_COUNT, GRID_SIZE, MODULE_ID, SETTING_RECIPE_EDITS, SETTING_RECIPES } from "./constants.js";
 import { refMatches, toItemRef } from "./helpers.js";
 
 /**
@@ -19,8 +19,9 @@ import { refMatches, toItemRef } from "./helpers.js";
  * @property {import("./helpers.js").ItemRef} result
  * @property {number} quantity            how many results one craft makes
  * @property {number|null} failLossChance  percent; null inherits the world default
+ * @property {boolean} public            every character knows it
  * @property {string} [source]            "world", or the id of the package that registered it
- * @property {boolean} [public]           a package recipe's default; the GM's choice overrides it
+ * @property {boolean} [edited]          a package recipe the GM changed; Restore brings back the package's
  */
 
 /** Recipes other packages registered through the API, keyed by id. They live in memory only. */
@@ -28,12 +29,20 @@ const registered = new Map();
 
 /** @returns {Recipe[]} the recipes the GM made in this world */
 export function getWorldRecipes() {
-  return game.settings.get(MODULE_ID, SETTING_RECIPES).map(r => ({ category: "", ...r, source: "world" }));
+  return game.settings.get(MODULE_ID, SETTING_RECIPES)
+    .map(r => ({ category: "", public: false, ...r, source: "world" }));
 }
 
-/** @returns {Recipe[]} world recipes first, then registered ones */
+/**
+ * World recipes first, then registered ones. A package recipe the GM edited is replaced by that edit,
+ * under the same id, so the books that learned it and the players it was shared with keep it.
+ * @returns {Recipe[]}
+ */
 export function getAllRecipes() {
-  return [...getWorldRecipes(), ...registered.values()];
+  const edits = game.settings.get(MODULE_ID, SETTING_RECIPE_EDITS);
+  const fromPackages = [...registered.values()].map(r => (edits[r.id]
+    ? { ...edits[r.id], id: r.id, source: r.source, edited: true } : r));
+  return [...getWorldRecipes(), ...fromPackages];
 }
 
 /**
@@ -45,31 +54,41 @@ export function getRecipe(id) {
 }
 
 /**
- * Save the world's recipe list. GM only: the setting is world-scoped.
- * @param {Recipe[]} recipes
- */
-export async function setWorldRecipes(recipes) {
-  const stored = recipes.map(({ source, ...r }) => r);
-  await game.settings.set(MODULE_ID, SETTING_RECIPES, stored);
-}
-
-/**
- * Is the recipe known by every character? The GM's choice wins over a package's default.
+ * Save a recipe where it belongs: a package recipe as the GM's edit of it, anything else in the
+ * world list. GM only: both settings are world-scoped.
  * @param {Recipe} recipe
- * @returns {boolean}
  */
-export function isRecipePublic(recipe) {
-  return game.settings.get(MODULE_ID, SETTING_PUBLIC_RECIPES)[recipe.id] ?? recipe.public ?? false;
+export async function saveRecipe(recipe) {
+  const { source, edited, ...data } = foundry.utils.deepClone(recipe);
+  if ( registered.has(data.id) ) {
+    const edits = { ...game.settings.get(MODULE_ID, SETTING_RECIPE_EDITS), [data.id]: data };
+    return game.settings.set(MODULE_ID, SETTING_RECIPE_EDITS, edits);
+  }
+  const recipes = [...game.settings.get(MODULE_ID, SETTING_RECIPES)];
+  // In place when it already exists, so the list keeps the GM's order.
+  const index = recipes.findIndex(r => r.id === data.id);
+  if ( index >= 0 ) recipes[index] = data;
+  else recipes.push(data);
+  return game.settings.set(MODULE_ID, SETTING_RECIPES, recipes);
 }
 
 /**
- * Make a recipe public or private. GM only: the setting is world-scoped.
- * @param {string} id
- * @param {boolean} value
+ * GM only.
+ * @param {string} id   a world recipe's id
  */
-export async function setRecipePublic(id, value) {
-  const choices = { ...game.settings.get(MODULE_ID, SETTING_PUBLIC_RECIPES), [id]: !!value };
-  await game.settings.set(MODULE_ID, SETTING_PUBLIC_RECIPES, choices);
+export async function deleteRecipe(id) {
+  const recipes = game.settings.get(MODULE_ID, SETTING_RECIPES).filter(r => r.id !== id);
+  return game.settings.set(MODULE_ID, SETTING_RECIPES, recipes);
+}
+
+/**
+ * Throw away the GM's edit of a package recipe: the package's own version is back. GM only.
+ * @param {string} id
+ */
+export async function restoreRecipe(id) {
+  const edits = { ...game.settings.get(MODULE_ID, SETTING_RECIPE_EDITS) };
+  delete edits[id];
+  return game.settings.set(MODULE_ID, SETTING_RECIPE_EDITS, edits);
 }
 
 /** @returns {Recipe} an empty recipe ready for the editor */
@@ -79,6 +98,7 @@ export function blankRecipe() {
     name: "",
     category: "",
     shaped: true,
+    public: false,
     cells: Array(CELL_COUNT).fill(null),
     result: null,
     quantity: 1,

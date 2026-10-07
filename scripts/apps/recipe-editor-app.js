@@ -6,18 +6,28 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { CATEGORY_MAX, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, SETTING_PUBLIC_RECIPES, TEMPLATE_PATH } from "../constants.js";
+import { CATEGORY_MAX, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH } from "../constants.js";
 import {
   filterGroups, getCollapsed, getDropData, getTheme, isTypeAllowed, itemOrigin, recipeSearchText, setCollapsed,
   toItemRef
 } from "../helpers.js";
 import {
-  blankRecipe, getAllRecipes, getWorldRecipes, isRecipePublic, setRecipePublic, setWorldRecipes
+  blankRecipe, deleteRecipe, getAllRecipes, getRecipe, getWorldRecipes, restoreRecipe, saveRecipe
 } from "../recipes.js";
 import { ShareRecipeApp } from "./share-recipe-app.js";
 import { ForgetRecipeApp, TeachRecipeApp } from "./teach-recipe-app.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+
+/**
+ * What the GM calls a recipe's source: the world, or the title of the package that registered it.
+ * @param {string} source
+ * @returns {string}
+ */
+function sourceLabel(source) {
+  if ( source === "world" ) return game.i18n.localize("GRIDCRAFTER.Editor.WorldRecipes");
+  return game.modules.get(source)?.title ?? ((game.system.id === source) ? game.system.title : source);
+}
 
 /**
  * The GM's recipe book: build a recipe by dropping items on a grid and a result slot.
@@ -37,7 +47,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       selectRecipe: RecipeEditorApp.#onSelect,
       saveRecipe: RecipeEditorApp.#onSave,
       deleteRecipe: RecipeEditorApp.#onDelete,
-      copyRecipe: RecipeEditorApp.#onCopy,
+      restoreRecipe: RecipeEditorApp.#onRestore,
+      duplicateRecipe: RecipeEditorApp.#onDuplicate,
       shareRecipe: RecipeEditorApp.#onShare,
       teachRecipe: RecipeEditorApp.#onTeach,
       forgetRecipe: RecipeEditorApp.#onForget,
@@ -72,19 +83,18 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const all = getAllRecipes();
     if ( !this.draft ) this.draft = all[0] ? foundry.utils.deepClone(all[0]) : blankRecipe();
     const draft = this.draft;
-    const readOnly = !!draft.source && (draft.source !== "world");
     const isNew = !all.some(r => r.id === draft.id);
     const selected = this.#selected;
     // A recipe another package unregistered meanwhile can't be taught.
     if ( selected ) for ( const id of selected ) if ( !all.some(r => r.id === id) ) selected.delete(id);
     // While selecting, a lit row means "selected" and nothing else: the draft's row is lit only if picked.
     const toEntry = r => ({ id: r.id, name: r.name || r.result?.name || "—", img: r.result?.img,
-      active: selected ? selected.has(r.id) : r.id === draft.id, search: recipeSearchText(r), public: isRecipePublic(r) });
+      active: selected ? selected.has(r.id) : r.id === draft.id, search: recipeSearchText(r), public: r.public,
+      edited: !!r.edited });
     const groups = Object.entries(Object.groupBy(all, r => r.source)).map(([source, recipes]) => {
       const group = {
         key: source,
-        label: (source === "world") ? game.i18n.localize("GRIDCRAFTER.Editor.WorldRecipes")
-          : (game.modules.get(source)?.title ?? ((game.system.id === source) ? game.system.title : source)),
+        label: sourceLabel(source),
         count: recipes.length,
         collapsed: this.#collapsed.has(source)
       };
@@ -110,10 +120,11 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       groups,
       query: this.#query,
       draft,
-      readOnly,
       isNew,
-      // A new recipe has no id the setting could hold until it is saved.
-      isPublic: !isNew && isRecipePublic(draft),
+      // A blank recipe has no source until it is saved into the world.
+      isPackage: !!draft.source && (draft.source !== "world"),
+      edited: !!draft.edited,
+      isPublic: draft.public,
       dirty: this.dirty,
       selecting: !!selected,
       picked: selected?.size ?? 0,
@@ -145,12 +156,10 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       });
     }
     // Typing only updates the draft. Re-rendering on every change would replace the Save button under
-    // the cursor while a click on it is in progress, and the click would be lost. Bound for a package
-    // recipe too: its other fields are disabled, but Public stays live.
+    // the cursor while a click on it is in progress, and the click would be lost.
     for ( const input of this.element.querySelectorAll(".gc-recipe-fields [name]") ) {
       input.addEventListener("input", this.#onFieldInput.bind(this));
     }
-    if ( context.readOnly ) return;
     for ( const el of this.element.querySelectorAll("[data-drop]") ) {
       el.addEventListener("dragover", ev => {
         ev.preventDefault();
@@ -256,11 +265,9 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       case "inherit":
         draft.failLossChance = input.checked ? null : game.settings.get(MODULE_ID, SETTING_FAIL_LOSS_CHANCE);
         return this.#markDirty(true);
-      // Table state like Teach, not part of the recipe: written at once, never waits for Save, and
-      // the setting's onChange re-renders.
       case "public":
-        setRecipePublic(draft.id, input.checked);
-        return;
+        draft.public = input.checked;
+        break;
     }
     this.#markDirty(false);
   }
@@ -359,33 +366,27 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( !draft.result ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoResult"));
     if ( !draft.cells.some(Boolean) ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoIngredients"));
     draft.name = draft.name.trim() || draft.result.name;
-    const recipes = getWorldRecipes();
-    const index = recipes.findIndex(r => r.id === draft.id);
-    const saved = { ...foundry.utils.deepClone(draft), source: "world" };
-    if ( index >= 0 ) recipes[index] = saved;
-    else recipes.push(saved);
-    await setWorldRecipes(recipes);
+    await saveRecipe(draft);
+    // Read back, so a package recipe's draft carries `edited` and the footer offers Restore.
+    this.draft = foundry.utils.deepClone(getRecipe(draft.id));
     this.dirty = false;
     this.render();
   }
 
-  /** @this {RecipeEditorApp} */
+  /**
+   * Delete a world recipe, or discard a new one. A package recipe has no Delete: the package registers
+   * it again on every load.
+   * @this {RecipeEditorApp}
+   */
   static async #onDelete() {
     const draft = this.draft;
-    const recipes = getWorldRecipes();
-    if ( recipes.some(r => r.id === draft.id) ) {
+    if ( getWorldRecipes().some(r => r.id === draft.id) ) {
       const ok = await foundry.applications.api.DialogV2.confirm({
         window: { title: "GRIDCRAFTER.Editor.Delete" },
         content: `<p>${game.i18n.localize("GRIDCRAFTER.Editor.DeleteConfirm", { name: foundry.utils.escapeHTML(draft.name) })}</p>`
       });
       if ( !ok ) return;
-      await setWorldRecipes(recipes.filter(r => r.id !== draft.id));
-      // The GM's public choice goes with the recipe, so it can't linger under a dead id.
-      const choices = { ...game.settings.get(MODULE_ID, SETTING_PUBLIC_RECIPES) };
-      if ( draft.id in choices ) {
-        delete choices[draft.id];
-        await game.settings.set(MODULE_ID, SETTING_PUBLIC_RECIPES, choices);
-      }
+      await deleteRecipe(draft.id);
     }
     this.draft = null;
     this.dirty = false;
@@ -393,14 +394,33 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /**
-   * Copy a recipe another package registered into the world, where it can be edited.
+   * Bring back the version of a package recipe its package ships. The confirmation covers unsaved
+   * edits too.
    * @this {RecipeEditorApp}
    */
-  static #onCopy() {
-    // A package's public default stays with the package: a world recipe is public only by the GM's
-    // choice, so the copy starts private.
-    const { public: _, ...recipe } = foundry.utils.deepClone(this.draft);
-    this.draft = { ...recipe, id: foundry.utils.randomID(), source: "world" };
+  static async #onRestore() {
+    // Named as saved: the draft may hold an unsaved name.
+    const { id, name, source } = getRecipe(this.draft.id);
+    const ok = await foundry.applications.api.DialogV2.confirm({
+      window: { title: "GRIDCRAFTER.Editor.Restore" },
+      content: `<p>${game.i18n.localize("GRIDCRAFTER.Editor.RestoreConfirm", {
+        name: foundry.utils.escapeHTML(name), source: foundry.utils.escapeHTML(sourceLabel(source)) })}</p>`
+    });
+    if ( !ok ) return;
+    await restoreRecipe(id);
+    this.draft = foundry.utils.deepClone(getRecipe(id));
+    this.dirty = false;
+    this.render();
+  }
+
+  /**
+   * Start a world recipe from the draft, unsaved edits included. It owes nothing to the original,
+   * so it outlives a package that is disabled.
+   * @this {RecipeEditorApp}
+   */
+  static #onDuplicate() {
+    this.draft = { ...foundry.utils.deepClone(this.draft), id: foundry.utils.randomID(), source: "world" };
+    delete this.draft.edited;
     this.dirty = true;
     this.render();
   }

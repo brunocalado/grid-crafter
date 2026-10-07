@@ -7,7 +7,7 @@
  */
 
 import {
-  MODULE_ID, SETTING_ALLOWED_TYPES, SETTING_FAIL_LOSS_CHANCE, SETTING_PUBLIC_RECIPES, SETTING_QUANTITY_PATH, SETTING_RECIPES,
+  MODULE_ID, SETTING_ALLOWED_TYPES, SETTING_FAIL_LOSS_CHANCE, SETTING_QUANTITY_PATH, SETTING_RECIPE_EDITS, SETTING_RECIPES,
   SETTING_SOUND_CRAFT, SETTING_SOUND_FAILURE, SETTING_SOUND_SHARE, SETTING_SOUND_SUCCESS, SETTING_SOUND_VOLUME,
   SETTING_THEME
 } from "./constants.js";
@@ -72,27 +72,31 @@ export function registerSettings() {
     restricted: true
   });
 
+  // Players' forges list public recipes and match the GM's edits, so they follow a change at once.
+  // Not every module app: a revealed recipe's window must never re-render (it would put its lit
+  // cells back to dark).
+  const rerenderRecipeViews = () => {
+    for ( const id of [`${MODULE_ID}-forge`, `${MODULE_ID}-recipe-editor`, `${MODULE_ID}-teach`, `${MODULE_ID}-forget`] ) {
+      foundry.applications.instances.get(id)?.render();
+    }
+  };
+
   game.settings.register(MODULE_ID, SETTING_RECIPES, {
     scope: "world",
     config: false,
     type: Array,
-    default: []
+    default: [],
+    onChange: rerenderRecipeViews
   });
 
-  // The GM's public/private choice per recipe id, world and package recipes alike. A recipe missing
-  // here falls back to its package's default.
-  game.settings.register(MODULE_ID, SETTING_PUBLIC_RECIPES, {
+  // The GM's version of a package recipe, keyed by its id. It replaces the package's version until
+  // the GM restores it. Edits of a package that is not active are never looked up.
+  game.settings.register(MODULE_ID, SETTING_RECIPE_EDITS, {
     scope: "world",
     config: false,
     type: Object,
     default: {},
-    // Players' forges list public recipes, so they follow the change at once. Not every module app:
-    // a revealed recipe's window must never re-render (it would put its lit cells back to dark).
-    onChange: () => {
-      for ( const id of [`${MODULE_ID}-forge`, `${MODULE_ID}-recipe-editor`, `${MODULE_ID}-teach`, `${MODULE_ID}-forget`] ) {
-        foundry.applications.instances.get(id)?.render();
-      }
-    }
+    onChange: rerenderRecipeViews
   });
 
   game.settings.register(MODULE_ID, SETTING_ALLOWED_TYPES, {

@@ -10,7 +10,7 @@ import {
   FLAG_KNOWN_RECIPES, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, SETTING_QUANTITY_PATH, TEMPLATE_PATH
 } from "./constants.js";
 import { getCraftingActor, getQuantity, getTheme, itemOrigin, refMatches, toItemRef } from "./helpers.js";
-import { findNearRecipe, findRecipe, getAllRecipes, isRecipePublic } from "./recipes.js";
+import { findNearRecipe, findRecipe, getAllRecipes } from "./recipes.js";
 
 /**
  * @typedef {object} CraftOutcome
@@ -45,7 +45,7 @@ export function getLearnedRecipeIds(actor) {
  */
 export function getKnownRecipeIds(actor) {
   const ids = new Set(getLearnedRecipeIds(actor));
-  for ( const r of getAllRecipes() ) if ( isRecipePublic(r) ) ids.add(r.id);
+  for ( const r of getAllRecipes() ) if ( r.public ) ids.add(r.id);
   return [...ids];
 }
 

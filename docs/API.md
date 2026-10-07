@@ -183,8 +183,9 @@ Removes every recipe your package registered, on this client.
 Every recipe on this client: the world's recipes first, then registered ones. Each has `id`,
 `name`, `category` (`""` when none), `shaped`, `cells` (9 entries, each `{ uuid, name, img, type, sources }` or `null`),
 `result`, `quantity`, `failLossChance` (`null` when it follows the world setting), `source`
-(`"world"` or the package id) and `public` (whether every character knows it right now, the GM's
-choice included). The objects are copies; changing them changes nothing.
+(`"world"` or the package id) and `public` (whether every character knows it). A package recipe
+the GM edited carries `edited: true`, and its fields are the GM's version. The objects are copies;
+changing them changes nothing.
 
 ### `getKnownRecipes(target)` → `string[]`
 
@@ -203,13 +204,13 @@ it was public loses it from its recipe book when it turns private.
   warning.
 - `value` *(boolean, optional)*: `true` (default) for public, `false` for private.
 
-The GM's choice overrides the `public` default your package registered, and lasts across sessions.
-Resolves `true` once it is saved, `false` when the call was refused.
+On a package recipe this is an edit like any other: the recipe is marked edited, stops following
+the package's updates, and Restore in the Recipe Book brings back the package's `public` with the
+rest of it. Resolves `true` once it is saved, `false` when the call was refused.
 
 ### `isRecipePublic(id)` → `boolean`
 
-Whether every character knows the recipe right now: the GM's choice, or your package's default
-when the GM never changed it. `false` for an unknown id.
+Whether every character knows the recipe right now. `false` for an unknown id.
 
 ### `teachRecipe(target, id)` → `Promise<boolean>`
 
@@ -270,15 +271,19 @@ Opens the GM's Recipe Book.
 
 ## What the GM can do with your recipes
 
-Your recipes show in the GM's Recipe Book under your package's title, **read-only**: the GM can
-see them and share them with the players, but not change them. **Copy to World** makes an
-editable copy that belongs to the world; your original stays as it is.
-
-The GM can still make any of your recipes public or private, whatever `public` you registered it
-with. That choice is the GM's and survives your module's updates.
+Your recipes show in the GM's Recipe Book under your package's title. The GM can edit any of them
+in place, `public` included, and the recipe keeps its id, so characters who learned it keep it.
 
 Because your recipes are registered fresh each session, updating your module updates them
-everywhere. A world copy the GM made doesn't change with you.
+everywhere, except the ones the GM edited: an edited recipe stays as the GM left it and stops
+following your updates until the GM **restores** it, which brings back exactly the version your
+package registers.
+
+**Duplicate** makes a world recipe from one of yours. It belongs to the world and owes nothing to
+your package.
+
+When your package is disabled, its recipes leave the world, the GM's edits of them included. The
+edits come back with your package; world duplicates never left.
 
 ---
 

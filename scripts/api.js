@@ -11,7 +11,7 @@ import { RecipeEditorApp } from "./apps/recipe-editor-app.js";
 import { forgetRecipes, getKnownRecipeIds, learnRecipes } from "./crafting.js";
 import { getCraftingActor, toActor } from "./helpers.js";
 import {
-  getAllRecipes, getRecipe, isRecipePublic, registerRecipes, setRecipePublic, unregisterRecipes
+  getAllRecipes, getRecipe, registerRecipes, saveRecipe, unregisterRecipes
 } from "./recipes.js";
 import { shareRecipe } from "./share.js";
 
@@ -76,19 +76,21 @@ export const api = {
   unregisterRecipes,
 
   /** @returns {object[]} every recipe: the world's, then those registered by packages */
-  getRecipes: () => getAllRecipes().map(r => ({ ...foundry.utils.deepClone(r), public: isRecipePublic(r) })),
+  getRecipes: () => getAllRecipes().map(r => foundry.utils.deepClone(r)),
 
   /**
-   * Make a recipe public (every character knows it) or private again. GM only. Overrides the
-   * default a package gave the recipe. Characters who learned it keep it either way.
+   * Make a recipe public (every character knows it) or private again. GM only. On a package recipe
+   * this is an edit like any other: the recipe stops following the package until the GM restores
+   * it. Characters who learned it keep it either way.
    * @param {string} id
    * @param {boolean} [value=true]
    * @returns {Promise<boolean>} false when the call was refused (with a warning)
    */
   setRecipePublic: async (id, value = true) => {
     if ( !game.user.isGM ) return warn("GMOnly");
-    if ( !getRecipe(id) ) return warn("UnknownRecipe", { id });
-    await setRecipePublic(id, value);
+    const recipe = getRecipe(id);
+    if ( !recipe ) return warn("UnknownRecipe", { id });
+    await saveRecipe({ ...recipe, public: !!value });
     return true;
   },
 
@@ -96,10 +98,7 @@ export const api = {
    * @param {string} id
    * @returns {boolean} whether every character knows the recipe; false for an unknown id
    */
-  isRecipePublic: id => {
-    const recipe = getRecipe(id);
-    return !!recipe && isRecipePublic(recipe);
-  },
+  isRecipePublic: id => !!getRecipe(id)?.public,
 
   /**
    * @param {Actor|TokenDocument|Token|string} [target]   defaults to the current user's crafting actor
