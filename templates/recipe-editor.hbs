@@ -1,21 +1,50 @@
 <div class="gc-editor-body">
+  {{#*inline "entries"}}
+  <ol>
+    {{#each recipes}}
+    <li data-search="{{search}}">
+      <button type="button" class="gc-recipe-entry {{#if active}}gc-active{{/if}}" data-action="selectRecipe" data-recipe-id="{{id}}">
+        {{#if img}}<img src="{{img}}" alt="">{{else}}<span class="gc-noimg"></span>{{/if}}
+        <span>{{name}}</span>
+      </button>
+    </li>
+    {{/each}}
+  </ol>
+  {{/inline}}
+  {{#*inline "head"}}
+  <summary class="gc-group-head">
+    <i class="fa-solid fa-chevron-right gc-chevron" inert></i>
+    <span class="gc-group-label">{{label}}</span>
+    <span class="gc-group-count">{{count}}</span>
+  </summary>
+  {{/inline}}
   <aside class="gc-recipe-list">
     <button type="button" class="gc-button gc-new" data-action="newRecipe"><i class="fa-solid fa-plus" inert></i> {{localize "GRIDCRAFTER.Editor.New"}}</button>
-    {{#each groups}}
-    <h3>{{label}}</h3>
-    <ol>
-      {{#each recipes}}
-      <li>
-        <button type="button" class="gc-recipe-entry {{#if active}}gc-active{{/if}}" data-action="selectRecipe" data-recipe-id="{{id}}">
-          {{#if img}}<img src="{{img}}" alt="">{{else}}<span class="gc-noimg"></span>{{/if}}
-          <span>{{name}}</span>
-        </button>
-      </li>
+    <div class="gc-search">
+      <i class="fa-solid fa-magnifying-glass" inert></i>
+      <input type="text" name="search" value="{{query}}" autocomplete="off"
+             placeholder="{{localize "GRIDCRAFTER.Search.Placeholder"}}" aria-label="{{localize "GRIDCRAFTER.Search.Label"}}">
+    </div>
+    <div class="gc-recipe-scroll">
+      {{#each groups}}
+      <details class="gc-group" data-group="{{key}}" {{#unless collapsed}}open{{/unless}}>
+        {{> head}}
+        {{#if categories}}
+        {{#each categories}}
+        <details class="gc-group gc-subgroup" data-group="{{key}}" {{#unless collapsed}}open{{/unless}}>
+          {{> head}}
+          {{> entries}}
+        </details>
+        {{/each}}
+        {{else}}
+        {{> entries}}
+        {{/if}}
+      </details>
+      {{else}}
+      <p class="gc-empty">{{localize "GRIDCRAFTER.Editor.Empty"}}</p>
       {{/each}}
-    </ol>
-    {{else}}
-    <p class="gc-empty">{{localize "GRIDCRAFTER.Editor.Empty"}}</p>
-    {{/each}}
+      <p class="gc-empty gc-no-match" hidden>{{localize "GRIDCRAFTER.Search.NoMatch"}}</p>
+    </div>
   </aside>
 
   <section class="gc-recipe-detail">

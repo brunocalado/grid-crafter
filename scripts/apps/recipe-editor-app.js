@@ -7,7 +7,10 @@
  */
 
 import { CATEGORY_MAX, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH } from "../constants.js";
-import { getDropData, getTheme, isTypeAllowed, itemOrigin, toItemRef } from "../helpers.js";
+import {
+  filterGroups, getCollapsed, getDropData, getTheme, isTypeAllowed, itemOrigin, recipeSearchText, setCollapsed,
+  toItemRef
+} from "../helpers.js";
 import { blankRecipe, getAllRecipes, getWorldRecipes, setWorldRecipes } from "../recipes.js";
 import { shareRecipe } from "../share.js";
 import { TeachRecipeApp } from "./teach-recipe-app.js";
@@ -42,7 +45,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   };
 
   static PARTS = {
-    main: { template: `${TEMPLATE_PATH}/recipe-editor.hbs` }
+    main: { template: `${TEMPLATE_PATH}/recipe-editor.hbs`, scrollable: [".gc-recipe-scroll"] }
   };
 
   /** The recipe being edited: a copy, saved only on demand. */
@@ -51,6 +54,12 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Unsaved edits on the draft. */
   dirty = false;
 
+  /** The recipe list's search, as typed. */
+  #query = "";
+
+  /** Keys of the list groups the user closed. */
+  #collapsed = getCollapsed("editor");
+
   /** @override */
   async _prepareContext(options) {
     const all = getAllRecipes();
@@ -58,15 +67,37 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const draft = this.draft;
     const readOnly = !!draft.source && (draft.source !== "world");
     const isNew = !all.some(r => r.id === draft.id);
-    const groups = Object.entries(Object.groupBy(all, r => r.source)).map(([source, recipes]) => ({
-      label: (source === "world") ? game.i18n.localize("GRIDCRAFTER.Editor.WorldRecipes")
-        : (game.modules.get(source)?.title ?? ((game.system.id === source) ? game.system.title : source)),
-      recipes: recipes.map(r => ({ id: r.id, name: r.name || r.result?.name || "—", img: r.result?.img,
-        active: r.id === draft.id }))
-    }));
+    const toEntry = r => ({ id: r.id, name: r.name || r.result?.name || "—", img: r.result?.img,
+      active: r.id === draft.id, search: recipeSearchText(r) });
+    const groups = Object.entries(Object.groupBy(all, r => r.source)).map(([source, recipes]) => {
+      const group = {
+        key: source,
+        label: (source === "world") ? game.i18n.localize("GRIDCRAFTER.Editor.WorldRecipes")
+          : (game.modules.get(source)?.title ?? ((game.system.id === source) ? game.system.title : source)),
+        count: recipes.length,
+        collapsed: this.#collapsed.has(source)
+      };
+      // A source that never uses categories stays one flat list, with no "Other" heading.
+      if ( !recipes.some(r => r.category) ) {
+        group.recipes = recipes.map(toEntry);
+        return group;
+      }
+      // Categories in order of first appearance, uncategorised recipes last.
+      const byCategory = Map.groupBy(recipes, r => r.category);
+      const other = byCategory.get("");
+      byCategory.delete("");
+      if ( other ) byCategory.set("", other);
+      group.categories = [...byCategory].map(([category, list]) => {
+        const key = `${source}::${category}`;
+        return { key, label: category || game.i18n.localize("GRIDCRAFTER.Recipe.CategoryNone"), count: list.length,
+          collapsed: this.#collapsed.has(key), recipes: list.map(toEntry) };
+      });
+      return group;
+    });
     return {
       theme: getTheme(),
       groups,
+      query: this.#query,
       draft,
       readOnly,
       isNew,
@@ -88,6 +119,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     await super._onRender(context, options);
     const theme = getTheme();
     for ( const t of ["forge", "arcane"] ) this.element.classList.toggle(`gc-theme-${t}`, t === theme);
+    this.#bindRecipeList();
     for ( const el of this.element.querySelectorAll("[data-drop]") ) {
       el.addEventListener("dblclick", ev => {
         const { drop, index } = ev.currentTarget.dataset;
@@ -109,6 +141,37 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     for ( const input of this.element.querySelectorAll(".gc-recipe-fields [name]") ) {
       input.addEventListener("input", this.#onFieldInput.bind(this));
     }
+  }
+
+  /**
+   * Wire the search and the folding groups, and reapply the search a re-render would otherwise drop.
+   */
+  #bindRecipeList() {
+    const list = this.element.querySelector(".gc-recipe-list");
+    const apply = () => filterGroups(list, { query: this.#query, collapsed: this.#collapsed });
+    const search = list.querySelector("input[name=search]");
+    // Typing never re-renders: a re-render under the cursor eats input.
+    search.addEventListener("input", () => {
+      this.#query = search.value;
+      apply();
+    });
+    search.addEventListener("keydown", ev => {
+      if ( ev.key !== "Escape" ) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      search.value = this.#query = "";
+      apply();
+    });
+    for ( const group of list.querySelectorAll("details.gc-group") ) {
+      group.addEventListener("toggle", () => {
+        // While searching, groups are opened by the filter, not by the user.
+        if ( this.#query.trim() ) return;
+        if ( group.open ) this.#collapsed.delete(group.dataset.group);
+        else this.#collapsed.add(group.dataset.group);
+        setCollapsed("editor", this.#collapsed);
+      });
+    }
+    apply();
   }
 
   /** @param {Event} event */
@@ -209,6 +272,12 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( !(await this.#confirmDiscard()) ) return;
     const recipe = getAllRecipes().find(r => r.id === target.dataset.recipeId);
     if ( !recipe ) return;
+    // A recipe picked through a search must not vanish into a closed group once the search is cleared.
+    const keys = [recipe.source, `${recipe.source}::${recipe.category}`];
+    if ( keys.some(k => this.#collapsed.has(k)) ) {
+      for ( const k of keys ) this.#collapsed.delete(k);
+      setCollapsed("editor", this.#collapsed);
+    }
     this.draft = foundry.utils.deepClone(recipe);
     this.dirty = false;
     this.render();

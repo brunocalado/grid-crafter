@@ -129,3 +129,77 @@ export function itemDragData(uuid) {
 export function getDropData(event) {
   return foundry.applications.ux.TextEditor.implementation.getDragEventData(event);
 }
+
+/**
+ * Text folded for search: lower case, accents dropped, so "espada" finds "Espáda".
+ * @param {string} text
+ * @returns {string}
+ */
+export function searchKey(text) {
+  return String(text ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
+/**
+ * Everything a recipe search looks through: its name, what it makes, its category, its ingredients.
+ * @param {object} recipe
+ * @returns {string}
+ */
+export function recipeSearchText(recipe) {
+  return searchKey([recipe.name, recipe.result?.name, recipe.category, ...recipe.cells.map(c => c?.name)]
+    .filter(Boolean).join(" "));
+}
+
+/**
+ * Show only the entries that match, and open every group that holds one. With no query and no
+ * filter, groups go back to the open state the user left them in.
+ * @param {HTMLElement} root
+ * @param {{query?: string, readyOnly?: boolean, collapsed: Set<string>}} filter
+ */
+export function filterGroups(root, { query = "", readyOnly = false, collapsed }) {
+  const key = searchKey(query.trim());
+  const filtering = !!key || readyOnly;
+  const entries = [...root.querySelectorAll("li[data-search]")];
+  for ( const li of entries ) {
+    li.hidden = (!!key && !li.dataset.search.includes(key)) || (readyOnly && !("ready" in li.dataset));
+  }
+  for ( const group of root.querySelectorAll("details.gc-group") ) {
+    const count = group.querySelectorAll("li[data-search]:not([hidden])").length;
+    group.hidden = !count;
+    group.open = filtering || !collapsed.has(group.dataset.group);
+    const counter = group.querySelector(":scope > summary .gc-group-count");
+    if ( counter ) counter.textContent = String(count);
+  }
+  // With no entries at all the list shows its own empty text instead.
+  const noMatch = root.querySelector(".gc-no-match");
+  if ( noMatch ) noMatch.hidden = !entries.length || entries.some(li => !li.hidden);
+}
+
+/**
+ * The groups a user closed in one of the recipe lists. Kept per browser: it is a convenience, and
+ * storage may be missing or blocked, in which case every group starts open.
+ * @param {"editor"|"forge"} list
+ * @returns {Set<string>}
+ */
+export function getCollapsed(list) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(`${MODULE_ID}.collapsed`));
+    return new Set(Array.isArray(stored?.[list]) ? stored[list] : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * @param {"editor"|"forge"} list
+ * @param {Set<string>} collapsed
+ */
+export function setCollapsed(list, collapsed) {
+  try {
+    let stored = JSON.parse(localStorage.getItem(`${MODULE_ID}.collapsed`));
+    if ( (typeof stored !== "object") || !stored ) stored = {};
+    stored[list] = [...collapsed];
+    localStorage.setItem(`${MODULE_ID}.collapsed`, JSON.stringify(stored));
+  } catch {
+    // Storage is blocked: the state lasts as long as the window.
+  }
+}

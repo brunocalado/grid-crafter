@@ -14,6 +14,7 @@
     "Recipe": {
       "Name": "Recipe name",
       "Category": "Category",
+      "CategoryNone": "Other",
       "Shape": "Shape",
       "Shaped": "Shaped",
       "Shapeless": "Shapeless",
@@ -44,6 +45,11 @@
       "Unsaved": "Unsaved Changes",
       "DiscardChanges": "This recipe has unsaved changes. Discard them?",
       "QuantityHint": "How many of the result one successful craft makes. Items with a quantity get one stack; items without one arrive as separate copies."
+    },
+    "Search": {
+      "Placeholder": "Name or ingredient",
+      "Label": "Search recipes",
+      "NoMatch": "No recipe matches."
     },
     "Teach": {
       "Title": "Teach: {name}",
