@@ -7,7 +7,7 @@
  */
 
 import { MODULE_ID, TEMPLATE_PATH } from "../constants.js";
-import { forgetRecipe, getKnownRecipeIds, learnRecipe, reportTaught } from "../crafting.js";
+import { forgetRecipe, getLearnedRecipeIds, learnRecipe, reportTaught } from "../crafting.js";
 import { getTheme } from "../helpers.js";
 import { getRecipe } from "../recipes.js";
 
@@ -71,7 +71,9 @@ export class TeachRecipeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       img: actor.img,
       // Non-GM owners, so the GM can tell whose character it is. An NPC token usually has none.
       players: game.users.filter(u => !u.isGM && actor.testUserPermission(u, "OWNER")).map(u => u.name).join(", "),
-      checked: this.pending.get(actor.uuid) ?? getKnownRecipeIds(actor).includes(this.recipeId)
+      // Real learning only: a public recipe the actor never learned shows off, and teaching it is
+      // what keeps it once the recipe stops being public.
+      checked: this.pending.get(actor.uuid) ?? getLearnedRecipeIds(actor).includes(this.recipeId)
     })).sort((a, b) => a.name.localeCompare(b.name));
     return {
       theme: getTheme(),
@@ -90,7 +92,7 @@ export class TeachRecipeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     for ( const input of this.element.querySelectorAll(".gc-toggle[data-uuid]") ) {
       input.addEventListener("change", () => {
         const { uuid } = input.dataset;
-        const knows = getKnownRecipeIds(this.#listed.get(uuid)).includes(this.recipeId);
+        const knows = getLearnedRecipeIds(this.#listed.get(uuid)).includes(this.recipeId);
         if ( input.checked === knows ) this.pending.delete(uuid);
         else this.pending.set(uuid, input.checked);
         this.element.querySelector(".gc-apply").disabled = this.pending.size === 0;

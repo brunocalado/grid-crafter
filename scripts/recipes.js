@@ -6,7 +6,7 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { CATEGORY_MAX, CELL_COUNT, GRID_SIZE, MODULE_ID, SETTING_RECIPES } from "./constants.js";
+import { CATEGORY_MAX, CELL_COUNT, GRID_SIZE, MODULE_ID, SETTING_PUBLIC_RECIPES, SETTING_RECIPES } from "./constants.js";
 import { refMatches, toItemRef } from "./helpers.js";
 
 /**
@@ -20,6 +20,7 @@ import { refMatches, toItemRef } from "./helpers.js";
  * @property {number} quantity            how many results one craft makes
  * @property {number|null} failLossChance  percent; null inherits the world default
  * @property {string} [source]            "world", or the id of the package that registered it
+ * @property {boolean} [public]           a package recipe's default; the GM's choice overrides it
  */
 
 /** Recipes other packages registered through the API, keyed by id. They live in memory only. */
@@ -50,6 +51,25 @@ export function getRecipe(id) {
 export async function setWorldRecipes(recipes) {
   const stored = recipes.map(({ source, ...r }) => r);
   await game.settings.set(MODULE_ID, SETTING_RECIPES, stored);
+}
+
+/**
+ * Is the recipe known by every character? The GM's choice wins over a package's default.
+ * @param {Recipe} recipe
+ * @returns {boolean}
+ */
+export function isRecipePublic(recipe) {
+  return game.settings.get(MODULE_ID, SETTING_PUBLIC_RECIPES)[recipe.id] ?? recipe.public ?? false;
+}
+
+/**
+ * Make a recipe public or private. GM only: the setting is world-scoped.
+ * @param {string} id
+ * @param {boolean} value
+ */
+export async function setRecipePublic(id, value) {
+  const choices = { ...game.settings.get(MODULE_ID, SETTING_PUBLIC_RECIPES), [id]: !!value };
+  await game.settings.set(MODULE_ID, SETTING_PUBLIC_RECIPES, choices);
 }
 
 /** @returns {Recipe} an empty recipe ready for the editor */
@@ -117,6 +137,7 @@ export function registerRecipes(packageId, recipes) {
       name: String(data.name ?? result.name),
       category: String(data.category ?? "").trim().slice(0, CATEGORY_MAX),
       shaped: data.shaped !== false,
+      public: data.public === true,
       cells,
       result,
       quantity: Math.clamp(Math.floor(Number(data.quantity) || 1), 1, 10),

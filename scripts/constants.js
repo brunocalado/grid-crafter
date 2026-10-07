@@ -13,6 +13,7 @@ export const SOUND_PATH = `modules/${MODULE_ID}/assets/sounds`;
 
 // World settings
 export const SETTING_RECIPES = "recipes";
+export const SETTING_PUBLIC_RECIPES = "publicRecipes";
 export const SETTING_ALLOWED_TYPES = "allowedTypes";
 export const SETTING_QUANTITY_PATH = "quantityPath";
 export const SETTING_FAIL_LOSS_CHANCE = "failLossChance";

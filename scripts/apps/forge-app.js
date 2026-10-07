@@ -11,7 +11,7 @@ import {
   filterGroups, getCollapsed, getCraftingActor, getDropData, getQuantity, getTheme, isTypeAllowed, itemDragData,
   itemOrigin, recipeSearchText, setCollapsed, toItemRef
 } from "../helpers.js";
-import { CraftError, craft, fillFromInventory, getKnownRecipeIds } from "../crafting.js";
+import { CraftError, craft, fillFromInventory, getKnownRecipeIds, getLearnedRecipeIds } from "../crafting.js";
 import { getAllRecipes } from "../recipes.js";
 import { CraftFX, animate, runeGlyphs, wait } from "../effects.js";
 import { playCue } from "../sound.js";
@@ -86,7 +86,9 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   async _prepareContext(options) {
     const actor = getCraftingActor();
     const theme = getTheme();
+    // A player with no character still sees the public recipes; crafting is what needs the character.
     const known = new Set(getKnownRecipeIds(actor));
+    const learned = new Set(getLearnedRecipeIds(actor));
     const book = getAllRecipes().filter(r => known.has(r.id)).map(r => ({
       id: r.id,
       name: r.name || r.result?.name,
@@ -95,7 +97,9 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       cells: r.shaped ? r.cells : r.cells.filter(Boolean),
       category: r.category,
       search: recipeSearchText(r),
-      ready: !!(actor && fillFromInventory(r, actor))
+      ready: !!(actor && fillFromInventory(r, actor)),
+      // Known only because it is public. Learned recipes carry no marker: no marker means "yours".
+      public: !learned.has(r.id)
     }));
     // Players don't care which package a recipe came from, so the book groups by category alone:
     // in order of first appearance, uncategorised last. Craftable recipes lead each group.

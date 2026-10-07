@@ -10,7 +10,9 @@ import { ForgeApp } from "./apps/forge-app.js";
 import { RecipeEditorApp } from "./apps/recipe-editor-app.js";
 import { forgetRecipe, getKnownRecipeIds, learnRecipe } from "./crafting.js";
 import { getCraftingActor, toActor } from "./helpers.js";
-import { getAllRecipes, getRecipe, registerRecipes, unregisterRecipes } from "./recipes.js";
+import {
+  getAllRecipes, getRecipe, isRecipePublic, registerRecipes, setRecipePublic, unregisterRecipes
+} from "./recipes.js";
 import { shareRecipe } from "./share.js";
 
 /**
@@ -74,11 +76,34 @@ export const api = {
   unregisterRecipes,
 
   /** @returns {object[]} every recipe: the world's, then those registered by packages */
-  getRecipes: () => foundry.utils.deepClone(getAllRecipes()),
+  getRecipes: () => getAllRecipes().map(r => ({ ...foundry.utils.deepClone(r), public: isRecipePublic(r) })),
+
+  /**
+   * Make a recipe public (every character knows it) or private again. GM only. Overrides the
+   * default a package gave the recipe. Characters who learned it keep it either way.
+   * @param {string} id
+   * @param {boolean} [value=true]
+   * @returns {Promise<boolean>} false when the call was refused (with a warning)
+   */
+  setRecipePublic: async (id, value = true) => {
+    if ( !game.user.isGM ) return warn("GMOnly");
+    if ( !getRecipe(id) ) return warn("UnknownRecipe", { id });
+    await setRecipePublic(id, value);
+    return true;
+  },
+
+  /**
+   * @param {string} id
+   * @returns {boolean} whether every character knows the recipe; false for an unknown id
+   */
+  isRecipePublic: id => {
+    const recipe = getRecipe(id);
+    return !!recipe && isRecipePublic(recipe);
+  },
 
   /**
    * @param {Actor|TokenDocument|Token|string} [target]   defaults to the current user's crafting actor
-   * @returns {string[]} ids of the recipes an actor knows
+   * @returns {string[]} ids of the recipes an actor knows: those it learned, plus every public one
    */
   getKnownRecipes: (target = getCraftingActor()) => getKnownRecipeIds(toActor(target)),
 

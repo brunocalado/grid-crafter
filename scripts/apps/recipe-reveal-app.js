@@ -8,7 +8,7 @@
 
 import { MODULE_ID, TEMPLATE_PATH } from "../constants.js";
 import { getCraftingActor, getTheme } from "../helpers.js";
-import { getKnownRecipeIds, learnRecipe, reportTaught } from "../crafting.js";
+import { getLearnedRecipeIds, learnRecipe, reportTaught } from "../crafting.js";
 import { CraftFX, animate, runeGlyphs, wait } from "../effects.js";
 import { getRecipe } from "../recipes.js";
 import { playCue } from "../sound.js";
@@ -59,7 +59,8 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // A GM sees a preview, and a player without a character has nowhere to write it: neither gets a
     // button or a label.
     const learner = !game.user.isGM && !!actor;
-    const known = learner && getKnownRecipeIds(actor).includes(recipe.id);
+    // A public recipe not learned yet still offers Learn: learning keeps it if it stops being public.
+    const known = learner && getLearnedRecipeIds(actor).includes(recipe.id);
     return {
       isArcane: theme === "arcane",
       name: recipe.name || recipe.result.name,

@@ -7,7 +7,7 @@
  */
 
 import {
-  MODULE_ID, SETTING_ALLOWED_TYPES, SETTING_FAIL_LOSS_CHANCE, SETTING_QUANTITY_PATH, SETTING_RECIPES,
+  MODULE_ID, SETTING_ALLOWED_TYPES, SETTING_FAIL_LOSS_CHANCE, SETTING_PUBLIC_RECIPES, SETTING_QUANTITY_PATH, SETTING_RECIPES,
   SETTING_SOUND_CRAFT, SETTING_SOUND_FAILURE, SETTING_SOUND_SHARE, SETTING_SOUND_SUCCESS, SETTING_SOUND_VOLUME,
   SETTING_THEME
 } from "./constants.js";
@@ -77,6 +77,22 @@ export function registerSettings() {
     config: false,
     type: Array,
     default: []
+  });
+
+  // The GM's public/private choice per recipe id, world and package recipes alike. A recipe missing
+  // here falls back to its package's default.
+  game.settings.register(MODULE_ID, SETTING_PUBLIC_RECIPES, {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {},
+    // Players' forges list public recipes, so they follow the change at once. Not every module app:
+    // a revealed recipe's window must never re-render (it would put its lit cells back to dark).
+    onChange: () => {
+      for ( const id of [`${MODULE_ID}-forge`, `${MODULE_ID}-recipe-editor`, `${MODULE_ID}-teach`] ) {
+        foundry.applications.instances.get(id)?.render();
+      }
+    }
   });
 
   game.settings.register(MODULE_ID, SETTING_ALLOWED_TYPES, {

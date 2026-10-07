@@ -7,6 +7,7 @@
         {{#if img}}<img src="{{img}}" alt="">{{else}}<span class="gc-noimg"></span>{{/if}}
         <span>{{name}}</span>
       </button>
+      {{#if public}}<i class="fa-solid fa-people-group gc-public-marker" data-tooltip="GRIDCRAFTER.Editor.PublicMarker"></i>{{/if}}
     </li>
     {{/each}}
   </ol>
@@ -53,35 +54,45 @@
     {{/if}}
 
     <div class="gc-recipe-fields">
-      <fieldset class="gc-field gc-name" {{#if readOnly}}disabled{{/if}}>
-        <legend>{{localize "GRIDCRAFTER.Recipe.Name"}}</legend>
-        <input type="text" name="name" value="{{draft.name}}" placeholder="{{draft.result.name}}">
-      </fieldset>
-      <fieldset class="gc-field gc-shape" {{#if readOnly}}disabled{{/if}}>
-        <legend>{{localize "GRIDCRAFTER.Recipe.Shape"}}</legend>
-        <label><input type="radio" name="shaped" value="shaped" {{#if draft.shaped}}checked{{/if}}> {{localize "GRIDCRAFTER.Recipe.Shaped"}}</label>
-        <label><input type="radio" name="shaped" value="shapeless" {{#unless draft.shaped}}checked{{/unless}}> {{localize "GRIDCRAFTER.Recipe.Shapeless"}}</label>
-        <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{shapeHelp}}"
-           data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="LEFT"></i>
-      </fieldset>
-      <fieldset class="gc-field gc-loss" {{#if readOnly}}disabled{{/if}}>
-        <legend>{{localize "GRIDCRAFTER.Recipe.FailLoss"}}</legend>
-        <label class="gc-inherit">
-          <input type="checkbox" class="gc-toggle" name="inherit" {{#if inherit}}checked{{/if}}>
-          <span>{{localize "GRIDCRAFTER.Recipe.Inherit"}}</span>
-        </label>
-        {{#unless inherit}}
-        <input type="range" name="failLossChance" min="0" max="100" step="5" value="{{lossChance}}">
-        {{/unless}}
-        <output class="gc-loss-value">{{lossChance}}%</output>
-      </fieldset>
-      <fieldset class="gc-field gc-quantity" {{#if readOnly}}disabled{{/if}}>
-        <legend>{{localize "GRIDCRAFTER.Recipe.Quantity"}}</legend>
-        <input type="range" name="quantity" min="1" max="10" step="1" value="{{draft.quantity}}">
-        <output class="gc-quantity-value">{{draft.quantity}}</output>
-        <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{quantityHelp}}"
-           data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="LEFT"></i>
-      </fieldset>
+      <div class="gc-fields-row gc-fields-top">
+        <fieldset class="gc-field gc-name" {{#if readOnly}}disabled{{/if}}>
+          <legend>{{localize "GRIDCRAFTER.Recipe.Name"}}</legend>
+          <input type="text" name="name" value="{{draft.name}}" placeholder="{{draft.result.name}}">
+        </fieldset>
+        <fieldset class="gc-field gc-public" {{#if isNew}}disabled{{/if}}>
+          <legend>{{localize "GRIDCRAFTER.Recipe.Public"}}</legend>
+          <input type="checkbox" class="gc-toggle" name="public" {{#if isPublic}}checked{{/if}}>
+          <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{publicHelp}}"
+             data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="UP"></i>
+        </fieldset>
+        <fieldset class="gc-field gc-shape" {{#if readOnly}}disabled{{/if}}>
+          <legend>{{localize "GRIDCRAFTER.Recipe.Shape"}}</legend>
+          <label><input type="radio" name="shaped" value="shaped" {{#if draft.shaped}}checked{{/if}}> {{localize "GRIDCRAFTER.Recipe.Shaped"}}</label>
+          <label><input type="radio" name="shaped" value="shapeless" {{#unless draft.shaped}}checked{{/unless}}> {{localize "GRIDCRAFTER.Recipe.Shapeless"}}</label>
+          <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{shapeHelp}}"
+             data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="LEFT"></i>
+        </fieldset>
+      </div>
+      <div class="gc-fields-row">
+        <fieldset class="gc-field gc-loss" {{#if readOnly}}disabled{{/if}}>
+          <legend>{{localize "GRIDCRAFTER.Recipe.FailLoss"}}</legend>
+          <label class="gc-inherit">
+            <input type="checkbox" class="gc-toggle" name="inherit" {{#if inherit}}checked{{/if}}>
+            <span>{{localize "GRIDCRAFTER.Recipe.Inherit"}}</span>
+          </label>
+          {{#unless inherit}}
+          <input type="range" name="failLossChance" min="0" max="100" step="5" value="{{lossChance}}">
+          {{/unless}}
+          <output class="gc-loss-value">{{lossChance}}%</output>
+        </fieldset>
+        <fieldset class="gc-field gc-quantity" {{#if readOnly}}disabled{{/if}}>
+          <legend>{{localize "GRIDCRAFTER.Recipe.Quantity"}}</legend>
+          <input type="range" name="quantity" min="1" max="10" step="1" value="{{draft.quantity}}">
+          <output class="gc-quantity-value">{{draft.quantity}}</output>
+          <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{quantityHelp}}"
+             data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="LEFT"></i>
+        </fieldset>
+      </div>
     </div>
 
     <div class="gc-recipe-board">

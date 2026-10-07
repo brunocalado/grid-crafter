@@ -73,7 +73,9 @@
       border-radius: 4px;
     }
 
-    &:hover {
+    /* Through the row as well, so pointing at the public marker doesn't drop the entry's hover. */
+    &:hover,
+    li:hover > & {
       border-color: var(--gc-metal-hi);
       background: var(--gc-bg-2);
     }
@@ -83,6 +85,31 @@
       background: var(--gc-bg-2);
       box-shadow: 0 0 8px rgba(var(--gc-glow-rgb), 0.4);
     }
+  }
+
+  .gc-recipe-list li {
+    position: relative;
+
+    /* The name stops short of the marker instead of running under it. */
+    &:has(.gc-public-marker) .gc-recipe-entry {
+      padding-right: 26px;
+    }
+  }
+
+  /* A sibling of the entry, not inside it: Foundry turns off pointer events on a button's children,
+     so an icon inside would never show its own tooltip. */
+  .gc-public-marker {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    color: var(--gc-text-dim);
+    font-size: var(--font-size-11);
+    transition: color 150ms;
+  }
+
+  .gc-recipe-list li:hover .gc-public-marker {
+    color: var(--gc-trim-hi);
   }
 
   .gc-recipe-detail {
@@ -102,10 +129,22 @@
     color: var(--gc-trim-hi);
   }
 
+  /* Two rows of the same width, so their right edges line up. The top one gives the name whatever
+     Public and Shape leave; the bottom one keeps two equal columns. */
   .gc-recipe-fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    .gc-fields-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 12px;
+    }
+
+    .gc-fields-top {
+      grid-template-columns: 1fr auto auto;
+    }
 
     .gc-name input {
       flex: 1;

@@ -6,12 +6,14 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { CATEGORY_MAX, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH } from "../constants.js";
+import { CATEGORY_MAX, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, SETTING_PUBLIC_RECIPES, TEMPLATE_PATH } from "../constants.js";
 import {
   filterGroups, getCollapsed, getDropData, getTheme, isTypeAllowed, itemOrigin, recipeSearchText, setCollapsed,
   toItemRef
 } from "../helpers.js";
-import { blankRecipe, getAllRecipes, getWorldRecipes, setWorldRecipes } from "../recipes.js";
+import {
+  blankRecipe, getAllRecipes, getWorldRecipes, isRecipePublic, setRecipePublic, setWorldRecipes
+} from "../recipes.js";
 import { ShareRecipeApp } from "./share-recipe-app.js";
 import { TeachRecipeApp } from "./teach-recipe-app.js";
 
@@ -68,7 +70,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const readOnly = !!draft.source && (draft.source !== "world");
     const isNew = !all.some(r => r.id === draft.id);
     const toEntry = r => ({ id: r.id, name: r.name || r.result?.name || "—", img: r.result?.img,
-      active: r.id === draft.id, search: recipeSearchText(r) });
+      active: r.id === draft.id, search: recipeSearchText(r), public: isRecipePublic(r) });
     const groups = Object.entries(Object.groupBy(all, r => r.source)).map(([source, recipes]) => {
       const group = {
         key: source,
@@ -101,6 +103,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       draft,
       readOnly,
       isNew,
+      // A new recipe has no id the setting could hold until it is saved.
+      isPublic: !isNew && isRecipePublic(draft),
       dirty: this.dirty,
       cells: draft.cells.map((item, index) => ({ index, item })),
       inherit: draft.failLossChance === null,
@@ -109,6 +113,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
         + `${game.i18n.localize("GRIDCRAFTER.Editor.ShapedHint")}</p>`
         + `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Shapeless")}</strong><br>`
         + `${game.i18n.localize("GRIDCRAFTER.Editor.ShapelessHint")}</p>`,
+      publicHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Public")}</strong><br>`
+        + `${game.i18n.localize("GRIDCRAFTER.Editor.PublicHint")}</p>`,
       quantityHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Quantity")}</strong><br>`
         + `${game.i18n.localize("GRIDCRAFTER.Editor.QuantityHint")}</p>`
     };
@@ -127,6 +133,12 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
         if ( ref ) fromUuid(ref.uuid).then(item => item?.sheet?.render({ force: true }));
       });
     }
+    // Typing only updates the draft. Re-rendering on every change would replace the Save button under
+    // the cursor while a click on it is in progress, and the click would be lost. Bound for a package
+    // recipe too: its other fields are disabled, but Public stays live.
+    for ( const input of this.element.querySelectorAll(".gc-recipe-fields [name]") ) {
+      input.addEventListener("input", this.#onFieldInput.bind(this));
+    }
     if ( context.readOnly ) return;
     for ( const el of this.element.querySelectorAll("[data-drop]") ) {
       el.addEventListener("dragover", ev => {
@@ -135,11 +147,6 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       });
       el.addEventListener("dragleave", ev => ev.currentTarget.classList.remove("gc-drop-target"));
       el.addEventListener("drop", this.#onDrop.bind(this));
-    }
-    // Typing only updates the draft. Re-rendering on every change would replace the Save button under
-    // the cursor while a click on it is in progress, and the click would be lost.
-    for ( const input of this.element.querySelectorAll(".gc-recipe-fields [name]") ) {
-      input.addEventListener("input", this.#onFieldInput.bind(this));
     }
   }
 
@@ -196,6 +203,11 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       case "inherit":
         draft.failLossChance = input.checked ? null : game.settings.get(MODULE_ID, SETTING_FAIL_LOSS_CHANCE);
         return this.#markDirty(true);
+      // Table state like Teach, not part of the recipe: written at once, never waits for Save, and
+      // the setting's onChange re-renders.
+      case "public":
+        setRecipePublic(draft.id, input.checked);
+        return;
     }
     this.#markDirty(false);
   }
@@ -310,6 +322,12 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       });
       if ( !ok ) return;
       await setWorldRecipes(recipes.filter(r => r.id !== draft.id));
+      // The GM's public choice goes with the recipe, so it can't linger under a dead id.
+      const choices = { ...game.settings.get(MODULE_ID, SETTING_PUBLIC_RECIPES) };
+      if ( draft.id in choices ) {
+        delete choices[draft.id];
+        await game.settings.set(MODULE_ID, SETTING_PUBLIC_RECIPES, choices);
+      }
     }
     this.draft = null;
     this.dirty = false;
@@ -321,7 +339,10 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
    * @this {RecipeEditorApp}
    */
   static #onCopy() {
-    this.draft = { ...foundry.utils.deepClone(this.draft), id: foundry.utils.randomID(), source: "world" };
+    // A package's public default stays with the package: a world recipe is public only by the GM's
+    // choice, so the copy starts private.
+    const { public: _, ...recipe } = foundry.utils.deepClone(this.draft);
+    this.draft = { ...recipe, id: foundry.utils.randomID(), source: "world" };
     this.dirty = true;
     this.render();
   }

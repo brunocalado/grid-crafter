@@ -10,7 +10,7 @@ import {
   FLAG_KNOWN_RECIPES, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, SETTING_QUANTITY_PATH, TEMPLATE_PATH
 } from "./constants.js";
 import { getCraftingActor, getQuantity, getTheme, itemOrigin, refMatches, toItemRef } from "./helpers.js";
-import { findNearRecipe, findRecipe } from "./recipes.js";
+import { findNearRecipe, findRecipe, getAllRecipes, isRecipePublic } from "./recipes.js";
 
 /**
  * @typedef {object} CraftOutcome
@@ -28,11 +28,25 @@ import { findNearRecipe, findRecipe } from "./recipes.js";
 export class CraftError extends Error {}
 
 /**
+ * What the actor learned: its own flag. Teaching, forgetting and Learn work on this.
  * @param {Actor|null} actor
- * @returns {string[]} ids of the recipes an actor knows
+ * @returns {string[]}
+ */
+export function getLearnedRecipeIds(actor) {
+  return actor?.getFlag(MODULE_ID, FLAG_KNOWN_RECIPES) ?? [];
+}
+
+/**
+ * What the actor's recipe book shows: what it learned, plus every public recipe. Public knowledge is
+ * never written to the actor, so making a recipe private again takes it back from everyone who
+ * didn't learn it.
+ * @param {Actor|null} actor
+ * @returns {string[]}
  */
 export function getKnownRecipeIds(actor) {
-  return actor?.getFlag(MODULE_ID, FLAG_KNOWN_RECIPES) ?? [];
+  const ids = new Set(getLearnedRecipeIds(actor));
+  for ( const r of getAllRecipes() ) if ( isRecipePublic(r) ) ids.add(r.id);
+  return [...ids];
 }
 
 /**
@@ -235,7 +249,7 @@ function consumeOperations(actor, usage) {
  * @returns {Promise<boolean>} false when the actor already knew it
  */
 export async function learnRecipe(actor, recipeId) {
-  const known = getKnownRecipeIds(actor);
+  const known = getLearnedRecipeIds(actor);
   if ( known.includes(recipeId) ) return false;
   await actor.setFlag(MODULE_ID, FLAG_KNOWN_RECIPES, [...known, recipeId]);
   return true;
@@ -270,7 +284,7 @@ export async function reportTaught(recipe, learners) {
  * @returns {Promise<boolean>} false when the actor did not know it
  */
 export async function forgetRecipe(actor, recipeId) {
-  const known = getKnownRecipeIds(actor);
+  const known = getLearnedRecipeIds(actor);
   if ( !known.includes(recipeId) ) return false;
   await actor.setFlag(MODULE_ID, FLAG_KNOWN_RECIPES, known.filter(id => id !== recipeId));
   return true;

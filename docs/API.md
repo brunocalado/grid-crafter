@@ -77,6 +77,7 @@ Either way works. The hook only fires when Grid Crafter is active, so you don't 
 | `shaped` | no | `true` (default): items must keep their positions. `false`: only which items, not where. |
 | `quantity` | no | How many of the result one craft makes, 1 to 10. Default `1`. |
 | `failLossChance` | no | Percent chance (0–100) that a failed attempt destroys the materials. Leave it out to use the GM's world setting. |
+| `public` | no | `true`: every character knows the recipe until the GM makes it private. Default `false`. |
 
 ### Shaped recipes
 
@@ -181,14 +182,34 @@ Removes every recipe your package registered, on this client.
 
 Every recipe on this client: the world's recipes first, then registered ones. Each has `id`,
 `name`, `category` (`""` when none), `shaped`, `cells` (9 entries, each `{ uuid, name, img, type, sources }` or `null`),
-`result`, `quantity`, `failLossChance` (`null` when it follows the world setting) and `source`
-(`"world"` or the package id). The objects are copies; changing them changes nothing.
+`result`, `quantity`, `failLossChance` (`null` when it follows the world setting), `source`
+(`"world"` or the package id) and `public` (whether every character knows it right now, the GM's
+choice included). The objects are copies; changing them changes nothing.
 
 ### `getKnownRecipes(target)` → `string[]`
 
-Ids of the recipes an actor knows: what its recipe book shows. `target` is the actor, one of its
-tokens, or the uuid of either. Defaults to the current user's crafting actor — their assigned
+Ids of the recipes an actor knows: what its recipe book shows. That is the recipes it learned
+(by crafting them, being taught, or Learn) plus every public recipe. `target` is the actor, one of
+its tokens, or the uuid of either. Defaults to the current user's crafting actor — their assigned
 character, or for a GM the first selected token.
+
+### `setRecipePublic(id, value)` → `Promise<boolean>` *(GM only)*
+
+Makes a recipe public, so every character knows it, or private again. Nothing is written to the
+actors: a character who learned the recipe keeps it either way, and one who only knew it because
+it was public loses it from its recipe book when it turns private.
+
+- `id` *(string)*: the recipe's id, as `getRecipes()` lists it. An unknown id is refused with a
+  warning.
+- `value` *(boolean, optional)*: `true` (default) for public, `false` for private.
+
+The GM's choice overrides the `public` default your package registered, and lasts across sessions.
+Resolves `true` once it is saved, `false` when the call was refused.
+
+### `isRecipePublic(id)` → `boolean`
+
+Whether every character knows the recipe right now: the GM's choice, or your package's default
+when the GM never changed it. `false` for an unknown id.
 
 ### `teachRecipe(target, id)` → `Promise<boolean>`
 
@@ -252,6 +273,9 @@ Opens the GM's Recipe Book.
 Your recipes show in the GM's Recipe Book under your package's title, **read-only**: the GM can
 see them and share them with the players, but not change them. **Copy to World** makes an
 editable copy that belongs to the world; your original stays as it is.
+
+The GM can still make any of your recipes public or private, whatever `public` you registered it
+with. That choice is the GM's and survives your module's updates.
 
 Because your recipes are registered fresh each session, updating your module updates them
 everywhere. A world copy the GM made doesn't change with you.
