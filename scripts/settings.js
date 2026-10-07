@@ -7,7 +7,8 @@
  */
 
 import {
-  MODULE_ID, SETTING_ALLOWED_TYPES, SETTING_FAIL_LOSS_CHANCE, SETTING_QUANTITY_PATH, SETTING_RECIPE_EDITS, SETTING_RECIPES,
+  MODULE_ID, SETTING_ALLOWED_TYPES, SETTING_FAIL_LOSS_CHANCE, SETTING_HIDDEN_RECIPES, SETTING_QUANTITY_PATH,
+  SETTING_RECIPE_EDITS, SETTING_RECIPES,
   SETTING_SOUND_CRAFT, SETTING_SOUND_FAILURE, SETTING_SOUND_SHARE, SETTING_SOUND_SUCCESS, SETTING_SOUND_VOLUME,
   SETTING_THEME
 } from "./constants.js";
@@ -97,6 +98,15 @@ export function registerSettings() {
     type: Object,
     default: {},
     onChange: rerenderRecipeViews
+  });
+
+  // Ids the GM moved to the Recipe Book's Hidden group. Only the editor shows it.
+  game.settings.register(MODULE_ID, SETTING_HIDDEN_RECIPES, {
+    scope: "world",
+    config: false,
+    type: Array,
+    default: [],
+    onChange: () => foundry.applications.instances.get(`${MODULE_ID}-recipe-editor`)?.render()
   });
 
   game.settings.register(MODULE_ID, SETTING_ALLOWED_TYPES, {

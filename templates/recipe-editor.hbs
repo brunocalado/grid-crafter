@@ -3,7 +3,8 @@
   <ol>
     {{#each recipes}}
     <li data-search="{{search}}">
-      <button type="button" class="gc-recipe-entry {{#if active}}gc-active{{/if}}" data-action="selectRecipe" data-recipe-id="{{id}}">
+      <button type="button" class="gc-recipe-entry {{#if active}}gc-active{{/if}}" data-action="selectRecipe" data-recipe-id="{{id}}"
+              {{#if origin}}data-tooltip="{{origin}}"{{/if}}>
         {{#if img}}<img src="{{img}}" alt="">{{else}}<span class="gc-noimg"></span>{{/if}}
         <span>{{name}}</span>
       </button>
@@ -20,6 +21,7 @@
   {{#*inline "head"}}
   <summary class="gc-group-head">
     <i class="fa-solid fa-chevron-right gc-chevron"></i>
+    {{#if hiddenGroup}}<i class="fa-solid fa-box-archive gc-hidden-glyph" inert></i>{{/if}}
     <span class="gc-group-label">{{label}}</span>
     <span class="gc-group-picked" hidden></span>
     <span class="gc-group-count">{{count}}</span>
@@ -40,7 +42,7 @@
     </div>
     <div class="gc-recipe-scroll">
       {{#each groups}}
-      <details class="gc-group" data-group="{{key}}" {{#unless collapsed}}open{{/unless}}>
+      <details class="gc-group {{#if hiddenGroup}}gc-hidden-group{{/if}}" data-group="{{key}}" {{#unless collapsed}}open{{/unless}}>
         {{> head}}
         {{#if categories}}
         {{#each categories}}
@@ -146,6 +148,12 @@
       <button type="button" class="gc-button gc-danger" data-action="deleteRecipe"><i class="fa-solid fa-trash" inert></i> {{#if isNew}}{{localize "GRIDCRAFTER.Editor.Discard"}}{{else}}{{localize "GRIDCRAFTER.Editor.Delete"}}{{/if}}</button>
       {{/if}}
       <div class="gc-recipe-tools">
+        <button type="button" class="gc-icon-button {{#if hidden}}gc-active{{/if}}" data-action="hideRecipe"
+                {{#if isNew}}disabled{{/if}} aria-pressed="{{hidden}}"
+                aria-label="{{#if hidden}}{{localize "GRIDCRAFTER.Editor.ShowHint"}}{{else}}{{localize "GRIDCRAFTER.Editor.HideHint"}}{{/if}}"
+                data-tooltip="{{#if hidden}}GRIDCRAFTER.Editor.ShowHint{{else}}GRIDCRAFTER.Editor.HideHint{{/if}}">
+          <i class="fa-solid {{#if hidden}}fa-box-open{{else}}fa-box-archive{{/if}}" inert></i>
+        </button>
         <button type="button" class="gc-icon-button" data-action="duplicateRecipe" {{#if isNew}}disabled{{/if}}
                 aria-label="{{localize "GRIDCRAFTER.Editor.DuplicateHint"}}" data-tooltip="GRIDCRAFTER.Editor.DuplicateHint"><i class="fa-solid fa-clone" inert></i></button>
       </div>

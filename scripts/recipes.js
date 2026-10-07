@@ -6,7 +6,9 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { CATEGORY_MAX, CELL_COUNT, GRID_SIZE, MODULE_ID, SETTING_RECIPE_EDITS, SETTING_RECIPES } from "./constants.js";
+import {
+  CATEGORY_MAX, CELL_COUNT, GRID_SIZE, MODULE_ID, SETTING_HIDDEN_RECIPES, SETTING_RECIPE_EDITS, SETTING_RECIPES
+} from "./constants.js";
 import { refMatches, toItemRef } from "./helpers.js";
 
 /**
@@ -78,17 +80,38 @@ export async function saveRecipe(recipe) {
  */
 export async function deleteRecipe(id) {
   const recipes = game.settings.get(MODULE_ID, SETTING_RECIPES).filter(r => r.id !== id);
+  await setRecipeHidden(id, false);
   return game.settings.set(MODULE_ID, SETTING_RECIPES, recipes);
 }
 
 /**
- * Throw away the GM's edit of a package recipe: the package's own version is back. GM only.
+ * Throw away the GM's edit of a package recipe: the package's own version is back, and the package
+ * ships it visible. GM only.
  * @param {string} id
  */
 export async function restoreRecipe(id) {
   const edits = { ...game.settings.get(MODULE_ID, SETTING_RECIPE_EDITS) };
   delete edits[id];
+  await setRecipeHidden(id, false);
   return game.settings.set(MODULE_ID, SETTING_RECIPE_EDITS, edits);
+}
+
+/** @returns {Set<string>} ids of the recipes the GM moved out of the way in the Recipe Book */
+export function getHiddenIds() {
+  return new Set(game.settings.get(MODULE_ID, SETTING_HIDDEN_RECIPES));
+}
+
+/**
+ * Move a recipe to, or out of, the Recipe Book's Hidden group. Changes nothing in play. GM only.
+ * @param {string} id
+ * @param {boolean} hidden
+ */
+export async function setRecipeHidden(id, hidden) {
+  const ids = getHiddenIds();
+  if ( ids.has(id) === hidden ) return;
+  if ( hidden ) ids.add(id);
+  else ids.delete(id);
+  return game.settings.set(MODULE_ID, SETTING_HIDDEN_RECIPES, [...ids]);
 }
 
 /** @returns {Recipe} an empty recipe ready for the editor */

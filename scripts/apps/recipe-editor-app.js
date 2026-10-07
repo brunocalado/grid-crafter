@@ -12,7 +12,8 @@ import {
   toItemRef
 } from "../helpers.js";
 import {
-  blankRecipe, deleteRecipe, getAllRecipes, getRecipe, getWorldRecipes, restoreRecipe, saveRecipe
+  blankRecipe, deleteRecipe, getAllRecipes, getHiddenIds, getRecipe, getWorldRecipes, restoreRecipe, saveRecipe,
+  setRecipeHidden
 } from "../recipes.js";
 import { ShareRecipeApp } from "./share-recipe-app.js";
 import { ForgetRecipeApp, TeachRecipeApp } from "./teach-recipe-app.js";
@@ -28,6 +29,9 @@ function sourceLabel(source) {
   if ( source === "world" ) return game.i18n.localize("GRIDCRAFTER.Editor.WorldRecipes");
   return game.modules.get(source)?.title ?? ((game.system.id === source) ? game.system.title : source);
 }
+
+/** The list key of the Recipe Book's Hidden group. */
+const HIDDEN_GROUP = "::hidden";
 
 /**
  * The GM's recipe book: build a recipe by dropping items on a grid and a result slot.
@@ -48,6 +52,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       saveRecipe: RecipeEditorApp.#onSave,
       deleteRecipe: RecipeEditorApp.#onDelete,
       restoreRecipe: RecipeEditorApp.#onRestore,
+      hideRecipe: RecipeEditorApp.#onHide,
       duplicateRecipe: RecipeEditorApp.#onDuplicate,
       shareRecipe: RecipeEditorApp.#onShare,
       teachRecipe: RecipeEditorApp.#onTeach,
@@ -81,7 +86,15 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @override */
   async _prepareContext(options) {
     const all = getAllRecipes();
-    if ( !this.draft ) this.draft = all[0] ? foundry.utils.deepClone(all[0]) : blankRecipe();
+    const hiddenIds = getHiddenIds();
+    const [hidden, shown] = all.reduce((parts, r) => {
+      parts[hiddenIds.has(r.id) ? 0 : 1].push(r);
+      return parts;
+    }, [[], []]);
+    if ( !this.draft ) {
+      const first = shown[0] ?? all[0];
+      this.draft = first ? foundry.utils.deepClone(first) : blankRecipe();
+    }
     const draft = this.draft;
     const isNew = !all.some(r => r.id === draft.id);
     const selected = this.#selected;
@@ -91,7 +104,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const toEntry = r => ({ id: r.id, name: r.name || r.result?.name || "—", img: r.result?.img,
       active: selected ? selected.has(r.id) : r.id === draft.id, search: recipeSearchText(r), public: r.public,
       edited: !!r.edited });
-    const groups = Object.entries(Object.groupBy(all, r => r.source)).map(([source, recipes]) => {
+    const groups = Object.entries(Object.groupBy(shown, r => r.source)).map(([source, recipes]) => {
       const group = {
         key: source,
         label: sourceLabel(source),
@@ -115,12 +128,23 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       });
       return group;
     });
+    // One flat group, last, whatever the sources: a hidden row names where it comes from in its tooltip.
+    // Package ids can't contain ":", so the key never clashes with a source.
+    if ( hidden.length ) groups.push({
+      key: HIDDEN_GROUP,
+      label: game.i18n.localize("GRIDCRAFTER.Editor.Hidden"),
+      count: hidden.length,
+      collapsed: this.#collapsed.has(HIDDEN_GROUP),
+      hiddenGroup: true,
+      recipes: hidden.map(r => ({ ...toEntry(r), origin: sourceLabel(r.source) }))
+    });
     return {
       theme: getTheme(),
       groups,
       query: this.#query,
       draft,
       isNew,
+      hidden: hiddenIds.has(draft.id),
       // A blank recipe has no source until it is saved into the world.
       isPackage: !!draft.source && (draft.source !== "world"),
       edited: !!draft.edited,
@@ -350,14 +374,43 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const recipe = getAllRecipes().find(r => r.id === target.dataset.recipeId);
     if ( !recipe ) return;
     // A recipe picked through a search must not vanish into a closed group once the search is cleared.
-    const keys = [recipe.source, `${recipe.source}::${recipe.category}`];
-    if ( keys.some(k => this.#collapsed.has(k)) ) {
-      for ( const k of keys ) this.#collapsed.delete(k);
-      setCollapsed("editor", this.#collapsed);
-    }
+    this.#reveal(getHiddenIds().has(recipe.id) ? [HIDDEN_GROUP] : this.#groupKeys(recipe));
     this.draft = foundry.utils.deepClone(recipe);
     this.dirty = false;
     this.render();
+  }
+
+  /**
+   * The keys of the groups a visible recipe sits in: its source, and its category within it.
+   * @param {Recipe} recipe
+   * @returns {string[]}
+   */
+  #groupKeys(recipe) {
+    return [recipe.source, `${recipe.source}::${recipe.category}`];
+  }
+
+  /**
+   * Reopen the groups a row sits in, so it doesn't land in a closed one.
+   * @param {string[]} keys
+   */
+  #reveal(keys) {
+    if ( !keys.some(k => this.#collapsed.has(k)) ) return;
+    for ( const k of keys ) this.#collapsed.delete(k);
+    setCollapsed("editor", this.#collapsed);
+  }
+
+  /**
+   * Move the recipe to the Hidden group or back to its own. List organisation only, so it neither
+   * waits for Save nor touches unsaved edits; the setting's change renders.
+   * @this {RecipeEditorApp}
+   */
+  static async #onHide() {
+    // Grouped as saved: the draft may hold an unsaved category.
+    const recipe = getRecipe(this.draft.id);
+    if ( !recipe ) return;
+    const hide = !getHiddenIds().has(recipe.id);
+    this.#reveal(hide ? [HIDDEN_GROUP] : this.#groupKeys(recipe));
+    await setRecipeHidden(recipe.id, hide);
   }
 
   /** @this {RecipeEditorApp} */

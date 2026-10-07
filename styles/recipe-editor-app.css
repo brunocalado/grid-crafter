@@ -158,6 +158,34 @@
     color: var(--gc-trim-hi);
   }
 
+  /* Set aside, not gone: quieter than the groups above it, behind the dashed line a shapeless grid
+     uses. */
+  .gc-group.gc-hidden-group {
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--gc-metal-hi);
+
+    > summary {
+      color: var(--gc-text-dim);
+    }
+
+    .gc-hidden-glyph {
+      flex: none;
+      font-size: 0.75em;
+    }
+
+    li {
+      opacity: 0.6;
+      transition: opacity 150ms;
+
+      &:hover,
+      &:has(:focus-visible),
+      &:has(.gc-active) {
+        opacity: 1;
+      }
+    }
+  }
+
   .gc-recipe-detail {
     display: flex;
     flex-direction: column;
