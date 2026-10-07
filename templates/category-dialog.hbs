@@ -1,0 +1,7 @@
+<fieldset class="gc-field">
+  <legend>{{localize "GRIDCRAFTER.Recipe.Category"}}</legend>
+  <input type="text" name="category" value="{{value}}" maxlength="{{max}}" list="gc-category-options" autofocus>
+</fieldset>
+<datalist id="gc-category-options">
+  {{#each options}}<option value="{{this}}"></option>{{/each}}
+</datalist>

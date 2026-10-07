@@ -73,6 +73,7 @@ Either way works. The hook only fires when Grid Crafter is active, so you don't 
 | `cells` | yes | The 3×3 grid: either a flat list of 9 entries (row by row) or 3 rows of 3. Each entry is an item uuid or `null` for an empty cell. At least one cell must hold an item. |
 | `result` | yes | The uuid of the item the recipe makes: a world item or a compendium item. A copy of it goes to the crafter's character sheet. |
 | `name` | no | Name shown in the recipe books. Defaults to the result item's name. |
+| `category` | no | A short group name for the recipe, at most 24 characters; longer text is cut. Default none. |
 | `shaped` | no | `true` (default): items must keep their positions. `false`: only which items, not where. |
 | `quantity` | no | How many of the result one craft makes, 1 to 10. Default `1`. |
 | `failLossChance` | no | Percent chance (0–100) that a failed attempt destroys the materials. Leave it out to use the GM's world setting. |
@@ -179,7 +180,7 @@ Removes every recipe your package registered, on this client.
 ### `getRecipes()` → `object[]`
 
 Every recipe on this client: the world's recipes first, then registered ones. Each has `id`,
-`name`, `shaped`, `cells` (9 entries, each `{ uuid, name, img, type, sources }` or `null`),
+`name`, `category` (`""` when none), `shaped`, `cells` (9 entries, each `{ uuid, name, img, type, sources }` or `null`),
 `result`, `quantity`, `failLossChance` (`null` when it follows the world setting) and `source`
 (`"world"` or the package id). The objects are copies; changing them changes nothing.
 

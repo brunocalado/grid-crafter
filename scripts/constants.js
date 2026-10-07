@@ -27,6 +27,8 @@ export const SETTING_SOUND_SHARE = "soundShare";
 // User flags
 export const FLAG_KNOWN_RECIPES = "knownRecipes";
 
+export const CATEGORY_MAX = 24;
+
 export const GRID_SIZE = 3;
 export const CELL_COUNT = GRID_SIZE * GRID_SIZE;
 

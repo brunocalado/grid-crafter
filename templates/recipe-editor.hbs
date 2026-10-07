@@ -76,6 +76,12 @@
     </div>
 
     <footer class="gc-editor-controls">
+      <button type="button" class="gc-button gc-category {{#unless draft.category}}gc-unset{{/unless}}"
+              data-action="setCategory" {{#if readOnly}}disabled{{/if}}
+              data-tooltip="{{#if draft.category}}{{draft.category}}{{else}}{{localize "GRIDCRAFTER.Editor.CategoryHint"}}{{/if}}">
+        <i class="fa-solid fa-tag" inert></i>
+        <span>{{#if draft.category}}{{draft.category}}{{else}}{{localize "GRIDCRAFTER.Recipe.Category"}}{{/if}}</span>
+      </button>
       {{#if readOnly}}
       <button type="button" class="gc-button" data-action="copyRecipe"><i class="fa-solid fa-copy" inert></i> {{localize "GRIDCRAFTER.Editor.CopyToWorld"}}</button>
       {{else}}

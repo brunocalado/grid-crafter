@@ -22,6 +22,7 @@
     "styles/base.css",
     "styles/forge-app.css",
     "styles/recipe-editor-app.css",
+    "styles/category-dialog.css",
     "styles/item-types-config.css",
     "styles/recipe-reveal-app.css",
     "styles/sound-config.css",

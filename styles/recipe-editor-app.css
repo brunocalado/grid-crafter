@@ -205,6 +205,32 @@
     gap: 8px;
     margin-top: auto;
 
+    .gc-button {
+      flex: none;
+      white-space: nowrap;
+    }
+
+    .gc-category {
+      margin-right: auto;
+      min-width: 0;
+
+      span {
+        max-width: 9ch;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      &.gc-unset span {
+        color: var(--gc-text-dim);
+      }
+
+      /* A package recipe's button still shows its category, so it keeps full opacity. */
+      &:disabled {
+        opacity: 1;
+      }
+    }
+
     .gc-danger:hover {
       border-color: var(--gc-danger);
       box-shadow: 0 0 10px var(--gc-danger);

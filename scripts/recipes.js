@@ -6,13 +6,14 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { CELL_COUNT, GRID_SIZE, MODULE_ID, SETTING_RECIPES } from "./constants.js";
+import { CATEGORY_MAX, CELL_COUNT, GRID_SIZE, MODULE_ID, SETTING_RECIPES } from "./constants.js";
 import { refMatches, toItemRef } from "./helpers.js";
 
 /**
  * @typedef {object} Recipe
  * @property {string} id
  * @property {string} name
+ * @property {string} category            "" when the recipe has none
  * @property {boolean} shaped              false: only which items, not where, matters
  * @property {(import("./helpers.js").ItemRef|null)[]} cells   nine cells, row by row
  * @property {import("./helpers.js").ItemRef} result
@@ -26,7 +27,7 @@ const registered = new Map();
 
 /** @returns {Recipe[]} the recipes the GM made in this world */
 export function getWorldRecipes() {
-  return game.settings.get(MODULE_ID, SETTING_RECIPES).map(r => ({ ...r, source: "world" }));
+  return game.settings.get(MODULE_ID, SETTING_RECIPES).map(r => ({ category: "", ...r, source: "world" }));
 }
 
 /** @returns {Recipe[]} world recipes first, then registered ones */
@@ -56,6 +57,7 @@ export function blankRecipe() {
   return {
     id: foundry.utils.randomID(),
     name: "",
+    category: "",
     shaped: true,
     cells: Array(CELL_COUNT).fill(null),
     result: null,
@@ -113,6 +115,7 @@ export function registerRecipes(packageId, recipes) {
     registered.set(label, {
       id: label,
       name: String(data.name ?? result.name),
+      category: String(data.category ?? "").trim().slice(0, CATEGORY_MAX),
       shaped: data.shaped !== false,
       cells,
       result,

@@ -13,6 +13,7 @@
     },
     "Recipe": {
       "Name": "Recipe name",
+      "Category": "Category",
       "Shape": "Shape",
       "Shaped": "Shaped",
       "Shapeless": "Shapeless",
@@ -25,6 +26,7 @@
       "Open": "Recipes",
       "New": "New Recipe",
       "Empty": "No recipes yet.",
+      "CategoryHint": "Group this recipe under a category",
       "WorldRecipes": "This World",
       "ReadOnly": "Added by a module. Copy it to the world to change it.",
       "DropResult": "Drop the item this recipe makes",

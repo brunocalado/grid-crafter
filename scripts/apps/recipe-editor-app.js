@@ -6,7 +6,7 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { MODULE_ID, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH } from "../constants.js";
+import { CATEGORY_MAX, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH } from "../constants.js";
 import { getDropData, getTheme, isTypeAllowed, itemOrigin, toItemRef } from "../helpers.js";
 import { blankRecipe, getAllRecipes, getWorldRecipes, setWorldRecipes } from "../recipes.js";
 import { shareRecipe } from "../share.js";
@@ -35,6 +35,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       copyRecipe: RecipeEditorApp.#onCopy,
       shareRecipe: RecipeEditorApp.#onShare,
       teachRecipe: RecipeEditorApp.#onTeach,
+      setCategory: RecipeEditorApp.#onSetCategory,
       clearCell: RecipeEditorApp.#onClearCell,
       clearResult: RecipeEditorApp.#onClearResult
     }
@@ -271,6 +272,29 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onTeach() {
     await foundry.applications.instances.get(`${MODULE_ID}-teach`)?.close();
     new TeachRecipeApp(this.draft.id).render({ force: true });
+  }
+
+  /**
+   * Ask for the draft's category. Like every other field it waits for Save.
+   * @this {RecipeEditorApp}
+   */
+  static async #onSetCategory() {
+    const options = [...new Set(getAllRecipes().map(r => r.category).filter(Boolean))];
+    const content = await foundry.applications.handlebars.renderTemplate(`${TEMPLATE_PATH}/category-dialog.hbs`,
+      { value: this.draft.category, max: CATEGORY_MAX, options });
+    const data = await foundry.applications.api.DialogV2.input({
+      window: { title: "GRIDCRAFTER.Recipe.Category" },
+      classes: [MODULE_ID, "gc-app", "gc-category-dialog", `gc-theme-${getTheme()}`],
+      content,
+      ok: { class: "gc-button" }
+    });
+    if ( !data ) return;
+    let value = String(data.category ?? "").trim().slice(0, CATEGORY_MAX);
+    // "armas" typed where "Armas" exists joins the existing category rather than starting a twin.
+    value = options.find(o => o.localeCompare(value, undefined, { sensitivity: "base" }) === 0) ?? value;
+    if ( value === (this.draft.category ?? "") ) return;
+    this.draft.category = value;
+    this.#markDirty(true);
   }
 
   /** @this {RecipeEditorApp} */
