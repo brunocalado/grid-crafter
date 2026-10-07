@@ -1,17 +1,17 @@
 <div class="gc-teach-body">
-  <fieldset class="gc-field gc-teach-list">
+  <fieldset class="gc-field gc-pick-list">
     <legend>{{#if fromTokens}}{{localize "GRIDCRAFTER.Teach.Tokens"}}{{else}}{{localize "GRIDCRAFTER.Teach.Characters"}}{{/if}}</legend>
     {{#if fromTokens}}
     <button type="button" class="gc-icon-button gc-show-characters" data-action="showCharacters"
             data-tooltip="GRIDCRAFTER.Teach.ShowCharacters"><i class="fa-solid fa-users" inert></i></button>
     {{/if}}
-    <div class="gc-teach-rows">
+    <div class="gc-pick-rows">
       {{#each rows}}
-      <label class="gc-teach-row">
+      <label class="gc-pick-row">
         <img src="{{img}}" alt="">
-        <span class="gc-teach-names">
-          <span class="gc-teach-name" data-tooltip-text="{{name}}">{{name}}</span>
-          {{#if players}}<small class="gc-teach-players" data-tooltip-text="{{players}}">{{players}}</small>{{/if}}
+        <span class="gc-pick-names">
+          <span class="gc-pick-name" data-tooltip-text="{{name}}">{{name}}</span>
+          {{#if players}}<small class="gc-pick-sub" data-tooltip-text="{{players}}">{{players}}</small>{{/if}}
         </span>
         <input type="checkbox" class="gc-toggle" data-uuid="{{uuid}}" {{#if checked}}checked{{/if}}>
       </label>

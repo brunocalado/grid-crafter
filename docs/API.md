@@ -215,10 +215,26 @@ for a recipe that no longer exists.
 Resolves `true` when the recipe was removed, `false` when the actor didn't know it. Only someone
 who owns the actor can make it forget.
 
-### `shareRecipe(id)` *(GM only)*
+### `shareRecipe(id, userIds)` → `Promise` *(GM only)*
 
-Shows a recipe's pattern to every connected player, without what it makes or its name, as the
-editor's **Share Recipe** button does.
+Shows a recipe's pattern to players online, without what it makes or its name, as the editor's
+**Share Recipe** button does. The GM who calls it sees the same window.
+
+- `id` *(string)*: the recipe's id, as `getRecipes()` lists it. An unknown id is refused with a
+  warning.
+- `userIds` *(string[], optional)*: the users to show it to. Defaults to every player online. GMs
+  and users who aren't connected are skipped; nothing is delivered to them later.
+
+Only the id is sent, and each player's client looks the recipe up itself, so a recipe your package
+registers must be registered on every client, not only the GM's. The promise settles once every
+player has answered; a player whose client couldn't show the recipe is named in a warning to the GM.
+
+```js
+// Show it to the owners of the selected tokens
+const owners = game.users.filter(u => !u.isGM
+  && canvas.tokens.controlled.some(t => t.actor?.testUserPermission(u, "OWNER")));
+await GridCrafter.shareRecipe("smithing-pack.iron-sword", owners.map(u => u.id));
+```
 
 ### `forge()`
 

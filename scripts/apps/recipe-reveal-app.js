@@ -9,6 +9,7 @@
 import { MODULE_ID, TEMPLATE_PATH } from "../constants.js";
 import { getTheme } from "../helpers.js";
 import { CraftFX, runeGlyphs, wait } from "../effects.js";
+import { getRecipe } from "../recipes.js";
 import { playCue } from "../sound.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -19,13 +20,11 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /**
    * @param {object} options
-   * @param {boolean} options.shaped
-   * @param {({name: string, img: string}|null)[]} options.cells
+   * @param {string} options.recipeId
    */
-  constructor({ shaped, cells, ...options }) {
+  constructor({ recipeId, ...options }) {
     super(options);
-    this.shaped = shaped;
-    this.cells = cells;
+    this.recipeId = recipeId;
   }
 
   static DEFAULT_OPTIONS = {
@@ -47,11 +46,12 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @override */
   async _prepareContext(options) {
     const theme = getTheme();
+    const { shaped, cells } = getRecipe(this.recipeId);
     return {
       isArcane: theme === "arcane",
-      shaped: this.shaped,
-      cells: this.shaped ? this.cells : this.cells.filter(Boolean),
-      names: [...new Set(this.cells.filter(Boolean).map(c => c.name))],
+      shaped,
+      cells: shaped ? cells : cells.filter(Boolean),
+      names: [...new Set(cells.filter(Boolean).map(c => c.name))],
       glyphs: runeGlyphs(24).map((d, i) => ({ d, angle: 15 * i }))
     };
   }

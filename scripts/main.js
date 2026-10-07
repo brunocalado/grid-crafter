@@ -6,19 +6,19 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { MODULE_ID, SOCKET_EVENT } from "./constants.js";
+import { MODULE_ID } from "./constants.js";
 import { registerSettings } from "./settings.js";
 import { api } from "./api.js";
-import { onSocketMessage } from "./share.js";
+import { registerRevealQuery } from "./share.js";
 
 Hooks.once("init", () => {
   registerSettings();
+  registerRevealQuery();
   game.modules.get(MODULE_ID).api = api;
   globalThis.GridCrafter = api;
 });
 
 Hooks.once("ready", () => {
-  game.socket.on(SOCKET_EVENT, onSocketMessage);
   Hooks.callAll(`${MODULE_ID}.ready`, api);
 });
 

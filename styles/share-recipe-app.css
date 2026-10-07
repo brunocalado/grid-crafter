@@ -6,24 +6,12 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-.grid-crafter.gc-teach {
-  .gc-teach-body {
+.grid-crafter.gc-share {
+  .gc-share-body {
     display: flex;
     flex-direction: column;
     gap: 12px;
     padding: 14px;
-  }
-
-  .gc-pick-list {
-    position: relative;
-  }
-
-  /* Sits in the border line opposite the legend, as part of the frame. */
-  .gc-show-characters {
-    position: absolute;
-    top: -23px;
-    right: 10px;
-    font-size: var(--font-size-12);
   }
 
   .gc-empty {

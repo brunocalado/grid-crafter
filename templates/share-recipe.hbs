@@ -1,0 +1,24 @@
+<div class="gc-share-body">
+  <fieldset class="gc-field gc-pick-list">
+    <legend>{{localize "GRIDCRAFTER.Share.Players"}}</legend>
+    <div class="gc-pick-rows">
+      {{#each rows}}
+      <label class="gc-pick-row">
+        <img src="{{img}}" alt="">
+        <span class="gc-pick-names">
+          <span class="gc-pick-name" data-tooltip-text="{{name}}">{{name}}</span>
+          <small class="gc-pick-sub" data-tooltip-text="{{character}}">{{character}}</small>
+        </span>
+        <input type="checkbox" class="gc-toggle" data-user-id="{{id}}" {{#if checked}}checked{{/if}}>
+      </label>
+      {{else}}
+      <p class="gc-empty">{{localize "GRIDCRAFTER.Errors.NoPlayersOnline"}}</p>
+      {{/each}}
+    </div>
+  </fieldset>
+  <footer>
+    <button type="button" class="gc-button gc-send" data-action="share" {{#unless any}}disabled{{/unless}}>
+      <i class="fa-solid fa-eye" inert></i> {{localize "GRIDCRAFTER.Editor.Share"}}
+    </button>
+  </footer>
+</div>

@@ -39,7 +39,7 @@
       "Delete": "Delete",
       "DeleteConfirm": "Delete the recipe {name}?",
       "Share": "Share Recipe",
-      "ShareHint": "Show this pattern to every connected player, without what it makes.",
+      "ShareHint": "Show this pattern to the players you choose, without what it makes.",
       "Teach": "Teach…",
       "TeachHint": "Choose which characters know this recipe.",
       "Save": "Save",
@@ -59,6 +59,10 @@
       "ShowCharacters": "Clear the selection and show the characters",
       "Empty": "No user has a character assigned. Select tokens on the map to teach them.",
       "Apply": "Apply"
+    },
+    "Share": {
+      "Title": "Share: {name}",
+      "Players": "Players online"
     },
     "Reveal": {
       "Title": "A Recipe Is Revealed",
@@ -105,7 +109,10 @@
       "NoIngredients": "Place at least one ingredient on the grid.",
       "GMOnly": "Only a GM can do that.",
       "NotAnActor": "Pass an actor or a token, or the uuid of one.",
-      "UnknownRecipe": "There is no recipe with the id {id}."
+      "UnknownRecipe": "There is no recipe with the id {id}.",
+      "NoPlayersOnline": "No player is online.",
+      "SaveBeforeSharing": "Save the recipe before sharing it.",
+      "ShareMissed": "The recipe could not be shown to {names}."
     },
     "Settings": {
       "RecipeEditor": {

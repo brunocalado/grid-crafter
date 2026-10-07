@@ -8,7 +8,6 @@
 
 export const MODULE_ID = "grid-crafter";
 
-export const SOCKET_EVENT = `module.${MODULE_ID}`;
 export const TEMPLATE_PATH = `modules/${MODULE_ID}/templates`;
 export const SOUND_PATH = `modules/${MODULE_ID}/assets/sounds`;
 

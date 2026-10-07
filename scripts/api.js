@@ -113,12 +113,16 @@ export const api = {
   },
 
   /**
-   * Show a recipe's pattern to everyone connected, without its result. GM only.
+   * Show a recipe's pattern to players online, without its result, and to the calling GM. GM only.
    * @param {string} id
+   * @param {string[]} [userIds]   defaults to every player online
+   * @returns {Promise<false|undefined>} false when the call was refused (with a warning); otherwise settles
+   *   once every chosen player answered, and a player who didn't is named in a warning
    */
-  shareRecipe: id => {
-    if ( !game.user.isGM ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.GMOnly"));
+  shareRecipe: async (id, userIds) => {
+    if ( !game.user.isGM ) return warn("GMOnly");
     const recipe = getRecipe(id);
-    if ( recipe ) shareRecipe(recipe);
+    if ( !recipe ) return warn("UnknownRecipe", { id });
+    return shareRecipe(recipe, userIds ?? game.users.filter(u => u.active && !u.isGM).map(u => u.id));
   }
 };

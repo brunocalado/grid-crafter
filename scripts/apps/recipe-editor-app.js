@@ -12,7 +12,7 @@ import {
   toItemRef
 } from "../helpers.js";
 import { blankRecipe, getAllRecipes, getWorldRecipes, setWorldRecipes } from "../recipes.js";
-import { shareRecipe } from "../share.js";
+import { ShareRecipeApp } from "./share-recipe-app.js";
 import { TeachRecipeApp } from "./teach-recipe-app.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -326,12 +326,18 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.render();
   }
 
-  /** @this {RecipeEditorApp} */
-  static #onShare() {
-    if ( !this.draft.cells.some(Boolean) ) {
-      return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoIngredients"));
+  /**
+   * Only the saved recipe is shared: every client reads it by id, and Learn will teach that one. One
+   * Share window at a time, like Teach.
+   * @this {RecipeEditorApp}
+   */
+  static async #onShare() {
+    if ( this.dirty ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.SaveBeforeSharing"));
+    if ( !game.users.some(u => u.active && !u.isGM) ) {
+      return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoPlayersOnline"));
     }
-    shareRecipe(this.draft);
+    await foundry.applications.instances.get(`${MODULE_ID}-share`)?.close();
+    new ShareRecipeApp(this.draft.id).render({ force: true });
   }
 
   /**

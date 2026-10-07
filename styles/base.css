@@ -267,6 +267,71 @@
     font-family: var(--font-body);
     font-size: var(--font-size-12);
   }
+
+  /* A list to pick from, one toggle per row: who Teach teaches, who Share shows. The two windows must
+     look the same, so the list lives here. */
+  .gc-pick-list {
+    flex-direction: column;
+    align-items: stretch;
+    padding-top: 8px;
+  }
+
+  /* About eight rows, then the list scrolls instead of the window growing off screen. */
+  .gc-pick-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 360px;
+    overflow-y: auto;
+  }
+
+  .gc-pick-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 6px;
+    border-radius: var(--gc-radius);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--gc-bg-1);
+    }
+
+    img {
+      flex: none;
+      width: 36px;
+      height: 36px;
+      object-fit: cover;
+      border: 1px solid var(--gc-metal-hi);
+      border-radius: var(--gc-radius);
+    }
+  }
+
+  .gc-pick-names {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .gc-pick-name,
+  .gc-pick-sub {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .gc-pick-name {
+    color: var(--gc-text);
+    font-family: var(--gc-font-title);
+    font-size: var(--font-size-16);
+  }
+
+  .gc-pick-sub {
+    color: var(--gc-text-dim);
+    font-size: var(--font-size-12);
+  }
 }
 
 /* An on/off switch. The module never shows a plain checkbox: every boolean is one of these. Foundry
