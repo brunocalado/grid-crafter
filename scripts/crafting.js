@@ -242,6 +242,19 @@ export async function learnRecipe(actor, recipeId) {
 }
 
 /**
+ * Make an actor forget a recipe. The caller must own the actor.
+ * @param {Actor} actor
+ * @param {string} recipeId
+ * @returns {Promise<boolean>} false when the actor did not know it
+ */
+export async function forgetRecipe(actor, recipeId) {
+  const known = getKnownRecipeIds(actor);
+  if ( !known.includes(recipeId) ) return false;
+  await actor.setFlag(MODULE_ID, FLAG_KNOWN_RECIPES, known.filter(id => id !== recipeId));
+  return true;
+}
+
+/**
  * Post the craft report to chat, once the craft has settled.
  * @param {object} data
  * @param {"success"|"failure"|"refused"|"incomplete"} data.state

@@ -206,6 +206,14 @@ character, for instance from a macro on a scroll item.
 for ( const token of canvas.tokens.controlled ) await GridCrafter.teachRecipe(token, "iron-sword");
 ```
 
+### `forgetRecipe(target, id)` → `Promise<boolean>`
+
+Removes a recipe from an actor's recipe book. Takes the same `target` as `teachRecipe`, and works
+for a recipe that no longer exists.
+
+Resolves `true` when the recipe was removed, `false` when the actor didn't know it. Only someone
+who owns the actor can make it forget.
+
 ### `shareRecipe(id)` *(GM only)*
 
 Shows a recipe's pattern to every connected player, without what it makes or its name, as the

@@ -8,10 +8,19 @@
 
 import { ForgeApp } from "./apps/forge-app.js";
 import { RecipeEditorApp } from "./apps/recipe-editor-app.js";
-import { getKnownRecipeIds, learnRecipe } from "./crafting.js";
+import { forgetRecipe, getKnownRecipeIds, learnRecipe } from "./crafting.js";
 import { getCraftingActor, toActor } from "./helpers.js";
 import { getAllRecipes, getRecipe, registerRecipes, unregisterRecipes } from "./recipes.js";
 import { shareRecipe } from "./share.js";
+
+/**
+ * Warn the caller and refuse.
+ * @returns {false}
+ */
+function warn(key, data) {
+  ui.notifications.warn(game.i18n.localize(`GRIDCRAFTER.Errors.${key}`, data));
+  return false;
+}
 
 /**
  * Open (or bring forward) a singleton app.
@@ -82,15 +91,25 @@ export const api = {
    *   the call was refused (with a warning)
    */
   teachRecipe: async (target, id) => {
-    const warn = (key, data) => {
-      ui.notifications.warn(game.i18n.localize(`GRIDCRAFTER.Errors.${key}`, data));
-      return false;
-    };
     const actor = toActor(target);
     if ( !actor ) return warn("NotAnActor");
     if ( !actor.isOwner ) return warn("NotOwner", { name: actor.name });
     if ( !getRecipe(id) ) return warn("UnknownRecipe", { id });
     return learnRecipe(actor, id);
+  },
+
+  /**
+   * Remove a recipe from an actor's book. The caller must own the actor.
+   * @param {Actor|TokenDocument|Token|string} target
+   * @param {string} id
+   * @returns {Promise<boolean>} true when the actor forgot it; false when it didn't know it or the
+   *   call was refused (with a warning)
+   */
+  forgetRecipe: async (target, id) => {
+    const actor = toActor(target);
+    if ( !actor ) return warn("NotAnActor");
+    if ( !actor.isOwner ) return warn("NotOwner", { name: actor.name });
+    return forgetRecipe(actor, id);
   },
 
   /**
