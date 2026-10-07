@@ -48,6 +48,7 @@
       "TeachHint": "Teach this recipe to the characters you choose.",
       "Forget": "Forget",
       "ForgetHint": "Remove this recipe from the characters you choose.",
+      "Select": "Select recipes",
       "Save": "Save",
       "Unsaved": "Unsaved Changes",
       "DiscardChanges": "This recipe has unsaved changes. Discard them?",

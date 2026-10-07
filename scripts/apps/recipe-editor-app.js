@@ -41,6 +41,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       shareRecipe: RecipeEditorApp.#onShare,
       teachRecipe: RecipeEditorApp.#onTeach,
       forgetRecipe: RecipeEditorApp.#onForget,
+      toggleSelect: RecipeEditorApp.#onToggleSelect,
       setCategory: RecipeEditorApp.#onSetCategory,
       clearCell: RecipeEditorApp.#onClearCell,
       clearResult: RecipeEditorApp.#onClearResult
@@ -63,6 +64,9 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Keys of the list groups the user closed. */
   #collapsed = getCollapsed("editor");
 
+  /** Recipe ids picked while selection mode is on; null while it is off. */
+  #selected = null;
+
   /** @override */
   async _prepareContext(options) {
     const all = getAllRecipes();
@@ -70,8 +74,12 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const draft = this.draft;
     const readOnly = !!draft.source && (draft.source !== "world");
     const isNew = !all.some(r => r.id === draft.id);
+    const selected = this.#selected;
+    // A recipe another package unregistered meanwhile can't be taught.
+    if ( selected ) for ( const id of selected ) if ( !all.some(r => r.id === id) ) selected.delete(id);
+    // While selecting, a lit row means "selected" and nothing else: the draft's row is lit only if picked.
     const toEntry = r => ({ id: r.id, name: r.name || r.result?.name || "—", img: r.result?.img,
-      active: r.id === draft.id, search: recipeSearchText(r), public: isRecipePublic(r) });
+      active: selected ? selected.has(r.id) : r.id === draft.id, search: recipeSearchText(r), public: isRecipePublic(r) });
     const groups = Object.entries(Object.groupBy(all, r => r.source)).map(([source, recipes]) => {
       const group = {
         key: source,
@@ -107,6 +115,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       // A new recipe has no id the setting could hold until it is saved.
       isPublic: !isNew && isRecipePublic(draft),
       dirty: this.dirty,
+      selecting: !!selected,
+      picked: selected?.size ?? 0,
       cells: draft.cells.map((item, index) => ({ index, item })),
       inherit: draft.failLossChance === null,
       lossChance: draft.failLossChance ?? game.settings.get(MODULE_ID, SETTING_FAIL_LOSS_CHANCE),
@@ -156,7 +166,11 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   #bindRecipeList() {
     const list = this.element.querySelector(".gc-recipe-list");
-    const apply = () => filterGroups(list, { query: this.#query, collapsed: this.#collapsed });
+    const apply = () => {
+      filterGroups(list, { query: this.#query, collapsed: this.#collapsed });
+      // Whether a group is fully picked depends on what the search shows.
+      if ( this.#selected ) this.#paintSelection();
+    };
     const search = list.querySelector("input[name=search]");
     // Typing never re-renders: a re-render under the cursor eats input.
     search.addEventListener("input", () => {
@@ -178,8 +192,46 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
         else this.#collapsed.add(group.dataset.group);
         setCollapsed("editor", this.#collapsed);
       });
+      // While selecting, a head picks its group as far as the search shows it; only the chevron folds.
+      group.querySelector(":scope > summary").addEventListener("click", ev => {
+        if ( !this.#selected || ev.target.closest(".gc-chevron") ) return;
+        ev.preventDefault();
+        const ids = [...group.querySelectorAll("li:not([hidden]) [data-recipe-id]")].map(b => b.dataset.recipeId);
+        const all = ids.every(id => this.#selected.has(id));
+        for ( const id of ids ) {
+          if ( all ) this.#selected.delete(id);
+          else this.#selected.add(id);
+        }
+        this.#paintSelection();
+      });
     }
     apply();
+  }
+
+  /**
+   * Show the selection on the rows, the group heads and the footer. Patched, never rendered: a render
+   * under the cursor eats the click.
+   */
+  #paintSelection() {
+    const selected = this.#selected;
+    const isPicked = li => selected.has(li.querySelector("[data-recipe-id]").dataset.recipeId);
+    for ( const entry of this.element.querySelectorAll(".gc-recipe-entry") ) {
+      entry.classList.toggle("gc-active", selected.has(entry.dataset.recipeId));
+    }
+    for ( const group of this.element.querySelectorAll("details.gc-group") ) {
+      const entries = [...group.querySelectorAll("li[data-search]")];
+      const picked = entries.filter(isPicked).length;
+      const visible = entries.filter(li => !li.hidden);
+      // Its own element: filterGroups rewrites .gc-group-count on every search.
+      const counter = group.querySelector(":scope > summary .gc-group-picked");
+      counter.hidden = !picked;
+      counter.textContent = `${picked}/${entries.length}`;
+      group.classList.toggle("gc-all-picked", visible.length > 0 && visible.every(isPicked));
+    }
+    for ( const count of this.element.querySelectorAll(".gc-picked-count") ) {
+      count.textContent = String(selected.size);
+      count.closest("button").disabled = !selected.size;
+    }
   }
 
   /** @param {Event} event */
@@ -281,6 +333,11 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** @this {RecipeEditorApp} */
   static async #onSelect(event, target) {
+    if ( this.#selected ) {
+      const id = target.dataset.recipeId;
+      if ( !this.#selected.delete(id) ) this.#selected.add(id);
+      return this.#paintSelection();
+    }
     if ( target.dataset.recipeId === this.draft?.id ) return;
     if ( !(await this.#confirmDiscard()) ) return;
     const recipe = getAllRecipes().find(r => r.id === target.dataset.recipeId);
@@ -363,12 +420,20 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /**
-   * One Teach window at a time: opening it for another recipe replaces it, unapplied toggles and all.
+   * The recipes Teach and Forget act on: the selection while selecting, otherwise the draft.
+   * @returns {string[]}
+   */
+  get #targets() {
+    return this.#selected ? [...this.#selected] : [this.draft.id];
+  }
+
+  /**
+   * One Teach window at a time: opening it for other recipes replaces it, unapplied toggles and all.
    * @this {RecipeEditorApp}
    */
   static async #onTeach() {
     await foundry.applications.instances.get(`${MODULE_ID}-teach`)?.close();
-    new TeachRecipeApp([this.draft.id]).render({ force: true });
+    new TeachRecipeApp(this.#targets).render({ force: true });
   }
 
   /**
@@ -377,7 +442,28 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   static async #onForget() {
     await foundry.applications.instances.get(`${MODULE_ID}-forget`)?.close();
-    new ForgetRecipeApp([this.draft.id]).render({ force: true });
+    new ForgetRecipeApp(this.#targets).render({ force: true });
+  }
+
+  /**
+   * Turn selection mode on or off. The draft stays as it is, unsaved edits and all, and is back when
+   * the mode ends.
+   * @this {RecipeEditorApp}
+   */
+  static async #onToggleSelect() {
+    // The panes behind the list fade while selecting. The render replaces them, so they are animated
+    // from the opacity the old ones had to the one the new ones take.
+    const panes = () => this.element.querySelectorAll(".gc-recipe-detail > :not(.gc-editor-controls)");
+    const from = getComputedStyle(panes()[0]).opacity;
+    if ( this.#selected ) this.#selected = null;
+    else {
+      this.#selected = new Set();
+      if ( getAllRecipes().some(r => r.id === this.draft.id) ) this.#selected.add(this.draft.id);
+    }
+    await this.render();
+    for ( const pane of panes() ) {
+      pane.animate({ opacity: [from, getComputedStyle(pane).opacity] }, { duration: 150, easing: "ease-out" });
+    }
   }
 
   /**

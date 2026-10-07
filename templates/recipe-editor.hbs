@@ -14,17 +14,24 @@
   {{/inline}}
   {{#*inline "head"}}
   <summary class="gc-group-head">
-    <i class="fa-solid fa-chevron-right gc-chevron" inert></i>
+    <i class="fa-solid fa-chevron-right gc-chevron"></i>
     <span class="gc-group-label">{{label}}</span>
+    <span class="gc-group-picked" hidden></span>
     <span class="gc-group-count">{{count}}</span>
   </summary>
   {{/inline}}
   <aside class="gc-recipe-list">
-    <button type="button" class="gc-button gc-new" data-action="newRecipe"><i class="fa-solid fa-plus" inert></i> {{localize "GRIDCRAFTER.Editor.New"}}</button>
-    <div class="gc-search">
-      <i class="fa-solid fa-magnifying-glass" inert></i>
-      <input type="text" name="search" value="{{query}}" autocomplete="off"
-             placeholder="{{localize "GRIDCRAFTER.Search.Placeholder"}}" aria-label="{{localize "GRIDCRAFTER.Search.Label"}}">
+    <button type="button" class="gc-button gc-new" data-action="newRecipe" {{#if selecting}}disabled{{/if}}><i class="fa-solid fa-plus" inert></i> {{localize "GRIDCRAFTER.Editor.New"}}</button>
+    <div class="gc-list-tools">
+      <div class="gc-search">
+        <i class="fa-solid fa-magnifying-glass" inert></i>
+        <input type="text" name="search" value="{{query}}" autocomplete="off"
+               placeholder="{{localize "GRIDCRAFTER.Search.Placeholder"}}" aria-label="{{localize "GRIDCRAFTER.Search.Label"}}">
+      </div>
+      <button type="button" class="gc-icon-button gc-select-mode {{#if selecting}}gc-active{{/if}}"
+              data-action="toggleSelect" aria-pressed="{{selecting}}" data-tooltip="GRIDCRAFTER.Editor.Select">
+        <i class="fa-solid fa-list-check" inert></i>
+      </button>
     </div>
     <div class="gc-recipe-scroll">
       {{#each groups}}
@@ -50,10 +57,10 @@
 
   <section class="gc-recipe-detail">
     {{#if readOnly}}
-    <p class="gc-readonly"><i class="fa-solid fa-lock" inert></i> {{localize "GRIDCRAFTER.Editor.ReadOnly"}}</p>
+    <p class="gc-readonly" {{#if selecting}}inert{{/if}}><i class="fa-solid fa-lock" inert></i> {{localize "GRIDCRAFTER.Editor.ReadOnly"}}</p>
     {{/if}}
 
-    <div class="gc-recipe-fields">
+    <div class="gc-recipe-fields" {{#if selecting}}inert{{/if}}>
       <div class="gc-fields-row gc-fields-top">
         <fieldset class="gc-field gc-name" {{#if readOnly}}disabled{{/if}}>
           <legend>{{localize "GRIDCRAFTER.Recipe.Name"}}</legend>
@@ -95,7 +102,7 @@
       </div>
     </div>
 
-    <div class="gc-recipe-board">
+    <div class="gc-recipe-board" {{#if selecting}}inert{{/if}}>
       <div class="gc-grid {{#unless draft.shaped}}gc-shapeless{{/unless}}">
         {{#each cells}}
         <div class="gc-cell" data-drop="cell" data-index="{{index}}" {{#if item}}data-tooltip="{{item.name}}"{{/if}}>
@@ -116,6 +123,14 @@
     </div>
 
     <footer class="gc-editor-controls">
+      {{#if selecting}}
+      <button type="button" class="gc-button" data-action="teachRecipe" {{#unless picked}}disabled{{/unless}}>
+        <i class="fa-solid fa-graduation-cap" inert></i> {{localize "GRIDCRAFTER.Editor.Teach"}} <span class="gc-picked-count">{{picked}}</span>
+      </button>
+      <button type="button" class="gc-button gc-danger" data-action="forgetRecipe" {{#unless picked}}disabled{{/unless}}>
+        <i class="fa-solid fa-eraser" inert></i> {{localize "GRIDCRAFTER.Editor.Forget"}} <span class="gc-picked-count">{{picked}}</span>
+      </button>
+      {{else}}
       <button type="button" class="gc-button gc-category {{#unless draft.category}}gc-unset{{/unless}}"
               data-action="setCategory" {{#if readOnly}}disabled{{/if}}
               data-tooltip="{{#if draft.category}}{{draft.category}}{{else}}{{localize "GRIDCRAFTER.Editor.CategoryHint"}}{{/if}}">
@@ -138,6 +153,7 @@
       {{#unless readOnly}}
       <button type="button" class="gc-button gc-save {{#if dirty}}gc-dirty{{/if}}" data-action="saveRecipe"><i class="fa-solid fa-floppy-disk" inert></i> {{localize "GRIDCRAFTER.Editor.Save"}}</button>
       {{/unless}}
+      {{/if}}
     </footer>
   </section>
 </div>

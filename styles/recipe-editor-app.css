@@ -39,6 +39,36 @@
     }
   }
 
+  /* The search and the selection-mode button, paired like the forge's search and ready filter. */
+  .gc-list-tools {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    .gc-search {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .gc-select-mode {
+      height: 30px;
+    }
+  }
+
+  /* How many of a group's recipes are picked, out of all of them. */
+  .gc-group-picked {
+    flex: none;
+    margin-right: 2px;
+    color: var(--gc-trim-hi);
+    font-family: var(--gc-font-title);
+    font-size: var(--font-size-14);
+  }
+
+  .gc-group.gc-all-picked > summary .gc-group-label {
+    color: var(--gc-trim-hi);
+    text-shadow: 0 0 8px rgba(var(--gc-glow-rgb), 0.5);
+  }
+
   /* The side padding lives inside the scroller, or it would clip the active entry's glow. */
   .gc-recipe-scroll {
     display: flex;
@@ -85,6 +115,12 @@
       background: var(--gc-bg-2);
       box-shadow: 0 0 8px rgba(var(--gc-glow-rgb), 0.4);
     }
+
+    /* A click in selection mode doesn't re-render, so the row keeps focus: Foundry's focus outline
+       would read as a second, off-theme selection. Keyboard focus keeps it. */
+    &:focus:not(:focus-visible) {
+      outline: none;
+    }
   }
 
   .gc-recipe-list li {
@@ -119,6 +155,11 @@
     padding: 14px 18px;
     overflow-y: auto;
     background: radial-gradient(ellipse at 50% 60%, rgba(var(--gc-glow-rgb), 0.08), transparent 70%), var(--gc-bg-0);
+  }
+
+  /* While selecting, the recipe on show is not the subject: the eye goes to the list and the footer. */
+  .gc-recipe-detail > [inert] {
+    opacity: 0.25;
   }
 
   .gc-readonly {
@@ -288,6 +329,10 @@
     .gc-danger:hover:not(:disabled) {
       border-color: var(--gc-danger);
       box-shadow: 0 0 10px var(--gc-danger);
+    }
+
+    .gc-picked-count {
+      color: var(--gc-trim-hi);
     }
 
     .gc-save.gc-dirty {
