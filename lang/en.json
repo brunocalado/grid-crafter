@@ -116,6 +116,7 @@
     },
     "Errors": {
       "NoActor": "You need a character assigned to your user to craft.",
+      "NoActorGM": "Select a token, or assign a character to your user, to craft.",
       "EmptyGrid": "Place some materials on the grid first.",
       "ItemGone": "{name} is no longer available.",
       "NotEnough": "There is not enough {name} for that.",

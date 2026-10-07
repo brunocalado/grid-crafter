@@ -56,7 +56,9 @@ export function getKnownRecipeIds(actor) {
  */
 export async function craft(slots) {
   const actor = getCraftingActor();
-  if ( !actor ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NoActor"));
+  if ( !actor ) {
+    throw new CraftError(game.i18n.localize(game.user.isGM ? "GRIDCRAFTER.Errors.NoActorGM" : "GRIDCRAFTER.Errors.NoActor"));
+  }
   if ( !slots.some(Boolean) ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.EmptyGrid"));
 
   // Re-read every ingredient: the grid holds snapshots, and an item may have been used or deleted since.

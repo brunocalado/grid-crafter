@@ -122,6 +122,8 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       theme,
       isArcane: theme === "arcane",
       actor: actor ? { name: actor.name, img: actor.img } : null,
+      // A GM can also craft for a selected token, so their message says so.
+      noActorKey: game.user.isGM ? "GRIDCRAFTER.Errors.NoActorGM" : "GRIDCRAFTER.Errors.NoActor",
       slots: this.slots.map((s, index) => ({ index, item: s })),
       book: [...byCategory.values()].flat(),
       groups,
