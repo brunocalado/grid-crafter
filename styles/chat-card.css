@@ -73,6 +73,15 @@
     small {
       color: var(--gc-text-dim);
     }
+
+    /* The result the recipe promised but the actor never received. */
+    &.gc-chat-missing {
+      opacity: 0.6;
+
+      img {
+        box-shadow: none;
+      }
+    }
   }
 
   .gc-chat-message {

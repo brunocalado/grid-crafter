@@ -3,6 +3,12 @@
     {{#if success}}
     <i class="fa-solid fa-sparkles" inert></i>
     <h3>{{localize "GRIDCRAFTER.Chat.Success" name=actorName}}</h3>
+    {{else if (eq state "refused")}}
+    <i class="fa-solid fa-box-open" inert></i>
+    <h3>{{localize "GRIDCRAFTER.Chat.Refused" name=actorName}}</h3>
+    {{else if (eq state "incomplete")}}
+    <i class="fa-solid fa-triangle-exclamation" inert></i>
+    <h3>{{localize "GRIDCRAFTER.Chat.Incomplete" name=actorName}}</h3>
     {{else}}
     <i class="fa-solid fa-burst" inert></i>
     <h3>{{localize "GRIDCRAFTER.Chat.Failure" name=actorName}}</h3>
@@ -10,18 +16,23 @@
   </header>
 
   {{#if result}}
-  <div class="gc-chat-result">
+  <div class="gc-chat-result {{#unless success}}gc-chat-missing{{/unless}}">
     <img src="{{result.img}}" alt="">
     <div>
       <strong>{{result.name}}</strong>{{#if result.quantity}} <span>×{{result.quantity}}</span>{{/if}}
       <small>{{recipeName}}</small>
     </div>
   </div>
-  {{else}}
+  {{/if}}
+  {{#if (eq state "refused")}}
+  <p class="gc-chat-message">{{localize "GRIDCRAFTER.Chat.RefusedMessage" name=actorName}}</p>
+  {{else if (eq state "incomplete")}}
+  <p class="gc-chat-message">{{localize "GRIDCRAFTER.Chat.IncompleteMessage" name=actorName}}</p>
+  {{else if (eq state "failure")}}
   <p class="gc-chat-message">{{localize "GRIDCRAFTER.Chat.FailureMessage"}}</p>
   {{/if}}
 
-  <h4>{{#if success}}{{localize "GRIDCRAFTER.Chat.Spent"}}{{else}}{{localize "GRIDCRAFTER.Chat.Attempted"}}{{/if}}</h4>
+  <h4>{{#if spent}}{{localize "GRIDCRAFTER.Chat.Spent"}}{{else}}{{localize "GRIDCRAFTER.Chat.Attempted"}}{{/if}}</h4>
   <ul class="gc-chat-items">
     {{#each groups}}
     <li>
@@ -32,11 +43,11 @@
     {{/each}}
   </ul>
 
-  {{#unless success}}
+  {{#if (eq state "failure")}}
   <p class="gc-chat-loss">
     {{#if lost}}<i class="fa-solid fa-fire" inert></i> {{localize "GRIDCRAFTER.Chat.Lost" chance=chance}}
     {{else if chance}}<i class="fa-solid fa-shield" inert></i> {{localize "GRIDCRAFTER.Chat.Kept" chance=chance}}
     {{else}}{{localize "GRIDCRAFTER.Chat.NoLoss"}}{{/if}}
   </p>
-  {{/unless}}
+  {{/if}}
 </div>

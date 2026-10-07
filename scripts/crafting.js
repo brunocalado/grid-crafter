@@ -18,6 +18,8 @@ import { findNearRecipe, findRecipe } from "./recipes.js";
  * @property {import("./recipes.js").Recipe|null} recipe
  * @property {Item|null} item       the forged item on the actor, on success
  * @property {boolean} lost         on failure: whether the ingredients were destroyed anyway
+ * @property {boolean} refused      the recipe matched but the actor could not take the result; nothing was spent
+ * @property {boolean} incomplete   the materials were spent, the result is missing and they could not be put back
  */
 
 /**
@@ -46,11 +48,22 @@ export async function craft(slots) {
   if ( gone ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.ItemGone", { name: gone.name }));
   const cells = docs.map(d => (d ? toItemRef(d) : null));
 
-  // Only items on an actor this user owns are spent. Directory and compendium items are free by design:
-  // the chat report lists their origin so the table can see it.
+  // Only the crafting actor's own items are spent. Items from the directory or a compendium are free,
+  // so only a GM may use them: the chat report lists their origin so the table can see it.
   const usage = new Map();
   for ( const doc of docs ) {
-    if ( !doc || (itemOrigin(doc) !== "actor") || !doc.isOwner ) continue;
+    if ( !doc ) continue;
+    const origin = itemOrigin(doc);
+    if ( (origin === "actor") && (doc.parent.uuid !== actor.uuid) ) {
+      throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotYourCharacter", { name: doc.name }));
+    }
+    if ( (origin === "actor") && !doc.isOwner ) {
+      throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotOwner", { name: doc.name }));
+    }
+    if ( (origin !== "actor") && !game.user.isGM ) {
+      throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotFromInventory", { name: doc.name }));
+    }
+    if ( origin !== "actor" ) continue;
     const entry = usage.get(doc.uuid) ?? { doc, count: 0 };
     entry.count++;
     usage.set(doc.uuid, entry);
@@ -66,41 +79,91 @@ export async function craft(slots) {
   if ( recipe ) {
     const source = await fromUuid(recipe.result.uuid);
     if ( !source ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.ResultGone", { name: recipe.result.name }));
-    const item = await forge(actor, usage, source, recipe.quantity);
+    const { item, missing } = await forge(actor, usage, source, recipe.quantity);
+    if ( !item ) {
+      const incomplete = missing.length > 0;
+      await report({ actor, state: incomplete ? "incomplete" : "refused", recipe, item: source, quantity: recipe.quantity,
+        used: incomplete ? used.filter(d => missing.includes(d.id)) : used });
+      return { success: false, recipe, item: null, lost: false, refused: !incomplete, incomplete };
+    }
     await learnRecipe(recipe.id);
-    await report({ actor, success: true, recipe, used, item, quantity: recipe.quantity });
-    return { success: true, recipe, item, lost: false };
+    await report({ actor, state: "success", recipe, used, item, quantity: recipe.quantity });
+    return { success: true, recipe, item, lost: false, refused: false, incomplete: false };
   }
 
   const near = findNearRecipe(cells);
   const chance = near?.failLossChance ?? game.settings.get(MODULE_ID, SETTING_FAIL_LOSS_CHANCE);
   const lost = (chance > 0) && usage.size && ((Math.random() * 100) < chance);
-  if ( lost ) await foundry.documents.modifyBatch(consumeOperations(usage));
-  await report({ actor, success: false, used, lost: !!lost, chance });
-  return { success: false, recipe: null, item: null, lost: !!lost };
+  if ( lost ) await foundry.documents.modifyBatch(consumeOperations(actor, usage));
+  await report({ actor, state: "failure", used, lost: !!lost, chance });
+  return { success: false, recipe: null, item: null, lost: !!lost, refused: false, incomplete: false };
 }
 
 /**
- * Spend the ingredients and give the actor the result, in one batch: either both happen or neither does.
+ * Spend the ingredients, then give the actor the result. If the actor does not take all of it, put
+ * the ingredients back.
+ *
+ * Spending comes first so a system that limits inventory (slots, weight) measures the result against
+ * the room the ingredients leave behind. It has to be separate writes: a modifyBatch is not atomic,
+ * and core runs every operation's pre-workflow against the state before the batch, then silently
+ * drops an operation a system emptied in _preCreateOperation while sending the rest.
  * @param {Actor} actor
  * @param {Map<string, {doc: Item, count: number}>} usage
  * @param {Item} source      the recipe's result as it exists in the world or a compendium
  * @param {number} quantity
- * @returns {Promise<Item>}  the item on the actor that received the result
+ * @returns {Promise<{item: Item|null, missing?: string[]}>}  the item that received the result, or null
+ *   when the actor refused it; then the ids of the ingredients that could not be put back
  */
 async function forge(actor, usage, source, quantity) {
+  // Copied before spending: after an update the document's source already holds the new quantity.
+  const before = [...usage.values()].map(({ doc }) => doc.toObject());
+  const operations = consumeOperations(actor, usage);
+  if ( operations.length ) await foundry.documents.modifyBatch(operations);
+
+  let item = null;
+  try {
+    item = await deliver(actor, usage, source, quantity);
+  } catch(err) {
+    console.error(`${MODULE_ID} | Could not give ${source.name} to ${actor.name}.`, err);
+  }
+  if ( item ) return { item };
+
+  try {
+    await restore(actor, before);
+  } catch(err) {
+    console.error(`${MODULE_ID} | Could not put the ingredients back on ${actor.name}.`, err);
+  }
+  // A system may refuse the restoring create too, without an error.
+  const missing = before.filter(data => {
+    const doc = actor.items.get(data._id);
+    return !doc || (getQuantity(doc) !== getQuantity(data));
+  }).map(data => data._id);
+  return { item: null, missing };
+}
+
+/**
+ * Add the result to the actor: onto a stack of it the actor already carries, or as new items.
+ * A system may refuse the write or trim it (fewer copies, a smaller quantity); anything short of the
+ * whole result is undone and counts as a refusal.
+ * @param {Actor} actor
+ * @param {Map<string, {doc: Item, count: number}>} usage
+ * @param {Item} source
+ * @param {number} quantity
+ * @returns {Promise<Item|null>}
+ */
+async function deliver(actor, usage, source, quantity) {
   const path = game.settings.get(MODULE_ID, SETTING_QUANTITY_PATH);
-  const operations = consumeOperations(usage);
   const sourceRef = toItemRef(source);
 
   // Stack onto a copy of the same item the actor already carries, when the system counts quantities.
   const stack = actor.items.find(i => !usage.has(i.uuid) && (getQuantity(i) !== null)
     && sourceRef.sources.some(s => toItemRef(i).sources.includes(s)));
   if ( stack ) {
-    operations.push({ action: "update", documentName: "Item", parent: actor,
-      updates: [{ _id: stack.id, [path]: getQuantity(stack) + quantity }] });
-    await foundry.documents.modifyBatch(operations);
-    return stack;
+    const was = getQuantity(stack);
+    await actor.updateEmbeddedDocuments("Item", [{ _id: stack.id, [path]: was + quantity }]);
+    if ( getQuantity(stack) === was + quantity ) return stack;
+    if ( getQuantity(stack) !== was ) await actor.updateEmbeddedDocuments("Item", [{ _id: stack.id, [path]: was }]);
+    return null;
   }
 
   const data = source.toObject();
@@ -109,37 +172,56 @@ async function forge(actor, usage, source, quantity) {
   // stack onto it and recipes that use it as an ingredient recognise it.
   if ( source.pack ) foundry.utils.setProperty(data, "_stats.compendiumSource", source.uuid);
   else foundry.utils.setProperty(data, "_stats.duplicateSource", source.uuid);
-  let created;
-  if ( getQuantity(source) !== null ) {
+  const counted = getQuantity(source) !== null;
+  let batch;
+  if ( counted ) {
     foundry.utils.setProperty(data, path, quantity);
-    created = [data];
+    batch = [data];
   }
-  else created = Array.from({ length: quantity }, () => foundry.utils.deepClone(data));
-  operations.push({ action: "create", documentName: "Item", parent: actor, data: created });
-  const results = await foundry.documents.modifyBatch(operations);
-  return results.at(-1)[0];
+  else batch = Array.from({ length: quantity }, () => foundry.utils.deepClone(data));
+  // createEmbeddedDocuments returns [] when the system empties the batch, and only what was kept when it
+  // trims it.
+  const created = await actor.createEmbeddedDocuments("Item", batch);
+  if ( (created.length === batch.length) && (!counted || (getQuantity(created[0]) === quantity)) ) return created[0];
+  if ( created.length ) await actor.deleteEmbeddedDocuments("Item", created.map(i => i.id));
+  return null;
 }
 
 /**
- * Batch operations that spend one unit per grid slot of each owned item.
+ * Put spent ingredients back as they were before the craft: deleted ones recreated with their own ids,
+ * so the grid's references stay valid, and decremented ones returned to their old quantity.
+ * @param {Actor} actor
+ * @param {object[]} before   the ingredients' source data, copied before spending
+ */
+async function restore(actor, before) {
+  const path = game.settings.get(MODULE_ID, SETTING_QUANTITY_PATH);
+  const data = before.filter(d => !actor.items.has(d._id));
+  const updates = before.filter(d => actor.items.has(d._id))
+    .map(d => ({ _id: d._id, [path]: getQuantity(d) }));
+  const operations = [];
+  if ( data.length ) operations.push({ action: "create", documentName: "Item", parent: actor, data, keepId: true });
+  if ( updates.length ) operations.push({ action: "update", documentName: "Item", parent: actor, updates });
+  if ( operations.length ) await foundry.documents.modifyBatch(operations);
+}
+
+/**
+ * Batch operations that spend one unit per grid slot of each of the actor's items.
+ * @param {Actor} actor
  * @param {Map<string, {doc: Item, count: number}>} usage
  * @returns {object[]}
  */
-function consumeOperations(usage) {
+function consumeOperations(actor, usage) {
   const path = game.settings.get(MODULE_ID, SETTING_QUANTITY_PATH);
-  const byActor = new Map();
+  const updates = [];
+  const ids = [];
   for ( const { doc, count } of usage.values() ) {
-    const ops = byActor.get(doc.parent) ?? { updates: [], ids: [] };
     const quantity = getQuantity(doc);
-    if ( (quantity !== null) && (quantity > count) ) ops.updates.push({ _id: doc.id, [path]: quantity - count });
-    else ops.ids.push(doc.id);
-    byActor.set(doc.parent, ops);
+    if ( (quantity !== null) && (quantity > count) ) updates.push({ _id: doc.id, [path]: quantity - count });
+    else ids.push(doc.id);
   }
   const operations = [];
-  for ( const [parent, { updates, ids }] of byActor ) {
-    if ( updates.length ) operations.push({ action: "update", documentName: "Item", parent, updates });
-    if ( ids.length ) operations.push({ action: "delete", documentName: "Item", parent, ids });
-  }
+  if ( updates.length ) operations.push({ action: "update", documentName: "Item", parent: actor, updates });
+  if ( ids.length ) operations.push({ action: "delete", documentName: "Item", parent: actor, ids });
   return operations;
 }
 
@@ -154,10 +236,11 @@ async function learnRecipe(recipeId) {
 }
 
 /**
- * Post the craft report to chat.
+ * Post the craft report to chat, once the craft has settled.
  * @param {object} data
+ * @param {"success"|"failure"|"refused"|"incomplete"} data.state
  */
-async function report({ actor, success, recipe, used, item, quantity, lost, chance }) {
+async function report({ actor, state, recipe, used, item, quantity, lost, chance }) {
   // Group repeated items so "Iron Ingot x3" reads as one line.
   const groups = [];
   for ( const doc of used ) {
@@ -170,7 +253,9 @@ async function report({ actor, success, recipe, used, item, quantity, lost, chan
   }
   const content = await foundry.applications.handlebars.renderTemplate(`${TEMPLATE_PATH}/chat-card.hbs`, {
     theme: getTheme(),
-    success,
+    state,
+    success: state === "success",
+    spent: (state === "success") || (state === "incomplete"),
     actorName: actor.name,
     recipeName: recipe?.name,
     groups,

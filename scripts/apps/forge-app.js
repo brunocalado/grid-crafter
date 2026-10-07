@@ -228,9 +228,13 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     const warn = key => ui.notifications.warn(game.i18n.localize(`GRIDCRAFTER.Errors.${key}`, { name: item.name }));
     if ( !isTypeAllowed(item.type) ) return warn("TypeNotAllowed");
-    if ( (itemOrigin(item) === "actor") && !item.isOwner ) return warn("NotOwner");
+    const origin = itemOrigin(item);
+    if ( (origin === "actor") && (item.parent.uuid !== getCraftingActor()?.uuid) ) return warn("NotYourCharacter");
+    if ( (origin === "actor") && !item.isOwner ) return warn("NotOwner");
+    // Directory and compendium items are spent by nobody, so only a GM may put them on the grid.
+    if ( (origin !== "actor") && !game.user.isGM ) return warn("NotFromInventory");
     // A stack fills as many cells as it has units; an item without a quantity fills one.
-    if ( itemOrigin(item) === "actor" ) {
+    if ( origin === "actor" ) {
       const used = this.slots.filter((s, i) => (i !== index) && (s?.uuid === item.uuid)).length;
       if ( used >= (getQuantity(item) ?? 1) ) return warn("NotEnough");
     }
@@ -269,6 +273,9 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.element.classList.add("gc-busy");
     try {
       const strike = this.#playStrike();
+      // A refused craft puts the ingredients back under their own ids, but the deleteItem hook has
+      // emptied their cells by then.
+      const slots = [...this.slots];
       let outcome;
       try {
         outcome = await craft(this.slots);
@@ -285,6 +292,7 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         this.resultUuid = outcome.item.uuid;
       }
       else {
+        if ( outcome.refused ) this.slots = slots;
         await this.#playFailure(outcome.lost);
         if ( outcome.lost ) this.slots = Array(CELL_COUNT).fill(null);
       }

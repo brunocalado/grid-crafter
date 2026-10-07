@@ -117,6 +117,20 @@ Each grid cell spends one unit of the item placed in it. With `quantity`:
   one;
 - otherwise, the character receives that many separate copies.
 
+### Inventory limits
+
+Grid Crafter spends the ingredients first, then gives the character the result. If the actor
+doesn't take all of it, the ingredients are put back, nothing is spent, and the chat reports that
+the result didn't fit. So a system that limits inventory needs no hook for Grid Crafter: refusing
+the write is enough.
+
+- Refuse or trim the **create** in your Item's `_preCreateOperation` (or `_preCreate`), or the
+  **update** of a stack in `_preUpdate`. Fewer copies or a smaller quantity than the recipe makes
+  counts as a refusal too, and whatever was added is removed again.
+- Because the ingredients are already gone when the result arrives, the room they occupied is free:
+  three ingots in a full pack can become a sword.
+- Deleted ingredients come back with their own ids, so your create workflow runs for them again.
+
 ### Failure
 
 A failed craft counts against your recipe when the grid holds **your recipe's items in the wrong
@@ -126,8 +140,9 @@ shape**. Then your `failLossChance` applies. Any other failure uses the GM's wor
 
 ## How items are matched
 
-A player crafts with the items on their own sheet, which are copies, not your compendium
-documents. An item on the grid counts as an ingredient when:
+A player crafts with the items on their own character's sheet, which are copies, not your
+compendium documents. Players can't put items from the Items directory or a compendium on the
+grid; only the GM can. An item on the grid counts as an ingredient when:
 
 1. it **comes from** the ingredient: Foundry records the source of an item copied from a
    compendium (`_stats.compendiumSource`) or duplicated from a world item

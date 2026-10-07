@@ -28,9 +28,9 @@ lost in the attempt.
 
 ## ✨ Key Features
 
-* 🔲 **A real crafting grid.** Drag items from a character sheet, the Items directory or a
-  compendium onto a 3×3 grid, move them between cells, and press **Craft**. Double-click any item
-  to open its sheet.
+* 🔲 **A real crafting grid.** Drag items from your character's sheet onto a 3×3 grid, move them
+  between cells, and press **Craft**. Double-click any item to open its sheet. The GM can also use
+  items straight from the Items directory or a compendium.
 * 🔥 **A spectacle, not a dialog.** The table shakes with three hammer blows, the materials fly
   into the heart of the grid, a flash of light travels into the result slot, and the new item
   bursts out of it. Failures flare red, shudder and smoke.
@@ -43,6 +43,8 @@ lost in the attempt.
   works anywhere on the grid, or mirrored. A shapeless recipe only cares which items are there.
 * 🎒 **Uses the real inventory.** Crafting spends one unit per grid cell from the character's own
   sheet, and the new item lands right on that sheet, stacking with any copies already there.
+  Systems with slots or weight limits are respected: the materials make room for what they become,
+  and if the result still doesn't fit, nothing is spent.
 * 📖 **A recipe book for every player.** The first time a player forges something, its recipe is
   written into their personal recipe book. Next time, one click lays the recipe out on the grid
   from their inventory.
@@ -52,8 +54,9 @@ lost in the attempt.
 * 🎲 **Failure can cost something.** Set a chance for a failed attempt to destroy the materials —
   for the whole world, or per recipe. Leave it at 0 and failure is free.
 * 💬 **Every attempt reported in chat.** Success shows what was spent and what was made; failure
-  shows what was tried. Items that came from the Items directory or a compendium instead of the
-  character's sheet are tagged, so the table can tell a free craft from a paid one.
+  shows what was tried; a result the character had no room for shows that nothing was spent.
+  Items the GM took from the Items directory or a compendium are tagged, so the table can tell a
+  free craft from a paid one.
 
   ![A craft report in chat](docs/chat-report.webp)
 
@@ -106,8 +109,8 @@ All settings are in **Game Settings → Configure Settings → Grid Crafter**:
 1. Make sure your user has a character assigned (**User Configuration → Character**). Crafting
    uses that character's inventory, and the forged item goes to their sheet.
 2. Open the Items directory and click **Forge** (or run `GridCrafter.forge()` in a macro).
-3. Drag items from your character sheet onto the grid and arrange them. Right-click a cell, or
-   use its small ✕, to empty it.
+3. Drag items from your character sheet onto the grid and arrange them. Only your character's
+   items can be used. Right-click a cell, or use its small ✕, to empty it.
 4. Press **Craft**.
 
 Already know the recipe? Click it in your **Recipe Book** on the left, and the grid fills itself
