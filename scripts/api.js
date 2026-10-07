@@ -8,8 +8,8 @@
 
 import { ForgeApp } from "./apps/forge-app.js";
 import { RecipeEditorApp } from "./apps/recipe-editor-app.js";
-import { getKnownRecipeIds } from "./crafting.js";
-import { getCraftingActor } from "./helpers.js";
+import { getKnownRecipeIds, learnRecipe } from "./crafting.js";
+import { getCraftingActor, toActor } from "./helpers.js";
 import { getAllRecipes, getRecipe, registerRecipes, unregisterRecipes } from "./recipes.js";
 import { shareRecipe } from "./share.js";
 
@@ -68,10 +68,30 @@ export const api = {
   getRecipes: () => foundry.utils.deepClone(getAllRecipes()),
 
   /**
-   * @param {Actor} [actor]   defaults to the current user's crafting actor
+   * @param {Actor|TokenDocument|Token|string} [target]   defaults to the current user's crafting actor
    * @returns {string[]} ids of the recipes an actor knows
    */
-  getKnownRecipes: (actor = getCraftingActor()) => getKnownRecipeIds(actor),
+  getKnownRecipes: (target = getCraftingActor()) => getKnownRecipeIds(toActor(target)),
+
+  /**
+   * Add a recipe to an actor's book without forging it. The caller must own the actor; a GM owns
+   * every actor, and a player can teach their own character, from a macro for instance.
+   * @param {Actor|TokenDocument|Token|string} target
+   * @param {string} id
+   * @returns {Promise<boolean>} true when the actor learned it; false when it already knew it or
+   *   the call was refused (with a warning)
+   */
+  teachRecipe: async (target, id) => {
+    const warn = (key, data) => {
+      ui.notifications.warn(game.i18n.localize(`GRIDCRAFTER.Errors.${key}`, data));
+      return false;
+    };
+    const actor = toActor(target);
+    if ( !actor ) return warn("NotAnActor");
+    if ( !actor.isOwner ) return warn("NotOwner", { name: actor.name });
+    if ( !getRecipe(id) ) return warn("UnknownRecipe", { id });
+    return learnRecipe(actor, id);
+  },
 
   /**
    * Show a recipe's pattern to everyone connected, without its result. GM only.

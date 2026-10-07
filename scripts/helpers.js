@@ -86,6 +86,22 @@ export function getCraftingActor() {
 }
 
 /**
+ * The actor behind what an API caller passed. A token gives its own actor: the world actor if it
+ * is linked, its synthetic actor if not, so an unlinked token learns on its own.
+ * @param {Actor|TokenDocument|Token|string} target   a document, a placeable, or the uuid of an
+ *   actor or token
+ * @returns {Actor|null}
+ */
+export function toActor(target) {
+  // Compendium uuids resolve to index entries, not documents, and fall through to null.
+  if ( typeof target === "string" ) target = foundry.utils.fromUuidSync(target, { strict: false });
+  if ( target instanceof foundry.documents.Actor ) return target;
+  if ( (target instanceof foundry.documents.TokenDocument)
+    || (target instanceof foundry.canvas.placeables.Token) ) return target.actor;
+  return null;
+}
+
+/**
  * Where an item lives, as a short tag for the chat report.
  * @param {Item} item
  * @returns {"actor"|"world"|"compendium"}

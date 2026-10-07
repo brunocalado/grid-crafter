@@ -183,10 +183,28 @@ Every recipe on this client: the world's recipes first, then registered ones. Ea
 `result`, `quantity`, `failLossChance` (`null` when it follows the world setting) and `source`
 (`"world"` or the package id). The objects are copies; changing them changes nothing.
 
-### `getKnownRecipes(actor)` → `string[]`
+### `getKnownRecipes(target)` → `string[]`
 
-Ids of the recipes an actor knows: what its recipe book shows. Defaults to the current user's
-crafting actor — their assigned character, or for a GM the first selected token.
+Ids of the recipes an actor knows: what its recipe book shows. `target` is the actor, one of its
+tokens, or the uuid of either. Defaults to the current user's crafting actor — their assigned
+character, or for a GM the first selected token.
+
+### `teachRecipe(target, id)` → `Promise<boolean>`
+
+Adds a recipe to an actor's recipe book, as if it had forged it once.
+
+- `target` *(Actor | TokenDocument | Token | string)*: the actor, one of its tokens, or the uuid
+  of either. An unlinked token learns for itself, not for the actor it was made from.
+- `id` *(string)*: the recipe's id, as `getRecipes()` lists it.
+
+Resolves `true` when the recipe was added, `false` when the actor already knew it. Only someone
+who owns the actor can teach it: the GM can teach anyone, and a player can teach their own
+character, for instance from a macro on a scroll item.
+
+```js
+// Teach every selected token
+for ( const token of canvas.tokens.controlled ) await GridCrafter.teachRecipe(token, "iron-sword");
+```
 
 ### `shareRecipe(id)` *(GM only)*
 
