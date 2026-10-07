@@ -7,15 +7,16 @@
  */
 
 import { MODULE_ID, TEMPLATE_PATH } from "../constants.js";
-import { forgetRecipe, getLearnedRecipeIds, learnRecipe, reportTaught } from "../crafting.js";
+import { forgetRecipes, getLearnedRecipeIds, learnRecipes, reportTaught } from "../crafting.js";
 import { getTheme } from "../helpers.js";
 import { getRecipe } from "../recipes.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 /**
- * Who knows one recipe, for the GM to change. Lists the selected tokens' actors, or with nothing
- * selected the users' assigned characters: the actors that actually forge.
+ * Teach one or more recipes to the actors the GM switches on. Lists the selected tokens' actors, or
+ * with nothing selected the users' assigned characters: the actors that actually forge. It only ever
+ * adds: forgetting is ForgetRecipeApp, so a toggle never means both.
  */
 export class TeachRecipeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
@@ -37,48 +38,83 @@ export class TeachRecipeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     main: { template: `${TEMPLATE_PATH}/teach-recipe.hbs` }
   };
 
-  /** @param {string} recipeId */
-  constructor(recipeId, options = {}) {
+  /** "teach" adds what an actor is missing; "forget" removes what it learned. */
+  static MODE = "teach";
+
+  /** @param {string[]} recipeIds */
+  constructor(recipeIds, options = {}) {
     super(options);
-    this.recipeId = recipeId;
+    this.recipeIds = recipeIds;
   }
 
-  /** Toggles flipped and not applied yet: actor uuid → whether it should know the recipe. */
-  pending = new Map();
+  /** Uuids of the actors switched on and not applied yet. Every toggle starts off. */
+  pending = new Set();
 
   /** The actors on screen, by uuid, as of the last render. Apply writes to these and no others. */
   #listed = new Map();
 
   #hooks = [];
 
+  get #forgetting() {
+    return this.constructor.MODE === "forget";
+  }
+
+  /** @param {string} key   a string under this mode's own section of lang/ */
+  #localize(key, data) {
+    return game.i18n.localize(`GRIDCRAFTER.${this.#forgetting ? "Forget" : "Teach"}.${key}`, data);
+  }
+
   /** @override */
   get title() {
-    return game.i18n.localize("GRIDCRAFTER.Teach.Title", { name: getRecipe(this.recipeId)?.name ?? "" });
+    if ( this.recipeIds.length > 1 ) return this.#localize("TitleMany", { count: this.recipeIds.length });
+    return this.#localize("Title", { name: getRecipe(this.recipeIds[0])?.name ?? "" });
   }
 
   /** @override */
   async _prepareContext(options) {
+    const forgetting = this.#forgetting;
     const tokens = canvas.tokens?.controlled.map(t => t.actor).filter(Boolean) ?? [];
     const fromTokens = tokens.length > 0;
     const actors = fromTokens ? tokens : game.users.map(u => u.character).filter(Boolean);
+    const n = this.recipeIds.length;
+    const rows = [];
+    this.#listed.clear();
     // One row per actor: two linked tokens of Thorin, or two users sharing a character, are one row.
-    this.#listed = new Map(actors.map(a => [a.uuid, a]));
-    // A change to a row that is gone is dropped, so Apply never writes to something the GM can't see.
-    for ( const uuid of this.pending.keys() ) if ( !this.#listed.has(uuid) ) this.pending.delete(uuid);
-    const rows = [...this.#listed.values()].map(actor => ({
-      uuid: actor.uuid,
-      name: actor.name,
-      img: actor.img,
-      // Non-GM owners, so the GM can tell whose character it is. An NPC token usually has none.
-      players: game.users.filter(u => !u.isGM && actor.testUserPermission(u, "OWNER")).map(u => u.name).join(", "),
-      // Real learning only: a public recipe the actor never learned shows off, and teaching it is
-      // what keeps it once the recipe stops being public.
-      checked: this.pending.get(actor.uuid) ?? getLearnedRecipeIds(actor).includes(this.recipeId)
-    })).sort((a, b) => a.name.localeCompare(b.name));
+    for ( const actor of new Map(actors.map(a => [a.uuid, a])).values() ) {
+      // Real learning only: a public recipe the actor never learned counts as missing, and teaching
+      // it is what keeps it once the recipe stops being public.
+      const learned = getLearnedRecipeIds(actor);
+      const k = this.recipeIds.filter(id => learned.includes(id)).length;
+      // Forget lists only who has something to forget. Teach lists everyone, and who already learned
+      // every recipe shows on and locked.
+      if ( forgetting && !k ) continue;
+      const done = !forgetting && (k === n);
+      this.#listed.set(actor.uuid, actor);
+      if ( done ) this.pending.delete(actor.uuid);
+      rows.push({
+        uuid: actor.uuid,
+        name: actor.name,
+        img: actor.img,
+        // Non-GM owners, so the GM can tell whose character it is. An NPC token usually has none.
+        players: game.users.filter(u => !u.isGM && actor.testUserPermission(u, "OWNER")).map(u => u.name).join(", "),
+        checked: done || this.pending.has(actor.uuid),
+        disabled: done,
+        count: ((n > 1) && (k > 0) && (forgetting || (k < n))) ? `${k}/${n}` : ""
+      });
+    }
+    rows.sort((a, b) => a.name.localeCompare(b.name));
+    // A row that is gone takes its toggle with it, so Apply never writes to something the GM can't see.
+    for ( const uuid of this.pending ) if ( !this.#listed.has(uuid) ) this.pending.delete(uuid);
     return {
       theme: getTheme(),
       fromTokens,
       rows,
+      empty: this.#localize("Empty"),
+      apply: {
+        label: this.#localize("Apply"),
+        icon: forgetting ? "fa-eraser" : "fa-graduation-cap",
+        danger: forgetting
+      },
       dirty: this.pending.size > 0
     };
   }
@@ -91,10 +127,8 @@ export class TeachRecipeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // Toggling only records the change. A re-render would replace the toggle under the cursor.
     for ( const input of this.element.querySelectorAll(".gc-toggle[data-uuid]") ) {
       input.addEventListener("change", () => {
-        const { uuid } = input.dataset;
-        const knows = getLearnedRecipeIds(this.#listed.get(uuid)).includes(this.recipeId);
-        if ( input.checked === knows ) this.pending.delete(uuid);
-        else this.pending.set(uuid, input.checked);
+        if ( input.checked ) this.pending.add(input.dataset.uuid);
+        else this.pending.delete(input.dataset.uuid);
         this.element.querySelector(".gc-apply").disabled = this.pending.size === 0;
       });
     }
@@ -107,8 +141,11 @@ export class TeachRecipeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const refresh = foundry.utils.debounce(() => this.render(), 50);
     // The list follows the canvas selection.
     this.#hooks.push(["controlToken", Hooks.on("controlToken", refresh)]);
-    // A player may forge the recipe while the window is open.
-    this.#hooks.push(["updateActor", Hooks.on("updateActor", actor => this.#listed.has(actor.uuid) && refresh())]);
+    // A player may forge a recipe while the window is open. In Forget, an actor that wasn't listed
+    // because it had learned nothing may have just learned one.
+    this.#hooks.push(["updateActor", Hooks.on("updateActor", (actor, changes) => {
+      if ( this.#listed.has(actor.uuid) || foundry.utils.hasProperty(changes, `flags.${MODULE_ID}`) ) refresh();
+    })]);
     // A character was assigned or unassigned.
     this.#hooks.push(["updateUser", Hooks.on("updateUser", refresh)]);
   }
@@ -126,20 +163,45 @@ export class TeachRecipeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /**
-   * Write every change, whisper one message for those who learned, and close.
+   * Write every change and close. Teaching whispers one message for those who learned; forgetting
+   * posts nothing.
    * @this {TeachRecipeApp}
    */
   static async #onApply() {
-    const recipe = getRecipe(this.recipeId);
-    if ( !recipe ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.UnknownRecipe", { id: this.recipeId }));
-    const changes = [...this.pending].map(([uuid, knows]) => ({ actor: this.#listed.get(uuid), knows }));
-    // Separate writes, not one batch: a synthetic actor's flag lives on its token's ActorDelta, a
-    // different document type and parent from a world actor's.
-    const done = await Promise.all(changes.map(({ actor, knows }) =>
-      (knows ? learnRecipe(actor, recipe.id) : forgetRecipe(actor, recipe.id))));
-    const learners = changes.filter((c, i) => c.knows && done[i]).map(c => c.actor);
-    if ( learners.length ) await reportTaught(recipe, learners);
+    const actors = [...this.pending].map(uuid => this.#listed.get(uuid));
+    // One write per actor with every recipe in it, and separate writes per actor, not one batch: a
+    // synthetic actor's flag lives on its token's ActorDelta, a different document type and parent
+    // from a world actor's.
+    if ( this.#forgetting ) {
+      // A recipe deleted since the window opened is still forgotten.
+      await Promise.all(actors.map(actor => forgetRecipes(actor, this.recipeIds)));
+    }
+    else {
+      const recipes = this.recipeIds.map(id => getRecipe(id)).filter(Boolean);
+      if ( !recipes.length ) {
+        return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.UnknownRecipe", { id: this.recipeIds[0] }));
+      }
+      const ids = recipes.map(r => r.id);
+      const added = await Promise.all(actors.map(actor => learnRecipes(actor, ids)));
+      const learners = actors.filter((a, i) => added[i].length);
+      const taught = recipes.filter(r => added.some(list => list.includes(r.id)));
+      if ( learners.length ) await reportTaught(taught, learners);
+    }
     this.pending.clear();
     await this.close();
   }
+}
+
+/**
+ * Make the actors the GM switches on forget one or more recipes. Lists only the actors that learned
+ * at least one of them.
+ */
+export class ForgetRecipeApp extends TeachRecipeApp {
+  static DEFAULT_OPTIONS = {
+    id: `${MODULE_ID}-forget`,
+    classes: ["gc-forget"],
+    window: { title: "GRIDCRAFTER.Forget.Title", icon: "fa-solid fa-eraser" }
+  };
+
+  static MODE = "forget";
 }

@@ -1,10 +1,12 @@
 <div class="grid-crafter gc-chat-card gc-theme-{{theme}} gc-success">
   <header class="gc-chat-header">
     <i class="fa-solid fa-graduation-cap" inert></i>
-    <h3>{{localize "GRIDCRAFTER.Chat.Taught" names=names}}</h3>
+    <h3>{{title}}</h3>
   </header>
+  {{#each recipes}}
   <div class="gc-chat-result">
     {{#if img}}<img src="{{img}}" alt="">{{/if}}
     <div><strong>{{name}}</strong></div>
   </div>
+  {{/each}}
 </div>

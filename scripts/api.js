@@ -8,7 +8,7 @@
 
 import { ForgeApp } from "./apps/forge-app.js";
 import { RecipeEditorApp } from "./apps/recipe-editor-app.js";
-import { forgetRecipe, getKnownRecipeIds, learnRecipe } from "./crafting.js";
+import { forgetRecipes, getKnownRecipeIds, learnRecipes } from "./crafting.js";
 import { getCraftingActor, toActor } from "./helpers.js";
 import {
   getAllRecipes, getRecipe, isRecipePublic, registerRecipes, setRecipePublic, unregisterRecipes
@@ -120,7 +120,7 @@ export const api = {
     if ( !actor ) return warn("NotAnActor");
     if ( !actor.isOwner ) return warn("NotOwner", { name: actor.name });
     if ( !getRecipe(id) ) return warn("UnknownRecipe", { id });
-    return learnRecipe(actor, id);
+    return (await learnRecipes(actor, [id])).length > 0;
   },
 
   /**
@@ -134,7 +134,7 @@ export const api = {
     const actor = toActor(target);
     if ( !actor ) return warn("NotAnActor");
     if ( !actor.isOwner ) return warn("NotOwner", { name: actor.name });
-    return forgetRecipe(actor, id);
+    return (await forgetRecipes(actor, [id])).length > 0;
   },
 
   /**

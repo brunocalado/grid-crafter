@@ -103,7 +103,7 @@ export async function craft(slots) {
         used: incomplete ? used.filter(d => missing.includes(d.id)) : used });
       return { success: false, recipe, item: null, lost: false, refused: !incomplete, incomplete };
     }
-    await learnRecipe(actor, recipe.id);
+    await learnRecipes(actor, [recipe.id]);
     await report({ actor, state: "success", recipe, used, item, quantity: recipe.quantity });
     return { success: true, recipe, item, lost: false, refused: false, incomplete: false };
   }
@@ -243,31 +243,34 @@ function consumeOperations(actor, usage) {
 }
 
 /**
- * Remember that an actor knows a recipe. The caller must own the actor.
+ * Add recipes to what an actor learned, in one write. Writes to one actor must never run in
+ * parallel: each would read the same old array, and the last write would drop the others' recipes.
+ * The caller must own the actor.
  * @param {Actor} actor
- * @param {string} recipeId
- * @returns {Promise<boolean>} false when the actor already knew it
+ * @param {string[]} recipeIds
+ * @returns {Promise<string[]>} the ids it had not learned before
  */
-export async function learnRecipe(actor, recipeId) {
-  const known = getLearnedRecipeIds(actor);
-  if ( known.includes(recipeId) ) return false;
-  await actor.setFlag(MODULE_ID, FLAG_KNOWN_RECIPES, [...known, recipeId]);
-  return true;
+export async function learnRecipes(actor, recipeIds) {
+  const learned = getLearnedRecipeIds(actor);
+  const added = recipeIds.filter(id => !learned.includes(id));
+  if ( added.length ) await actor.setFlag(MODULE_ID, FLAG_KNOWN_RECIPES, [...learned, ...added]);
+  return added;
 }
 
 /**
- * Tell the learners' owners, and the GMs, that a recipe was taught or learned. Nobody else sees it.
+ * Tell the learners' owners, and the GMs, that recipes were taught or learned. Nobody else sees it.
  * The speaker is the user by name: ChatMessage.getSpeaker() with no actor falls back to a GM's
  * controlled token, which is exactly the list being taught.
- * @param {import("./recipes.js").Recipe} recipe
+ * @param {import("./recipes.js").Recipe[]} recipes
  * @param {Actor[]} learners
  */
-export async function reportTaught(recipe, learners) {
+export async function reportTaught(recipes, learners) {
+  const names = game.i18n.getListFormatter().format(learners.map(a => a.name));
   const content = await foundry.applications.handlebars.renderTemplate(`${TEMPLATE_PATH}/teach-card.hbs`, {
     theme: getTheme(),
-    names: game.i18n.getListFormatter().format(learners.map(a => a.name)),
-    name: recipe.name || recipe.result?.name,
-    img: recipe.result?.img
+    title: (recipes.length === 1) ? game.i18n.localize("GRIDCRAFTER.Chat.Taught", { names })
+      : game.i18n.localize("GRIDCRAFTER.Chat.TaughtMany", { names, count: recipes.length }),
+    recipes: recipes.map(r => ({ name: r.name || r.result?.name, img: r.result?.img }))
   });
   await ChatMessage.implementation.create({
     speaker: { alias: game.user.name },
@@ -278,16 +281,17 @@ export async function reportTaught(recipe, learners) {
 }
 
 /**
- * Make an actor forget a recipe. The caller must own the actor.
+ * Remove recipes from what an actor learned, in one write, for the same reason as learnRecipes.
+ * The caller must own the actor.
  * @param {Actor} actor
- * @param {string} recipeId
- * @returns {Promise<boolean>} false when the actor did not know it
+ * @param {string[]} recipeIds
+ * @returns {Promise<string[]>} the ids removed
  */
-export async function forgetRecipe(actor, recipeId) {
-  const known = getLearnedRecipeIds(actor);
-  if ( !known.includes(recipeId) ) return false;
-  await actor.setFlag(MODULE_ID, FLAG_KNOWN_RECIPES, known.filter(id => id !== recipeId));
-  return true;
+export async function forgetRecipes(actor, recipeIds) {
+  const learned = getLearnedRecipeIds(actor);
+  const removed = learned.filter(id => recipeIds.includes(id));
+  if ( removed.length ) await actor.setFlag(MODULE_ID, FLAG_KNOWN_RECIPES, learned.filter(id => !recipeIds.includes(id)));
+  return removed;
 }
 
 /**

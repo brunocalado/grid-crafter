@@ -48,7 +48,7 @@ lost in the attempt.
 * 📖 **A recipe book for every character.** The first time a character forges something, its
   recipe is written into that character's recipe book, or when the GM teaches it. Next time, one
   click lays the recipe out on the grid from their inventory.
-* 👁️ **Share a recipe with the table.** From the GM's Recipe Book, **Share Recipe** shows a
+* 👁️ **Share a recipe with the table.** From the GM's Recipe Book, **Share** shows a
   recipe to the players you choose: its pattern lights up cell by cell, then what it makes appears.
   Each of them can **Learn** it into their own character's recipe book.
 * 🎲 **Failure can cost something.** Set a chance for a failed attempt to destroy the materials —
@@ -86,15 +86,15 @@ lost in the attempt.
 ![The GM's Recipe Book](docs/recipe-book.webp)
 
 To teach a recipe in play — the old smith shows the apprentice how it's done — open it, click
-**Share Recipe** and choose who sees it (the owners of the tokens you have selected start chosen).
+**Share** and choose who sees it (the owners of the tokens you have selected start chosen).
 They watch the pattern light up, cell by cell, and the result appear; **Learn** writes it into
 their character's recipe book, with a whispered message in chat.
 
 ![A shared recipe, as the players see it](docs/share-recipe.webp)
 
-**Teach…** opens the list of characters, or of the tokens you have selected. Switch on who knows
-the recipe, switch off who should forget it, and press **Apply**. Those who learned get a
-whispered message in chat.
+**Teach** opens the list of characters, or of the tokens you have selected. Switch on who should
+learn the recipe and press **Teach**; those who learned get a whispered message in chat.
+**Forget** lists only those who learned it: switch on who should forget it and press **Forget**.
 
 ### For the GM — set it up once
 

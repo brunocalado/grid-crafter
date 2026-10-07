@@ -36,4 +36,10 @@
     display: flex;
     justify-content: center;
   }
+
+  /* Forget's Apply, glowing like the editor's Delete. */
+  .gc-danger:hover:not(:disabled) {
+    border-color: var(--gc-danger);
+    box-shadow: 0 0 10px var(--gc-danger);
+  }
 }

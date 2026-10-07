@@ -13,16 +13,17 @@
           <span class="gc-pick-name" data-tooltip-text="{{name}}">{{name}}</span>
           {{#if players}}<small class="gc-pick-sub" data-tooltip-text="{{players}}">{{players}}</small>{{/if}}
         </span>
-        <input type="checkbox" class="gc-toggle" data-uuid="{{uuid}}" {{#if checked}}checked{{/if}}>
+        {{#if count}}<span class="gc-pick-count">{{count}}</span>{{/if}}
+        <input type="checkbox" class="gc-toggle" data-uuid="{{uuid}}" {{#if checked}}checked{{/if}} {{#if disabled}}disabled{{/if}}>
       </label>
       {{else}}
-      <p class="gc-empty">{{localize "GRIDCRAFTER.Teach.Empty"}}</p>
+      <p class="gc-empty">{{empty}}</p>
       {{/each}}
     </div>
   </fieldset>
   <footer>
-    <button type="button" class="gc-button gc-apply" data-action="apply" {{#unless dirty}}disabled{{/unless}}>
-      <i class="fa-solid fa-check" inert></i> {{localize "GRIDCRAFTER.Teach.Apply"}}
+    <button type="button" class="gc-button gc-apply {{#if apply.danger}}gc-danger{{/if}}" data-action="apply" {{#unless dirty}}disabled{{/unless}}>
+      <i class="fa-solid {{apply.icon}}" inert></i> {{apply.label}}
     </button>
   </footer>
 </div>

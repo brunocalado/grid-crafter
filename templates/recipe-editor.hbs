@@ -127,10 +127,14 @@
       {{else}}
       <button type="button" class="gc-button gc-danger" data-action="deleteRecipe"><i class="fa-solid fa-trash" inert></i> {{#if isNew}}{{localize "GRIDCRAFTER.Editor.Discard"}}{{else}}{{localize "GRIDCRAFTER.Editor.Delete"}}{{/if}}</button>
       {{/if}}
-      <button type="button" class="gc-button gc-share" data-action="shareRecipe" {{#if isNew}}disabled{{/if}}
-              data-tooltip="{{localize "GRIDCRAFTER.Editor.ShareHint"}}"><i class="fa-solid fa-eye" inert></i> {{localize "GRIDCRAFTER.Editor.Share"}}</button>
-      <button type="button" class="gc-button gc-teach" data-action="teachRecipe" {{#if isNew}}disabled{{/if}}
-              data-tooltip="{{localize "GRIDCRAFTER.Editor.TeachHint"}}"><i class="fa-solid fa-graduation-cap" inert></i> {{localize "GRIDCRAFTER.Editor.Teach"}}</button>
+      <div class="gc-knowledge">
+        <button type="button" class="gc-icon-button" data-action="shareRecipe" {{#if isNew}}disabled{{/if}}
+                aria-label="{{localize "GRIDCRAFTER.Editor.Share"}}" data-tooltip="GRIDCRAFTER.Editor.ShareHint"><i class="fa-solid fa-eye" inert></i></button>
+        <button type="button" class="gc-icon-button" data-action="teachRecipe" {{#if isNew}}disabled{{/if}}
+                aria-label="{{localize "GRIDCRAFTER.Editor.Teach"}}" data-tooltip="GRIDCRAFTER.Editor.TeachHint"><i class="fa-solid fa-graduation-cap" inert></i></button>
+        <button type="button" class="gc-icon-button gc-danger" data-action="forgetRecipe" {{#if isNew}}disabled{{/if}}
+                aria-label="{{localize "GRIDCRAFTER.Editor.Forget"}}" data-tooltip="GRIDCRAFTER.Editor.ForgetHint"><i class="fa-solid fa-eraser" inert></i></button>
+      </div>
       {{#unless readOnly}}
       <button type="button" class="gc-button gc-save {{#if dirty}}gc-dirty{{/if}}" data-action="saveRecipe"><i class="fa-solid fa-floppy-disk" inert></i> {{localize "GRIDCRAFTER.Editor.Save"}}</button>
       {{/unless}}

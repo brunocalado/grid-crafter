@@ -239,7 +239,7 @@ who owns the actor can make it forget.
 ### `shareRecipe(id, userIds)` → `Promise` *(GM only)*
 
 Shows a recipe to players online — its name, its pattern and what it makes — as the editor's
-**Share Recipe** button does. A player with a character can **Learn** it from that window, which
+**Share** button does. A player with a character can **Learn** it from that window, which
 adds it to their character's recipe book. The GM who calls it sees the same window, without Learn.
 
 - `id` *(string)*: the recipe's id, as `getRecipes()` lists it. An unknown id is refused with a

@@ -89,7 +89,7 @@ export function registerSettings() {
     // Players' forges list public recipes, so they follow the change at once. Not every module app:
     // a revealed recipe's window must never re-render (it would put its lit cells back to dark).
     onChange: () => {
-      for ( const id of [`${MODULE_ID}-forge`, `${MODULE_ID}-recipe-editor`, `${MODULE_ID}-teach`] ) {
+      for ( const id of [`${MODULE_ID}-forge`, `${MODULE_ID}-recipe-editor`, `${MODULE_ID}-teach`, `${MODULE_ID}-forget`] ) {
         foundry.applications.instances.get(id)?.render();
       }
     }

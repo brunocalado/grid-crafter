@@ -8,7 +8,7 @@
 
 import { MODULE_ID, TEMPLATE_PATH } from "../constants.js";
 import { getCraftingActor, getTheme } from "../helpers.js";
-import { getLearnedRecipeIds, learnRecipe, reportTaught } from "../crafting.js";
+import { getLearnedRecipeIds, learnRecipes, reportTaught } from "../crafting.js";
 import { CraftFX, animate, runeGlyphs, wait } from "../effects.js";
 import { getRecipe } from "../recipes.js";
 import { playCue } from "../sound.js";
@@ -136,7 +136,7 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const recipe = getRecipe(this.recipeId);
     if ( !actor || !recipe ) return;
     button.disabled = true;
-    if ( await learnRecipe(actor, recipe.id) ) await reportTaught(recipe, [actor]);
+    if ( (await learnRecipes(actor, [recipe.id])).length ) await reportTaught([recipe], [actor]);
     if ( !this.rendered ) return;
     await animate(button, [{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(0.9)" }],
       { duration: 200, easing: "ease-in" });

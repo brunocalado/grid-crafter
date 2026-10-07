@@ -256,9 +256,13 @@
     border-radius: var(--gc-radius);
     color: var(--gc-text);
 
-    &:hover {
+    &:hover:not(:disabled) {
       border-color: var(--gc-trim-hi);
       box-shadow: 0 0 8px rgba(var(--gc-glow-rgb), 0.5);
+    }
+
+    &:disabled {
+      opacity: 0.45;
     }
 
     /* Lit while the option it stands for is on. */
@@ -438,6 +442,19 @@
   .gc-pick-sub {
     color: var(--gc-text-dim);
     font-size: var(--font-size-12);
+  }
+
+  /* How many of the chosen recipes the actor learned, "2/3", in the same voice as a slider's value. */
+  .gc-pick-count {
+    flex: none;
+    color: var(--gc-trim-hi);
+    font-family: var(--gc-font-title);
+    font-size: var(--font-size-16);
+  }
+
+  /* An actor that already learned everything: nothing to click. */
+  .gc-pick-row:has(.gc-toggle:disabled) {
+    cursor: default;
   }
 }
 

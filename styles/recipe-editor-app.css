@@ -273,7 +273,19 @@
       }
     }
 
-    .gc-danger:hover {
+    /* Share, Teach and Forget: table actions rather than edits, so three icons, square and as tall as
+       the text buttons. Six text buttons crowd Category in the arcane font. */
+    .gc-knowledge {
+      display: flex;
+      gap: 4px;
+
+      .gc-icon-button {
+        width: 34px;
+        height: auto;
+      }
+    }
+
+    .gc-danger:hover:not(:disabled) {
       border-color: var(--gc-danger);
       box-shadow: 0 0 10px var(--gc-danger);
     }

@@ -15,7 +15,7 @@ import {
   blankRecipe, getAllRecipes, getWorldRecipes, isRecipePublic, setRecipePublic, setWorldRecipes
 } from "../recipes.js";
 import { ShareRecipeApp } from "./share-recipe-app.js";
-import { TeachRecipeApp } from "./teach-recipe-app.js";
+import { ForgetRecipeApp, TeachRecipeApp } from "./teach-recipe-app.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -40,6 +40,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       copyRecipe: RecipeEditorApp.#onCopy,
       shareRecipe: RecipeEditorApp.#onShare,
       teachRecipe: RecipeEditorApp.#onTeach,
+      forgetRecipe: RecipeEditorApp.#onForget,
       setCategory: RecipeEditorApp.#onSetCategory,
       clearCell: RecipeEditorApp.#onClearCell,
       clearResult: RecipeEditorApp.#onClearResult
@@ -367,7 +368,16 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   static async #onTeach() {
     await foundry.applications.instances.get(`${MODULE_ID}-teach`)?.close();
-    new TeachRecipeApp(this.draft.id).render({ force: true });
+    new TeachRecipeApp([this.draft.id]).render({ force: true });
+  }
+
+  /**
+   * One Forget window at a time, like Teach.
+   * @this {RecipeEditorApp}
+   */
+  static async #onForget() {
+    await foundry.applications.instances.get(`${MODULE_ID}-forget`)?.close();
+    new ForgetRecipeApp([this.draft.id]).render({ force: true });
   }
 
   /**
