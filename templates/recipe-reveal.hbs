@@ -1,7 +1,13 @@
 <div class="gc-reveal-body">
   <div class="gc-backdrop" aria-hidden="true">
+    {{#unless isArcane}}<div class="gc-parchment"></div>{{/unless}}
+  </div>
+  <canvas class="gc-fx"></canvas>
+
+  <h2 class="gc-reveal-title">{{name}}</h2>
+  <div class="gc-reveal-board">
     {{#if isArcane}}
-    <svg class="gc-circle" viewBox="-100 -100 200 200">
+    <svg class="gc-circle" viewBox="-100 -100 200 200" aria-hidden="true">
       <circle r="96"/>
       <circle r="88" class="gc-c2"/>
       <polygon class="gc-star" points="0,-88 76.2,44 -76.2,44"/>
@@ -10,30 +16,38 @@
         {{#each glyphs}}<path d="{{d}}" transform="rotate({{angle}}) translate(-5 -95)"/>{{/each}}
       </g>
     </svg>
-    {{else}}
-    <div class="gc-parchment"></div>
     {{/if}}
-  </div>
-  <canvas class="gc-fx"></canvas>
-
-  <p class="gc-reveal-intro">{{localize "GRIDCRAFTER.Reveal.Intro"}}</p>
-  {{#if shaped}}
-  <div class="gc-reveal-grid">
-    {{#each cells}}
-    <div class="gc-cell gc-reveal-cell" style="--gc-i: {{@index}}" {{#if this}}data-tooltip="{{name}}"{{/if}}>
-      {{#if this}}<img src="{{img}}" alt="{{name}}">{{/if}}
+    {{#if shaped}}
+    <div class="gc-reveal-grid">
+      {{#each cells}}
+      <div class="gc-cell gc-reveal-cell" style="--gc-i: {{@index}}" {{#if this}}data-tooltip="{{name}}"{{/if}}>
+        {{#if this}}<img src="{{img}}" alt="{{name}}">{{/if}}
+      </div>
+      {{/each}}
     </div>
-    {{/each}}
+    {{else}}
+    <div class="gc-reveal-ring">
+      {{#each cells}}
+      <div class="gc-cell gc-reveal-cell" data-tooltip="{{name}}"><img src="{{img}}" alt="{{name}}"></div>
+      {{/each}}
+    </div>
+    {{/if}}
+    <div class="gc-arrow" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="gc-result-slot gc-reveal-result" data-tooltip="{{result.name}}{{#if many}} ×{{quantity}}{{/if}}">
+      <img src="{{result.img}}" alt="{{result.name}}">
+    </div>
   </div>
-  {{else}}
-  <div class="gc-reveal-ring">
-    {{#each cells}}
-    <div class="gc-cell gc-reveal-cell" data-tooltip="{{name}}"><img src="{{img}}" alt="{{name}}"></div>
-    {{/each}}
-  </div>
-  <p class="gc-reveal-note">{{localize "GRIDCRAFTER.Reveal.Shapeless"}}</p>
+  {{#unless shaped}}<p class="gc-reveal-note">{{localize "GRIDCRAFTER.Reveal.Shapeless"}}</p>{{/unless}}
+  {{#if controls}}
+  <footer class="gc-reveal-controls">
+    {{#if canLearn}}
+    <button type="button" class="gc-primary gc-learn" data-action="learn">
+      <i class="fa-solid fa-scroll-old" inert></i><span>{{localize "GRIDCRAFTER.Reveal.Learn"}}</span>
+    </button>
+    {{/if}}
+    <p class="gc-reveal-known" {{#unless known}}hidden{{/unless}}>
+      <i class="fa-solid fa-check" inert></i> {{localize "GRIDCRAFTER.Reveal.Known"}}
+    </p>
+  </footer>
   {{/if}}
-  <ul class="gc-reveal-names">
-    {{#each names}}<li>{{this}}</li>{{/each}}
-  </ul>
 </div>

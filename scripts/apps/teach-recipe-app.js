@@ -7,7 +7,7 @@
  */
 
 import { MODULE_ID, TEMPLATE_PATH } from "../constants.js";
-import { forgetRecipe, getKnownRecipeIds, learnRecipe } from "../crafting.js";
+import { forgetRecipe, getKnownRecipeIds, learnRecipe, reportTaught } from "../crafting.js";
 import { getTheme } from "../helpers.js";
 import { getRecipe } from "../recipes.js";
 
@@ -140,26 +140,4 @@ export class TeachRecipeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.pending.clear();
     await this.close();
   }
-}
-
-/**
- * Tell the learners' owners, and the GMs, that a recipe was taught. Nobody else sees it.
- * The speaker is the GM by name: ChatMessage.getSpeaker() with no actor falls back to the GM's
- * controlled token, which is exactly the list being taught.
- * @param {import("../recipes.js").Recipe} recipe
- * @param {Actor[]} learners
- */
-async function reportTaught(recipe, learners) {
-  const content = await foundry.applications.handlebars.renderTemplate(`${TEMPLATE_PATH}/teach-card.hbs`, {
-    theme: getTheme(),
-    names: game.i18n.getListFormatter().format(learners.map(a => a.name)),
-    name: recipe.name || recipe.result?.name,
-    img: recipe.result?.img
-  });
-  await ChatMessage.implementation.create({
-    speaker: { alias: game.user.name },
-    // GMs pass every permission test, so they are always included.
-    whisper: game.users.filter(u => learners.some(a => a.testUserPermission(u, "OWNER"))).map(u => u.id),
-    content
-  });
 }

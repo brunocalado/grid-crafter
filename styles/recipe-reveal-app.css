@@ -13,7 +13,7 @@
     flex-direction: column;
     align-items: center;
     gap: 14px;
-    padding: 18px 18px 22px;
+    padding: 18px 18px 16px;
     overflow: hidden;
     isolation: isolate;
   }
@@ -34,13 +34,22 @@
     pointer-events: none;
   }
 
-  .gc-reveal-intro {
+  .gc-reveal-title {
     margin: 0;
+    border: none;
     font-family: var(--gc-font-title);
     font-size: var(--font-size-20);
     color: var(--gc-trim-hi);
     text-align: center;
     text-shadow: 0 0 10px rgba(var(--gc-glow-rgb), 0.7);
+  }
+
+  /* The forge's composition: grid, arrow and result slot on one centre line. */
+  .gc-reveal-board {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 24px;
   }
 
   .gc-reveal-grid {
@@ -54,12 +63,13 @@
     box-shadow: 0 0 36px rgba(var(--gc-glow-rgb), 0.35);
   }
 
+  /* No more than three across, the grid's own width, so the board keeps its shape. */
   .gc-reveal-ring {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: var(--gc-gap);
-    max-width: 340px;
+    max-width: calc((3 * var(--gc-cell)) + (2 * var(--gc-gap)));
   }
 
   /* Cells start dark and ignite in turn; the delay follows the cell order. */
@@ -88,23 +98,52 @@
     }
   }
 
+  /* Hidden until the reveal reaches them; the sequence fades them in. */
+  .gc-arrow,
+  .gc-reveal-controls {
+    opacity: 0;
+  }
+
+  .gc-reveal-result img {
+    opacity: 0;
+    will-change: transform, opacity;
+  }
+
   .gc-reveal-note {
     margin: 0;
     color: var(--gc-text-dim);
     font-style: italic;
   }
 
-  .gc-reveal-names {
+  /* As tall as the button, so swapping it for the "known" line doesn't resize the window. */
+  .gc-reveal-controls {
+    --gc-primary-height: 40px;
+    --gc-primary-pad: 30px;
+    --gc-primary-font: var(--font-size-20);
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
     justify-content: center;
-    gap: 4px 14px;
+    min-height: var(--gc-primary-height);
+    margin-top: 10px;
+  }
+
+  .gc-reveal-known {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin: 0;
-    padding: 0;
-    list-style: none;
-    color: var(--gc-text);
+    color: var(--gc-trim-hi);
     font-family: var(--gc-font-title);
-    font-size: var(--font-size-16);
+    font-size: var(--font-size-18);
+
+    i {
+      color: var(--gc-glow);
+      text-shadow: 0 0 6px var(--gc-glow);
+    }
+
+    &[hidden] {
+      display: none;
+    }
   }
 
   &.gc-theme-forge {
@@ -130,10 +169,12 @@
         linear-gradient(180deg, #0a0f2a, #120c33);
     }
 
+    /* Centred on the board, behind it. */
     .gc-circle {
       position: absolute;
       top: 50%;
       left: 50%;
+      z-index: -1;
       width: 380px;
       height: 380px;
       fill: none;

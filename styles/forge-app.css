@@ -272,108 +272,13 @@
     }
   }
 
-  /* Light flowing toward the result. */
-  .gc-arrow {
-    display: flex;
-    gap: 2px;
+  /* A forged item waiting to be dragged out: brighter, and the ring turns faster. */
+  .gc-result-slot.gc-filled {
+    cursor: grab;
+    box-shadow: inset 0 4px 14px #000, 0 0 36px rgba(var(--gc-glow-rgb), 0.6);
 
-    span {
-      width: 16px;
-      height: 26px;
-      background: var(--gc-glow);
-      clip-path: polygon(0 0, 55% 50%, 0 100%, 40% 100%, 100% 50%, 40% 0);
-      opacity: 0.25;
-      filter: drop-shadow(0 0 6px var(--gc-glow));
-      animation: gc-chevron 1.6s infinite;
-
-      &:nth-child(2) { animation-delay: 0.2s; }
-      &:nth-child(3) { animation-delay: 0.4s; }
-    }
-  }
-
-  .gc-result-slot {
-    position: relative;
-    display: grid;
-    place-items: center;
-    width: 136px;
-    height: 136px;
-    border-radius: 50%;
-    background: radial-gradient(circle, var(--gc-bg-2), var(--gc-bg-0) 70%);
-    box-shadow: inset 0 4px 14px #000, 0 0 24px rgba(var(--gc-glow-rgb), 0.25);
-
-    /* A slowly turning ring of light around the slot. */
     &::before {
-      content: "";
-      position: absolute;
-      inset: -5px;
-      border-radius: 50%;
-      background: conic-gradient(from 0deg, var(--gc-trim), transparent 25%, var(--gc-glow) 50%, transparent 75%, var(--gc-trim));
-      mask: radial-gradient(circle closest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
-      animation: gc-spin 6s linear infinite;
-      will-change: transform;
-    }
-
-    img {
-      width: 86px;
-      height: 86px;
-      border: none;
-      border-radius: 12px;
-      object-fit: contain;
-      filter: drop-shadow(0 0 10px rgba(var(--gc-glow-rgb), 0.8));
-    }
-
-    &.gc-filled {
-      cursor: grab;
-      box-shadow: inset 0 4px 14px #000, 0 0 36px rgba(var(--gc-glow-rgb), 0.6);
-
-      &::before {
-        animation-duration: 2.5s;
-      }
-    }
-  }
-
-  .gc-craft {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    width: auto;
-    height: 50px;
-    padding: 0 44px;
-    overflow: hidden;
-    border: 2px solid var(--gc-trim-hi);
-    border-radius: 8px;
-    font-family: var(--gc-font-title);
-    font-size: var(--font-size-24);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #fff;
-    text-shadow: 0 1px 3px #000;
-    box-shadow: 0 0 18px rgba(var(--gc-glow-rgb), 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-    transition: transform 120ms, box-shadow 200ms, filter 200ms;
-
-    /* A sheen sweeping across the button. */
-    &::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
-      transform: translateX(-120%);
-      animation: gc-sheen 3.2s ease-in-out infinite;
-    }
-
-    &:hover:not(:disabled) {
-      transform: translateY(-1px) scale(1.03);
-      filter: brightness(1.15);
-      box-shadow: 0 0 30px rgba(var(--gc-glow-rgb), 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-    }
-
-    &:active:not(:disabled) {
-      transform: translateY(1px) scale(0.98);
-    }
-
-    &:disabled {
-      filter: grayscale(0.8) brightness(0.6);
+      animation-duration: 2.5s;
     }
   }
 
@@ -423,10 +328,6 @@
         radial-gradient(circle at 100% 0, #d9b27a 0 2px, #6b4f2c 3px, transparent 4px) 0 0 / 100% 100% no-repeat,
         radial-gradient(circle at 0 100%, #d9b27a 0 2px, #6b4f2c 3px, transparent 4px) 0 0 / 100% 100% no-repeat,
         radial-gradient(circle at 100% 100%, #d9b27a 0 2px, #6b4f2c 3px, transparent 4px) 0 0 / 100% 100% no-repeat;
-    }
-
-    .gc-craft {
-      background: linear-gradient(180deg, #ffb347 0%, #ff6a00 45%, #b32b00 100%);
     }
 
     &.gc-charging .gc-hearth {
@@ -483,10 +384,6 @@
     .gc-cell {
       background: radial-gradient(circle at 50% 40%, rgba(95, 224, 255, 0.1), rgba(7, 10, 28, 0.85) 75%);
       border-color: rgba(111, 183, 255, 0.45);
-    }
-
-    .gc-craft {
-      background: linear-gradient(180deg, #8fe9ff 0%, #4f7bff 50%, #6b2fd6 100%);
     }
 
     &.gc-charging .gc-grid::after {
@@ -576,23 +473,9 @@
   50% { opacity: 0.6; }
 }
 
-@keyframes gc-chevron {
-  0%, 100% { opacity: 0.2; }
-  40% { opacity: 1; }
-}
-
-@keyframes gc-spin {
-  to { transform: rotate(360deg); }
-}
-
 @keyframes gc-spin-centered {
   from { transform: translate(-50%, -50%) rotate(0deg); }
   to { transform: translate(-50%, -50%) rotate(360deg); }
-}
-
-@keyframes gc-sheen {
-  0%, 60% { transform: translateX(-120%); }
-  100% { transform: translateX(120%); }
 }
 
 @keyframes gc-flicker {

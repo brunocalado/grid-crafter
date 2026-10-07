@@ -39,7 +39,7 @@
       "Delete": "Delete",
       "DeleteConfirm": "Delete the recipe {name}?",
       "Share": "Share Recipe",
-      "ShareHint": "Show this pattern to the players you choose, without what it makes.",
+      "ShareHint": "Show this recipe to the players you choose. They can learn it from there.",
       "Teach": "Teach…",
       "TeachHint": "Choose which characters know this recipe.",
       "Save": "Save",
@@ -66,8 +66,9 @@
     },
     "Reveal": {
       "Title": "A Recipe Is Revealed",
-      "Intro": "Study the pattern well…",
-      "Shapeless": "The order does not matter."
+      "Shapeless": "The order does not matter.",
+      "Learn": "Learn",
+      "Known": "In your recipe book"
     },
     "Origin": {
       "actor": "inventory",
