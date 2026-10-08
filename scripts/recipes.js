@@ -265,7 +265,7 @@ export function isDiscoverable(recipe) {
  * @param {string} uuid
  * @returns {import("./helpers.js").ItemRef|null}
  */
-function refFromUuid(uuid) {
+export function refFromUuid(uuid) {
   if ( typeof uuid !== "string" ) return null;
   const entry = foundry.utils.fromUuidSync(uuid, { strict: false });
   if ( !entry ) return null;

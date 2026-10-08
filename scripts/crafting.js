@@ -232,18 +232,6 @@ export async function dismantle(ref) {
   if ( !plan ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotEnough", { name: doc.name }));
   const { usage, cells, receipt } = plan;
 
-  // One output per distinct part: two cells of Iron are one output of two units.
-  const parts = [];
-  for ( const cell of cells ) {
-    if ( !cell ) continue;
-    const same = parts.find(p => p.ref.uuid === cell.uuid);
-    if ( same ) same.quantity++;
-    else parts.push({ ref: cell, quantity: 1 });
-  }
-  const sources = await Promise.all(parts.map(p => fromUuid(p.ref.uuid)));
-  const gone = parts.find((p, i) => !sources[i]);
-  if ( gone ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.ResultGone", { name: gone.ref.name }));
-
   // Refs now: the spend below may delete the documents they describe.
   const spent = [...usage.values()].map(({ doc, count }) => ({ id: doc.id, name: doc.name, img: doc.img, count }));
   const card = { item, spent };
@@ -251,11 +239,33 @@ export async function dismantle(ref) {
   // missing gives the recipe away on purpose.
   const given = { parts: cells, receipt };
   if ( !hasRequiredItem(recipe, actor) ) return settleDismantle(actor, { state: "missing", recipe, items: null, ...given }, card);
+  // What comes back, one entry per distinct part: two cells of Iron are one entry of two units. A
+  // listener may change it, never what is spent.
+  const distinct = [];
+  for ( const cell of cells ) {
+    if ( !cell ) continue;
+    const same = distinct.find(p => p.uuid === cell.uuid);
+    if ( same ) same.quantity++;
+    else distinct.push({ uuid: cell.uuid, name: cell.name, img: cell.img, quantity: 1 });
+  }
+  const salvage = { receipt: receipt ? foundry.utils.deepClone(receipt) : null, parts: foundry.utils.deepClone(distinct) };
   const veto = { reason: "" };
-  if ( Hooks.call(`${MODULE_ID}.preDismantle`, actor, foundry.utils.deepClone(recipe), doc, veto) === false ) {
+  if ( Hooks.call(`${MODULE_ID}.preDismantle`, actor, foundry.utils.deepClone(recipe), doc, veto, salvage) === false ) {
     const reason = (typeof veto.reason === "string") && veto.reason.trim();
     throw new CraftError(reason || game.i18n.localize("GRIDCRAFTER.Errors.Vetoed"));
   }
+
+  // A listener's list is checked like any input: entries it broke are dropped, and a part that doesn't
+  // exist refuses the dismantle before anything is written. An empty list spends the item for nothing;
+  // a list replaced by something that isn't one leaves the parts as they were.
+  const parts = (Array.isArray(salvage.parts) ? salvage.parts : distinct)
+    .filter(p => (typeof p?.uuid === "string") && Number.isInteger(p.quantity) && (p.quantity > 0));
+  const sources = await Promise.all(parts.map(p => fromUuid(p.uuid).catch(() => null)));
+  const gone = parts.find((p, i) => !(sources[i] instanceof foundry.documents.Item));
+  if ( gone ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.ResultGone", { name: gone.name ?? gone.uuid }));
+  // One cell per unit, for the grid and the flight; past nine, units are still delivered.
+  given.parts = parts.flatMap((p, i) => Array(p.quantity).fill(toItemRef(sources[i])))
+    .concat(Array(CELL_COUNT).fill(null)).slice(0, CELL_COUNT);
 
   const { items, missing } = await forge(actor, usage, parts.map((p, i) => ({ source: sources[i], quantity: p.quantity })),
     plan.receipts);

@@ -8,10 +8,12 @@
 
 import { ForgeApp } from "./apps/forge-app.js";
 import { RecipeEditorApp } from "./apps/recipe-editor-app.js";
+import { CELL_COUNT, FLAG_RECEIPTS, MODULE_ID } from "./constants.js";
 import { forgetRecipes, getKnownRecipeIds, learnRecipes } from "./crafting.js";
 import { getCraftingActor, toActor } from "./helpers.js";
+import { getReceipts, trimReceipts, unitsOf } from "./receipts.js";
 import {
-  getAllRecipes, getCategories, getRecipe, normalizeCategories, registerRecipes, saveRecipe, unregisterRecipes
+  getAllRecipes, getCategories, getRecipe, normalizeCategories, refFromUuid, registerRecipes, saveRecipe, unregisterRecipes
 } from "./recipes.js";
 import { shareRecipe } from "./share.js";
 
@@ -22,6 +24,18 @@ import { shareRecipe } from "./share.js";
 function warn(key, data) {
   ui.notifications.warn(game.i18n.localize(`GRIDCRAFTER.Errors.${key}`, data));
   return false;
+}
+
+/**
+ * The item behind what an API caller passed. Embedded items resolve synchronously from their uuid.
+ * @param {Item|string} item   a document or its uuid
+ * @param {string} method      the API member, for the error
+ * @returns {Item}
+ */
+function toItem(item, method) {
+  if ( typeof item === "string" ) item = foundry.utils.fromUuidSync(item, { strict: false });
+  if ( item instanceof foundry.documents.Item ) return item;
+  throw new Error(`${MODULE_ID} | ${method} needs an Item or an item uuid.`);
 }
 
 /**
@@ -172,5 +186,49 @@ export const api = {
       return warn("UserIdsNotList");
     }
     return shareRecipe(recipe, userIds ?? game.users.filter(u => u.active && !u.isGM).map(u => u.id));
+  },
+
+  /**
+   * What was spent on an item made at the table, so a package or macro that knows which units were
+   * used, sold or traded can say so. A receipt covers `count` units of the stack, and one dismantle of
+   * it breaks `per` units into its `parts`, one ref per unit spent.
+   * @param {Item|string} item   an Item or an item's uuid
+   * @returns {object[]} copies of the item's receipts, oldest first, trimmed to what it holds
+   */
+  getReceipts: item => getReceipts(toItem(item, "getReceipts")).map(r => foundry.utils.deepClone(r)),
+
+  /**
+   * Replace an item's receipts, written trimmed to the units it holds. Ownership is Foundry's to enforce.
+   * @param {Item|string} item   an Item or an item's uuid
+   * @param {{parts: string[], per: number, count: number}[]} receipts   oldest first; `parts` 1 to 9 item
+   *   uuids, one per unit; `per` a whole number from 1 to 10; `count` a whole number, 0 or more
+   * @returns {Promise<void>}
+   * @throws {Error} naming the first bad entry; nothing is written then
+   */
+  setReceipts: async (item, receipts) => {
+    const doc = toItem(item, "setReceipts");
+    if ( !Array.isArray(receipts) ) throw new Error(`${MODULE_ID} | setReceipts needs a list of receipts.`);
+    const list = receipts.map((r, i) => {
+      const bad = reason => new Error(`${MODULE_ID} | setReceipts, receipts[${i}]: ${reason}.`);
+      if ( !Array.isArray(r?.parts) || !r.parts.length || (r.parts.length > CELL_COUNT) ) {
+        throw bad(`parts needs 1 to ${CELL_COUNT} item uuids`);
+      }
+      const parts = r.parts.map(refFromUuid);
+      const missing = r.parts.findIndex((uuid, j) => !parts[j]);
+      if ( missing >= 0 ) throw bad(`part ${r.parts[missing]} does not resolve to an item`);
+      if ( !Number.isInteger(r.per) || (r.per < 1) || (r.per > 10) ) throw bad("per needs a whole number from 1 to 10");
+      if ( !Number.isInteger(r.count) || (r.count < 0) ) throw bad("count needs a whole number, 0 or more");
+      return { parts, per: r.per, count: r.count };
+    });
+    await doc.setFlag(MODULE_ID, FLAG_RECEIPTS, trimReceipts(list, unitsOf(doc)));
+  },
+
+  /**
+   * Remove every receipt: the item breaks as if it had been bought.
+   * @param {Item|string} item   an Item or an item's uuid
+   * @returns {Promise<void>}
+   */
+  clearReceipts: async item => {
+    await toItem(item, "clearReceipts").setFlag(MODULE_ID, FLAG_RECEIPTS, []);
   }
 };
