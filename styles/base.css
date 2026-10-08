@@ -52,6 +52,17 @@
   }
 }
 
+/* Core rings every focused or .active button with a fixed orange outline and glow, which clashes
+   with both themes. Removed inside the module only; a .gc-button keeps a themed ring for keyboard
+   focus, defined below with more specificity. */
+.grid-crafter a.button:focus,
+.grid-crafter button:focus,
+.grid-crafter a.button.active,
+.grid-crafter button.active {
+  outline: none;
+  box-shadow: none;
+}
+
 /* Shared window chrome for the module's apps. */
 .grid-crafter.gc-app {
   background: var(--gc-bg-0);
