@@ -34,6 +34,18 @@ function sourceLabel(source) {
 /** The list key of the Recipe Book's Hidden group. */
 const HIDDEN_GROUP = "::hidden";
 
+/** Where the Recipe Book remembers which kind of recipe its list shows. */
+const MODE_KEY = `${MODULE_ID}.editor.mode`;
+
+/**
+ * The tab a recipe is listed under. Anything but "dismantle" is a crafting recipe.
+ * @param {Recipe} recipe
+ * @returns {"craft"|"dismantle"}
+ */
+function kindOf(recipe) {
+  return (recipe.kind === "dismantle") ? "dismantle" : "craft";
+}
+
 /**
  * The GM's recipe book: build a recipe by dropping items on a grid and a result slot. A dismantling
  * recipe uses the same board turned around: its parts on the grid, the item it breaks in the circle.
@@ -50,6 +62,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // Wide enough for Failure, Discovery and Makes side by side with a usable loss slider.
     position: { width: 1120, height: "auto" },
     actions: {
+      setMode: RecipeEditorApp.#onSetMode,
       newRecipe: RecipeEditorApp.#onNew,
       createDismantle: RecipeEditorApp.#onCreateDismantle,
       selectRecipe: RecipeEditorApp.#onSelect,
@@ -100,11 +113,20 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Recipe ids picked while selection mode is on; null while it is off. */
   #selected = null;
 
+  /** "craft" or "dismantle": the kind of recipe the list shows, as the user last chose it. */
+  #mode = (() => {
+    try {
+      return (localStorage.getItem(MODE_KEY) === "dismantle") ? "dismantle" : "craft";
+    } catch {
+      return "craft";
+    }
+  })();
+
   /** @override */
   async _prepareContext(options) {
     const all = getAllRecipes();
     const hiddenIds = getHiddenIds();
-    const [hidden, shown] = all.reduce((parts, r) => {
+    const [hidden, shown] = all.filter(r => kindOf(r) === this.#mode).reduce((parts, r) => {
       parts[hiddenIds.has(r.id) ? 0 : 1].push(r);
       return parts;
     }, [[], []]);
@@ -117,8 +139,9 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       else if ( this.draft.source ) this.draft = null;
     }
     if ( !this.draft ) {
-      const first = shown[0] ?? all[0];
-      this.draft = first ? foundry.utils.deepClone(first) : blankRecipe();
+      const first = shown[0] ?? hidden[0];
+      if ( first ) this.draft = foundry.utils.deepClone(first);
+      else this.draft = (this.#mode === "dismantle") ? blankDismantle() : blankRecipe();
     }
     const draft = this.draft;
     const dismantling = draft.kind === "dismantle";
@@ -131,7 +154,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // While selecting, a lit row means "selected" and nothing else: the draft's row is lit only if picked.
     const toEntry = r => ({ id: r.id, name: recipeFace(r).name || "—", img: recipeFace(r).img,
       active: selected ? selected.has(r.id) : r.id === draft.id, search: recipeSearchText(r), public: r.public,
-      edited: !!r.edited, dismantle: r.kind === "dismantle",
+      edited: !!r.edited,
       variantsTip: (r.variants?.length > 1) ? game.i18n.localize("GRIDCRAFTER.Editor.VariantsMarker", { count: r.variants.length }) : "" });
     const groups = Object.entries(Object.groupBy(shown, r => r.source)).map(([source, recipes]) => {
       const group = {
@@ -183,6 +206,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     return {
       theme,
       isArcane: theme === "arcane",
+      listsDismantle: this.#mode === "dismantle",
       dismantling,
       groups,
       query: this.#query,
@@ -505,13 +529,35 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /**
-   * Start a crafting or a dismantling recipe, as the half of the split button says. The kind is fixed
-   * from here on.
+   * List the crafting or the dismantling recipes. Only the list changes: the recipe on the board stays,
+   * unsaved edits and all, and the name field's legend still says which kind it is.
    * @this {RecipeEditorApp}
    */
-  static async #onNew(event, target) {
+  static #onSetMode(event, target) {
+    if ( target.dataset.mode === this.#mode ) return;
+    this.#setMode(target.dataset.mode);
+    this.render();
+  }
+
+  /**
+   * @param {"craft"|"dismantle"} mode
+   */
+  #setMode(mode) {
+    this.#mode = mode;
+    try {
+      localStorage.setItem(MODE_KEY, mode);
+    } catch {
+      // Storage is blocked: the tab lasts as long as the window.
+    }
+  }
+
+  /**
+   * Start a recipe of the kind the list shows. The kind is fixed from here on.
+   * @this {RecipeEditorApp}
+   */
+  static async #onNew() {
     if ( !(await this.#confirmDiscard()) ) return;
-    this.draft = (target.dataset.kind === "dismantle") ? blankDismantle() : blankRecipe();
+    this.draft = (this.#mode === "dismantle") ? blankDismantle() : blankRecipe();
     this.#variant = 0;
     this.dirty = false;
     this.render();
@@ -535,6 +581,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
    * @param {Recipe} recipe
    */
   #open(recipe) {
+    // Opened from the other kind's recipe: the list follows, so the row is there to see.
+    this.#setMode(kindOf(recipe));
     // A recipe picked through a search must not vanish into a closed group once the search is cleared.
     this.#reveal(getHiddenIds().has(recipe.id) ? [HIDDEN_GROUP] : this.#groupKeys(recipe));
     this.draft = foundry.utils.deepClone(recipe);
@@ -701,6 +749,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( !(await this.#confirmDiscard()) ) return;
     if ( existing ) return this.#open(existing);
     const variant = source.variants[this.#variant];
+    this.#setMode("dismantle");
     this.draft = {
       ...blankDismantle(),
       name: source.name,

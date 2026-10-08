@@ -8,9 +8,8 @@
         {{#if img}}<img src="{{img}}" alt="">{{else}}<span class="gc-noimg"></span>{{/if}}
         <span>{{name}}</span>
       </button>
-      {{#if (or dismantle public edited variantsTip)}}
+      {{#if (or public edited variantsTip)}}
       <span class="gc-row-markers">
-        {{#if dismantle}}<i class="fa-solid {{#if @root.isArcane}}fa-burst{{else}}fa-pickaxe{{/if}} gc-dismantle-marker" data-tooltip="GRIDCRAFTER.Editor.DismantleMarker"></i>{{/if}}
         {{#if variantsTip}}<i class="fa-solid fa-layer-group gc-variants-marker" data-tooltip="{{variantsTip}}"></i>{{/if}}
         {{#if edited}}<i class="fa-solid fa-pen-nib gc-edited-marker" data-tooltip="GRIDCRAFTER.Editor.EditedMarker"></i>{{/if}}
         {{#if public}}<i class="fa-solid fa-people-group gc-public-marker" data-tooltip="GRIDCRAFTER.Editor.PublicMarker"></i>{{/if}}
@@ -30,13 +29,13 @@
   </summary>
   {{/inline}}
   <aside class="gc-recipe-list">
-    <div class="gc-new-split" role="group">
-      <button type="button" class="gc-button" data-action="newRecipe" data-kind="craft" data-tooltip="GRIDCRAFTER.Editor.NewCraftHint"
-              {{#if selecting}}disabled{{/if}}>
-        <i class="fa-solid {{#if isArcane}}fa-wand-sparkles{{else}}fa-hammer{{/if}}" inert></i> {{localize "GRIDCRAFTER.Editor.NewCraft"}}</button>
-      <button type="button" class="gc-button" data-action="newRecipe" data-kind="dismantle" data-tooltip="GRIDCRAFTER.Editor.NewDismantleHint"
-              {{#if selecting}}disabled{{/if}}>
-        <i class="fa-solid {{#if isArcane}}fa-burst{{else}}fa-pickaxe{{/if}}" inert></i> {{localize "GRIDCRAFTER.Editor.NewDismantle"}}</button>
+    <div class="gc-mode-tabs" role="group">
+      <button type="button" class="gc-button {{#unless listsDismantle}}gc-active{{/unless}}" data-action="setMode" data-mode="craft"
+              aria-pressed="{{#if listsDismantle}}false{{else}}true{{/if}}">
+        <i class="fa-solid {{#if isArcane}}fa-wand-sparkles{{else}}fa-hammer{{/if}}" inert></i> {{localize "GRIDCRAFTER.Editor.Craft"}}</button>
+      <button type="button" class="gc-button {{#if listsDismantle}}gc-active{{/if}}" data-action="setMode" data-mode="dismantle"
+              aria-pressed="{{listsDismantle}}">
+        <i class="fa-solid {{#if isArcane}}fa-burst{{else}}fa-pickaxe{{/if}}" inert></i> {{localize "GRIDCRAFTER.Editor.Dismantle"}}</button>
     </div>
     <div class="gc-list-tools">
       <div class="gc-search">
@@ -44,6 +43,10 @@
         <input type="text" name="search" value="{{query}}" autocomplete="off"
                placeholder="{{localize "GRIDCRAFTER.Search.Placeholder"}}" aria-label="{{localize "GRIDCRAFTER.Search.Label"}}">
       </div>
+      <button type="button" class="gc-icon-button" data-action="newRecipe" {{#if selecting}}disabled{{/if}}
+              data-tooltip="{{#if listsDismantle}}GRIDCRAFTER.Editor.NewDismantleHint{{else}}GRIDCRAFTER.Editor.NewCraftHint{{/if}}">
+        <i class="fa-solid fa-plus" inert></i>
+      </button>
       <button type="button" class="gc-icon-button gc-select-mode {{#if selecting}}gc-active{{/if}}"
               data-action="toggleSelect" aria-pressed="{{selecting}}" data-tooltip="GRIDCRAFTER.Editor.Select">
         <i class="fa-solid fa-list-check" inert></i>
