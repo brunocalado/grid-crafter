@@ -8,8 +8,8 @@
 
 import { CATEGORY_MAX, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH } from "../constants.js";
 import {
-  filterGroups, getCollapsed, getDropData, getTheme, isTypeAllowed, itemOrigin, recipeSearchText, setCollapsed,
-  toItemRef
+  bindSearch, filterGroups, getCollapsed, getDropData, getTheme, groupByCategory, isTypeAllowed, itemOrigin, readCaret,
+  recipeSearchText, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
 import {
   blankRecipe, deleteRecipe, getAllRecipes, getHiddenIds, getRecipe, getWorldRecipes, isDiscoverable, restoreRecipe,
@@ -125,12 +125,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
         group.recipes = recipes.map(toEntry);
         return group;
       }
-      // Categories in order of first appearance, uncategorised recipes last.
-      const byCategory = Map.groupBy(recipes, r => r.category);
-      const other = byCategory.get("");
-      byCategory.delete("");
-      if ( other ) byCategory.set("", other);
-      group.categories = [...byCategory].map(([category, list]) => {
+      group.categories = [...groupByCategory(recipes)].map(([category, list]) => {
         const key = `${source}::${category}`;
         return { key, label: category || game.i18n.localize("GRIDCRAFTER.Recipe.CategoryNone"), count: list.length,
           collapsed: this.#collapsed.has(key), recipes: list.map(toEntry) };
@@ -208,6 +203,18 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
+  /** @override */
+  _preSyncPartState(partId, newElement, priorElement, state) {
+    super._preSyncPartState(partId, newElement, priorElement, state);
+    state.caret = readCaret(priorElement);
+  }
+
+  /** @override */
+  _syncPartState(partId, newElement, priorElement, state) {
+    super._syncPartState(partId, newElement, priorElement, state);   // focuses the field first
+    restoreCaret(newElement, state.caret);
+  }
+
   /**
    * Wire the search and the folding groups, and reapply the search a re-render would otherwise drop.
    */
@@ -218,17 +225,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       // Whether a group is fully picked depends on what the search shows.
       if ( this.#selected ) this.#paintSelection();
     };
-    const search = list.querySelector("input[name=search]");
-    // Typing never re-renders: a re-render under the cursor eats input.
-    search.addEventListener("input", () => {
-      this.#query = search.value;
-      apply();
-    });
-    search.addEventListener("keydown", ev => {
-      if ( ev.key !== "Escape" ) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      search.value = this.#query = "";
+    bindSearch(list.querySelector("input[name=search]"), query => {
+      this.#query = query;
       apply();
     });
     for ( const group of list.querySelectorAll("details.gc-group") ) {

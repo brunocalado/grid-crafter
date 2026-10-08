@@ -8,8 +8,8 @@
 
 import { CELL_COUNT, MODULE_ID, TEMPLATE_PATH } from "../constants.js";
 import {
-  filterGroups, getCollapsed, getCraftingActor, getDropData, getQuantity, getTheme, isTypeAllowed, itemDragData,
-  itemOrigin, recipeSearchText, setCollapsed, toItemRef
+  bindSearch, filterGroups, getCollapsed, getCraftingActor, getDropData, getQuantity, getTheme, groupByCategory,
+  isTypeAllowed, itemDragData, itemOrigin, readCaret, recipeSearchText, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
 import { CraftError, craft, fillFromInventory, getKnownRecipeIds, getLearnedRecipeIds } from "../crafting.js";
 import { getAllRecipes } from "../recipes.js";
@@ -101,12 +101,9 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       // Known only because it is public. Learned recipes carry no marker: no marker means "yours".
       public: !learned.has(r.id)
     }));
-    // Players don't care which package a recipe came from, so the book groups by category alone:
-    // in order of first appearance, uncategorised last. Craftable recipes lead each group.
-    const byCategory = Map.groupBy(book, r => r.category);
-    const other = byCategory.get("");
-    byCategory.delete("");
-    if ( other ) byCategory.set("", other);
+    // Players don't care which package a recipe came from, so the book groups by category alone.
+    // Craftable recipes lead each group.
+    const byCategory = groupByCategory(book);
     for ( const recipes of byCategory.values() ) recipes.sort((a, b) => b.ready - a.ready);
     // A book spanning one category or none stays a plain list, without headings.
     const groups = (byCategory.size > 1) ? [...byCategory].map(([category, recipes]) => ({
@@ -169,17 +166,8 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   #bindBook() {
     const book = this.element.querySelector(".gc-book");
-    const search = book.querySelector("input[name=search]");
-    // Typing never re-renders: a re-render under the cursor eats input.
-    search.addEventListener("input", () => {
-      this.#query = search.value;
-      this.#filterBook();
-    });
-    search.addEventListener("keydown", ev => {
-      if ( ev.key !== "Escape" ) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      search.value = this.#query = "";
+    bindSearch(book.querySelector("input[name=search]"), query => {
+      this.#query = query;
       this.#filterBook();
     });
     for ( const group of book.querySelectorAll("details.gc-group") ) {
@@ -207,6 +195,18 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( !uuid ) return;
     const item = await fromUuid(uuid);
     item?.sheet?.render({ force: true });
+  }
+
+  /** @override */
+  _preSyncPartState(partId, newElement, priorElement, state) {
+    super._preSyncPartState(partId, newElement, priorElement, state);
+    state.caret = readCaret(priorElement);
+  }
+
+  /** @override */
+  _syncPartState(partId, newElement, priorElement, state) {
+    super._syncPartState(partId, newElement, priorElement, state);   // focuses the field first
+    restoreCaret(newElement, state.caret);
   }
 
   /** @override */

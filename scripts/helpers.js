@@ -150,6 +150,56 @@ export function recipeSearchText(recipe) {
 }
 
 /**
+ * Recipes by category, in order of first appearance, uncategorised last.
+ * @param {object[]} recipes
+ * @returns {Map<string, object[]>}
+ */
+export function groupByCategory(recipes) {
+  const groups = Map.groupBy(recipes, r => r.category);
+  const other = groups.get("");
+  groups.delete("");
+  if ( other ) groups.set("", other);
+  return groups;
+}
+
+/**
+ * Wire a recipe list's search box. Typing never re-renders: a re-render under the cursor eats
+ * input. Escape clears the search instead of closing the window.
+ * @param {HTMLInputElement} input
+ * @param {(query: string) => void} onQuery
+ */
+export function bindSearch(input, onQuery) {
+  input.addEventListener("input", () => onQuery(input.value));
+  input.addEventListener("keydown", ev => {
+    if ( ev.key !== "Escape" ) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    input.value = "";
+    onQuery("");
+  });
+}
+
+/**
+ * The caret of the focused text field, for putting back after a re-render. Core restores which
+ * field has focus, but not where in it the user was typing.
+ * @param {HTMLElement} root
+ * @returns {[number, number]|null}
+ */
+export function readCaret(root) {
+  const field = root.querySelector("input:focus");
+  return (typeof field?.selectionStart === "number") ? [field.selectionStart, field.selectionEnd] : null;
+}
+
+/**
+ * @param {HTMLElement} root
+ * @param {[number, number]|null} caret
+ */
+export function restoreCaret(root, caret) {
+  const field = root.querySelector("input:focus");
+  if ( caret && field ) field.setSelectionRange(...caret);
+}
+
+/**
  * Show only the entries that match, and open every group that holds one. With no query and no
  * filter, groups go back to the open state the user left them in.
  * @param {HTMLElement} root
