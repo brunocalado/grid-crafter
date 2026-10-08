@@ -313,7 +313,9 @@ async function settleDismantle(actor, outcome, { item, spent, received }) {
  * put the ingredients back.
  *
  * Spending comes first so a system that limits inventory (slots, weight) measures the outputs against
- * the room the ingredients leave behind. It has to be separate writes: a modifyBatch is not atomic,
+ * the room the ingredients leave behind. That is also why nothing is checked beforehand with a dryRun:
+ * it would run the system's checks against the inventory before the spend, and refuse a sword that
+ * fits once its ingots are gone. It has to be separate writes: a modifyBatch is not atomic,
  * and core runs every operation's pre-workflow against the state before the batch, then silently
  * drops an operation a system emptied in _preCreateOperation while sending the rest.
  * @param {Actor} actor
