@@ -10,7 +10,7 @@ import { MODULE_ID, TEMPLATE_PATH } from "../constants.js";
 import { getCraftingActor, getTheme } from "../helpers.js";
 import { getLearnedRecipeIds, learnRecipes, reportTaught } from "../crafting.js";
 import { CraftFX, animate, runeGlyphs, wait } from "../effects.js";
-import { getRecipe, recipeFace } from "../recipes.js";
+import { dismantleGrid, getAllRecipes, getRecipe, recipeFace } from "../recipes.js";
 import { playCue } from "../sound.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -68,7 +68,9 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // The GM may have removed a variant since.
     if ( !dismantling ) this.variant = Math.min(this.variant, recipe.variants.length - 1);
     const variant = dismantling ? null : recipe.variants[this.variant];
-    const quantity = dismantling ? recipe.inputQuantity : recipe.quantity;
+    // What an item nobody made breaks into: the favorite way of making it, or the recipe's own parts.
+    const grid = dismantling ? dismantleGrid(recipe, getAllRecipes()) : null;
+    const quantity = dismantling ? grid.units : recipe.quantity;
     const actor = getCraftingActor();
     // A GM sees a preview, and a player without a character has nowhere to write it: neither gets a
     // button or a label.
@@ -81,7 +83,7 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
       name: recipeFace(recipe).name,
       // Where a part lands never matters: a dismantling recipe's parts are a ring, with no note saying so.
       shaped: !dismantling && recipe.shaped,
-      cells: dismantling ? recipe.outputs.filter(Boolean) : recipe.shaped ? variant.cells : variant.cells.filter(Boolean),
+      cells: dismantling ? grid.cells.filter(Boolean) : recipe.shaped ? variant.cells : variant.cells.filter(Boolean),
       // The circle holds what the recipe makes, or what it breaks.
       result: dismantling ? recipe.input : recipe.result,
       requires: dismantling ? recipe.requires : variant.requires,

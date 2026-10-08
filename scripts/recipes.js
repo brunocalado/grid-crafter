@@ -15,6 +15,7 @@ import { refMatches, toItemRef } from "./helpers.js";
 /**
  * One way to make a recipe.
  * @typedef {object} Variant
+ * @property {string} id   unique within its recipe; what a dismantling recipe's favorite points at
  * @property {(import("./helpers.js").ItemRef|null)[]} cells   nine cells, row by row
  * @property {import("./helpers.js").ItemRef|null} requires   an item the crafter must carry, of any type;
  *   never placed on the grid and never spent
@@ -48,6 +49,10 @@ import { refMatches, toItemRef } from "./helpers.js";
  *   never spent
  * @property {(import("./helpers.js").ItemRef|null)[]} outputs   dismantle: nine cells, one unit of a part
  *   per filled cell; where a part sits never matters
+ * @property {{recipe: string, variant: string}|null} favorite   dismantle: the way of making the item that
+ *   an item with no receipt breaks into, read live; null, or a link that no longer resolves, breaks into
+ *   `outputs`
+ * @property {boolean} refund   dismantle: an item with a receipt breaks into what the receipt says
  */
 
 /** Recipes other packages registered through the API, keyed by id. They live in memory only. */
@@ -167,7 +172,7 @@ export function getCategories() {
 
 /** @returns {Variant} an empty grid with no required item */
 export function blankVariant() {
-  return { cells: Array(CELL_COUNT).fill(null), requires: null };
+  return { id: foundry.utils.randomID(), cells: Array(CELL_COUNT).fill(null), requires: null };
 }
 
 /** @returns {Recipe} an empty crafting recipe ready for the editor */
@@ -199,7 +204,9 @@ export function blankDismantle() {
     input: null,
     inputQuantity: 1,
     requires: null,
-    outputs: Array(CELL_COUNT).fill(null)
+    outputs: Array(CELL_COUNT).fill(null),
+    favorite: null,
+    refund: false
   };
 }
 
@@ -211,6 +218,32 @@ export function blankDismantle() {
 export function recipeFace(recipe) {
   const item = (recipe.kind === "dismantle") ? recipe.input : recipe.result;
   return { name: recipe.name || item?.name || "", img: item?.img };
+}
+
+/**
+ * Every way of making an item: each variant of each crafting recipe whose result it is, in list order.
+ * @param {import("./helpers.js").ItemRef} item
+ * @param {Recipe[]} recipes
+ * @returns {{recipe: Recipe, variant: Variant, index: number}[]}
+ */
+export function waysToMake(item, recipes) {
+  return recipes.filter(r => (r.kind !== "dismantle") && refMatches(r.result, item))
+    .flatMap(r => r.variants.map((variant, index) => ({ recipe: r, variant, index })));
+}
+
+/**
+ * What an item with no receipt breaks into, and how many units one dismantle takes: the favorite way of
+ * making it, read live, or the recipe's own parts when there is none or it no longer resolves.
+ * @param {Recipe} recipe   a dismantling recipe
+ * @param {Recipe[]} recipes
+ * @returns {{cells: (import("./helpers.js").ItemRef|null)[], units: number,
+ *   way: {recipe: Recipe, variant: Variant, index: number}|null}}
+ */
+export function dismantleGrid(recipe, recipes) {
+  const f = recipe.favorite;
+  const way = f && waysToMake(recipe.input, recipes).find(w => (w.recipe.id === f.recipe) && (w.variant.id === f.variant));
+  return way ? { cells: way.variant.cells, units: way.recipe.quantity, way }
+    : { cells: recipe.outputs, units: recipe.inputQuantity, way: null };
 }
 
 /**
@@ -244,10 +277,12 @@ function refFromUuid(uuid) {
 
 /**
  * Read one variant a package handed us.
- * @param {object} data   `{ cells, requires }`, cells as a flat list of nine uuids or three rows of three
+ * @param {object} data   `{ id, cells, requires }`, cells as a flat list of nine uuids or three rows of three
+ * @param {number} index   its place in the package's own list
+ * @param {Set<string>} taken   ids already given in this recipe; the new one is added
  * @returns {Variant|string}   the variant, or why it can't be used
  */
-function variantFromData(data) {
+function variantFromData(data, index, taken) {
   const flat = Array.isArray(data?.cells?.[0]) ? data.cells.flat() : data?.cells;
   if ( !Array.isArray(flat) || (flat.length !== CELL_COUNT) ) return `it needs ${CELL_COUNT} cells`;
   const cells = flat.map(uuid => (uuid ? refFromUuid(uuid) : null));
@@ -256,12 +291,18 @@ function variantFromData(data) {
   if ( data.requires && !requires ) missing.push(data.requires);
   if ( missing.length ) return `unresolved items ${missing.join(", ")}`;
   if ( !cells.some(Boolean) ) return "no ingredient";
-  return { cells, requires };
+  // Without an id of its own, its place in the package's list: the same on every load, so a favorite
+  // that points at it survives a reload.
+  let id = ((typeof data.id === "string") && data.id && !taken.has(data.id)) ? data.id : `v${index}`;
+  while ( taken.has(id) ) id = `${id}_`;
+  taken.add(id);
+  return { id, cells, requires };
 }
 
 /**
  * Read a dismantling recipe a package handed us.
- * @param {object} data   `{ input, inputQuantity, requires, outputs }`: outputs as 1 to 9 uuids, one per unit
+ * @param {object} data   `{ input, inputQuantity, requires, outputs, favorite, refund }`: outputs as 1 to 9
+ *   uuids, one per unit; favorite as `{ recipe, variant }` ids
  * @param {string} id
  * @param {string} packageId
  * @returns {Recipe|string}   the recipe, or why it can't be used
@@ -287,6 +328,10 @@ function dismantleFromData(data, id, packageId) {
     inputQuantity: Math.clamp(Math.floor(Number(data.inputQuantity) || 1), 1, 10),
     requires,
     outputs: [...outputs, ...Array(CELL_COUNT - outputs.length).fill(null)],
+    // Never checked here: the recipe it names may register later.
+    favorite: ((typeof data.favorite?.recipe === "string") && (typeof data.favorite?.variant === "string"))
+      ? { recipe: data.favorite.recipe, variant: data.favorite.variant } : null,
+    refund: data.refund === true,
     source: packageId
   };
   // Read now, not once for the call: recipes registered earlier in the same call count too.
@@ -298,8 +343,8 @@ function dismantleFromData(data, id, packageId) {
 /**
  * Register recipes on behalf of another package. A crafting recipe brings `variants: [{ cells, requires }]`,
  * or `cells` and `requires` at the top level as a recipe with one variant. Empty cells are null. A
- * dismantling recipe (`kind: "dismantle"`) brings `input`, `inputQuantity`, `requires` and `outputs`
- * instead; the fields of the other kind are ignored.
+ * dismantling recipe (`kind: "dismantle"`) brings `input`, `inputQuantity`, `requires`, `outputs`,
+ * `favorite` and `refund` instead; the fields of the other kind are ignored.
  *
  * One grid makes one recipe: a variant whose grid a recipe already present makes is dropped. One item
  * has one dismantling recipe: a second one for it is skipped. The world's recipes are there before any
@@ -353,11 +398,12 @@ export function registerRecipes(packageId, recipes) {
     // Read now, not once for the call: recipes registered earlier in this loop count too.
     const others = getAllRecipes();
     const variants = [];
+    const taken = new Set();
     entries.forEach((entry, i) => {
       // A shorthand recipe has nothing left once its one grid goes, so it is skipped by name.
       const drop = reason => (many ? console.warn(`${MODULE_ID} | Recipe ${label}, variants[${i}], dropped: ${reason}.`)
         : skip(reason));
-      const variant = variantFromData(entry);
+      const variant = variantFromData(entry, i, taken);
       if ( typeof variant === "string" ) return drop(variant);
       const other = findOverlap({ id: label, shaped, variants: [variant] }, others)?.other;
       if ( other ) return drop(`its grid already belongs to "${other.name || other.result.name}" (${other.id})`);

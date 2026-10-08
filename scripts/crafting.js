@@ -7,11 +7,11 @@
  */
 
 import {
-  FLAG_KNOWN_RECIPES, FLAG_RECEIPTS, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, SETTING_QUANTITY_PATH, TEMPLATE_PATH
+  CELL_COUNT, FLAG_KNOWN_RECIPES, FLAG_RECEIPTS, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, SETTING_QUANTITY_PATH, TEMPLATE_PATH
 } from "./constants.js";
 import { getCraftingActor, getQuantity, getTheme, itemOrigin, refMatches, toItemRef } from "./helpers.js";
-import { addReceipt, getReceipts } from "./receipts.js";
-import { findNearRecipe, findRecipe, getAllRecipes, isDiscoverable, recipeFace } from "./recipes.js";
+import { addReceipt, getReceipts, receiptKey } from "./receipts.js";
+import { dismantleGrid, findNearRecipe, findRecipe, getAllRecipes, isDiscoverable, recipeFace } from "./recipes.js";
 
 /**
  * @typedef {object} CraftOutcome
@@ -34,7 +34,10 @@ import { findNearRecipe, findRecipe, getAllRecipes, isDiscoverable, recipeFace }
  *   the actor lacks the item the recipe requires, nothing spent
  * @property {import("./recipes.js").Recipe} recipe
  * @property {Item[]|null} items   on success only: the items that received each part, in the order of the
- *   recipe's distinct parts
+ *   distinct parts
+ * @property {(import("./helpers.js").ItemRef|null)[]} parts   the nine cells given, one unit per filled cell
+ * @property {import("./receipts.js").Receipt|null} receipt   the receipt broken; null when the item broke
+ *   into the recipe's grid
  */
 
 /**
@@ -225,22 +228,13 @@ export async function dismantle(ref) {
     && refMatches(r.input, item));
   if ( !recipe ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.CannotDismantle", { name: doc.name }));
 
-  // The units come from the item in the circle first, then from other copies on the sheet: a system
-  // without quantities keeps one document per copy.
-  const usage = new Map();
-  let need = recipe.inputQuantity;
-  for ( const candidate of [doc, ...actor.items.filter(i => (i.id !== doc.id) && refMatches(recipe.input, toItemRef(i)))] ) {
-    const count = Math.min(getQuantity(candidate) ?? 1, need);
-    if ( count <= 0 ) continue;
-    usage.set(candidate.uuid, { doc: candidate, count });
-    need -= count;
-    if ( !need ) break;
-  }
-  if ( need > 0 ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotEnough", { name: doc.name }));
+  const plan = planDismantle(recipe, doc, actor, getAllRecipes());
+  if ( !plan ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotEnough", { name: doc.name }));
+  const { usage, cells, receipt } = plan;
 
   // One output per distinct part: two cells of Iron are one output of two units.
   const parts = [];
-  for ( const cell of recipe.outputs ) {
+  for ( const cell of cells ) {
     if ( !cell ) continue;
     const same = parts.find(p => p.ref.uuid === cell.uuid);
     if ( same ) same.quantity++;
@@ -255,24 +249,90 @@ export async function dismantle(ref) {
   const card = { item, spent };
   // As with crafting, refused before anything is spent and before preDismantle, and saying what is
   // missing gives the recipe away on purpose.
-  if ( !hasRequiredItem(recipe, actor) ) return settleDismantle(actor, { state: "missing", recipe, items: null }, card);
+  const given = { parts: cells, receipt };
+  if ( !hasRequiredItem(recipe, actor) ) return settleDismantle(actor, { state: "missing", recipe, items: null, ...given }, card);
   const veto = { reason: "" };
   if ( Hooks.call(`${MODULE_ID}.preDismantle`, actor, foundry.utils.deepClone(recipe), doc, veto) === false ) {
     const reason = (typeof veto.reason === "string") && veto.reason.trim();
     throw new CraftError(reason || game.i18n.localize("GRIDCRAFTER.Errors.Vetoed"));
   }
 
-  const { items, missing } = await forge(actor, usage, parts.map((p, i) => ({ source: sources[i], quantity: p.quantity })));
+  const { items, missing } = await forge(actor, usage, parts.map((p, i) => ({ source: sources[i], quantity: p.quantity })),
+    plan.receipts);
   if ( !items ) {
     const incomplete = missing.length > 0;
     // On an incomplete dismantle the card lists only what stayed spent.
-    return settleDismantle(actor, { state: incomplete ? "incomplete" : "refused", recipe, items: null },
+    return settleDismantle(actor, { state: incomplete ? "incomplete" : "refused", recipe, items: null, ...given },
       { item, spent: incomplete ? spent.filter(s => missing.includes(s.id)) : spent });
   }
   await learnRecipes(actor, [recipe.id]);
-  return settleDismantle(actor, { state: "success", recipe, items }, {
+  return settleDismantle(actor, { state: "success", recipe, items, ...given }, {
     ...card, received: items.map((it, i) => ({ name: it.name, img: it.img, count: parts[i].quantity }))
   });
+}
+
+/**
+ * What breaking an item would spend and give. Shared by the dismantle and the table's faint preview, so
+ * the parts shown and the parts received never disagree.
+ *
+ * With Refund on, the circle's oldest receipt whose units reach one batch (`per`) is broken: those units
+ * come from the circle's item, then from other copies holding a receipt of the same parts, and it gives
+ * exactly what was spent on them. A receipt covering less than one batch is left alone and its units
+ * count as having none. Anything else breaks into the recipe's grid (see dismantleGrid), units taken
+ * from the circle's item first, then from the other copies.
+ * @param {import("./recipes.js").Recipe} recipe   a dismantling recipe
+ * @param {Item} doc   the item in the circle, on the actor
+ * @param {Actor} actor
+ * @param {import("./recipes.js").Recipe[]} recipes   every recipe, for the favorite
+ * @returns {{units: number, cells: (import("./helpers.js").ItemRef|null)[], receipt: import("./receipts.js").Receipt|null,
+ *   usage: Map<string, {doc: Item, count: number}>, receipts: Map<string, import("./receipts.js").Receipt[]>}|null}
+ *   null when the actor doesn't carry enough. `receipts`: what each counted stack keeps once the units leave.
+ */
+export function planDismantle(recipe, doc, actor, recipes) {
+  const others = actor.items.filter(i => (i.id !== doc.id) && refMatches(recipe.input, toItemRef(i)));
+  const pad = cells => [...cells, ...Array(CELL_COUNT).fill(null)].slice(0, CELL_COUNT);
+  if ( recipe.refund ) {
+    const copies = [doc, ...others];
+    const held = new Map(copies.map(c => [c.id, getReceipts(c)]));
+    for ( const receipt of held.get(doc.id) ) {
+      const key = receiptKey(receipt);
+      const usage = new Map();
+      const receipts = new Map();
+      let need = receipt.per;
+      for ( const copy of copies ) {
+        const left = held.get(copy.id).map(r => ({ ...r }));
+        let taken = 0;
+        for ( const r of left ) {
+          if ( !need ) break;
+          if ( receiptKey(r) !== key ) continue;
+          const n = Math.min(r.count, need);
+          r.count -= n;
+          need -= n;
+          taken += n;
+        }
+        if ( !taken ) continue;
+        usage.set(copy.uuid, { doc: copy, count: taken });
+        if ( getQuantity(copy) !== null ) receipts.set(copy.uuid, left.filter(r => r.count > 0));
+        if ( !need ) break;
+      }
+      if ( !need ) return { units: receipt.per, cells: pad(receipt.parts), receipt, usage, receipts };
+    }
+  }
+
+  const { cells, units } = dismantleGrid(recipe, recipes);
+  // Where each copy is its own document, the ones nobody made go first: a made one keeps its receipt.
+  const made = c => (getQuantity(c) === null) && (getReceipts(c).length > 0);
+  const usage = new Map();
+  let need = units;
+  for ( const candidate of [doc, ...others.filter(c => !made(c)), ...others.filter(made)] ) {
+    const count = Math.min(getQuantity(candidate) ?? 1, need);
+    if ( count <= 0 ) continue;
+    usage.set(candidate.uuid, { doc: candidate, count });
+    need -= count;
+    if ( !need ) break;
+  }
+  if ( need > 0 ) return null;
+  return { units, cells: pad(cells), receipt: null, usage, receipts: new Map() };
 }
 
 /**
@@ -326,13 +386,14 @@ async function settleDismantle(actor, outcome, { item, spent, received }) {
  * @param {Map<string, {doc: Item, count: number}>} usage
  * @param {{source: Item, quantity: number, receipt?: import("./receipts.js").Receipt}[]} outputs   each as
  *   it exists in the world or a compendium, with what was spent on it when it was crafted
+ * @param {Map<string, import("./receipts.js").Receipt[]>} [receipts]   what spent stacks keep, by uuid
  * @returns {Promise<{items: Item[]|null, missing?: string[]}>}  the items that received each output, or
  *   null when the actor refused them; then the ids of the ingredients that could not be put back
  */
-async function forge(actor, usage, outputs) {
+async function forge(actor, usage, outputs, receipts) {
   // Copied before spending: after an update the document's source already holds the new quantity.
   const before = [...usage.values()].map(({ doc }) => doc.toObject());
-  const operations = consumeOperations(actor, usage);
+  const operations = consumeOperations(actor, usage, receipts);
   if ( operations.length ) await foundry.documents.modifyBatch(operations);
 
   let items = null;
@@ -462,15 +523,19 @@ async function restore(actor, before) {
  * Batch operations that spend one unit per grid slot of each of the actor's items.
  * @param {Actor} actor
  * @param {Map<string, {doc: Item, count: number}>} usage
+ * @param {Map<string, import("./receipts.js").Receipt[]>} [receipts]   what a stack keeps, when the units
+ *   leaving are not its oldest: written with the quantity, so the trim in preUpdateItem sees both
  * @returns {object[]}
  */
-function consumeOperations(actor, usage) {
+function consumeOperations(actor, usage, receipts = new Map()) {
   const path = game.settings.get(MODULE_ID, SETTING_QUANTITY_PATH);
+  const key = `flags.${MODULE_ID}.${FLAG_RECEIPTS}`;
   const updates = [];
   const ids = [];
   for ( const { doc, count } of usage.values() ) {
     const quantity = getQuantity(doc);
-    if ( (quantity !== null) && (quantity > count) ) updates.push({ _id: doc.id, [path]: quantity - count });
+    const kept = receipts.get(doc.uuid);
+    if ( (quantity !== null) && (quantity > count) ) updates.push({ _id: doc.id, [path]: quantity - count, ...(kept ? { [key]: kept } : {}) });
     else ids.push(doc.id);
   }
   const operations = [];

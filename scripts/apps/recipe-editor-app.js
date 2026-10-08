@@ -638,7 +638,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /**
    * Start the dismantling recipe of the crafting recipe on show, from the variant on the board: it
    * breaks what the recipe makes, as many as one craft makes, back into that variant's ingredients,
-   * with the same tool. Built from unsaved edits, like Duplicate. An item that already has a
+   * with the same tool. It refunds what a crafted item cost, and follows that variant for the rest.
+   * Built from unsaved edits, like Duplicate. An item that already has a
    * dismantling recipe opens that one instead: one item, one dismantling recipe.
    * @this {RecipeEditorApp}
    */
@@ -657,7 +658,12 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       input: foundry.utils.deepClone(source.result),
       inputQuantity: source.quantity,
       requires: foundry.utils.deepClone(variant.requires),
-      outputs: foundry.utils.deepClone(variant.cells)
+      // The copy is the fallback, for when the way it follows is deleted.
+      outputs: foundry.utils.deepClone(variant.cells),
+      refund: true,
+      // Only a way already saved can be followed: an unsaved one would point at nothing.
+      favorite: getRecipe(source.id)?.variants.some(v => v.id && (v.id === variant.id))
+        ? { recipe: source.id, variant: variant.id } : null
     };
     this.#variant = 0;
     this.dirty = true;

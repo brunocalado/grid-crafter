@@ -12,9 +12,9 @@ import {
   isTypeAllowed, itemDragData, itemOrigin, readCaret, recipeSearchText, refMatches, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
 import {
-  CraftError, craft, dismantle, fillFromInventory, getKnownRecipeIds, getLearnedRecipeIds, hasRequiredItem
+  CraftError, craft, dismantle, fillFromInventory, getKnownRecipeIds, getLearnedRecipeIds, hasRequiredItem, planDismantle
 } from "../crafting.js";
-import { getAllRecipes, isDiscoverable, recipeFace } from "../recipes.js";
+import { dismantleGrid, getAllRecipes, isDiscoverable, recipeFace } from "../recipes.js";
 import { BELLOWS_PERIOD, CraftFX, animate, runeGlyphs, wait } from "../effects.js";
 import { playCue } from "../sound.js";
 
@@ -133,14 +133,15 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       ? { name: holder.requires.name, img: holder.requires.img, has: !!actor && hasRequiredItem(holder, actor) } : null);
     // The book lists the recipes of the table's mode. One row per variant, in the recipe's order: the
     // recipe moves as a whole, a row never jumps ahead of its siblings. A dismantling recipe is one row:
-    // its parts, as a shapeless list since where they land never matters.
+    // what an item nobody made breaks into, as a shapeless list since where parts land never matters.
     const book = all.filter(r => known.has(r.id) && ((r.kind === "dismantle") === dismantling)).map(r => {
+      const grid = dismantling ? dismantleGrid(r, all) : null;
       const rows = dismantling ? [{
         index: 0,
         first: true,
         shaped: false,
-        cells: r.outputs.filter(Boolean),
-        ready: !!actor && (carried(r.input, actor) >= r.inputQuantity) && hasRequiredItem(r, actor),
+        cells: grid.cells.filter(Boolean),
+        ready: !!actor && (carried(r.input, actor) >= grid.units) && hasRequiredItem(r, actor),
         requires: requires(r)
       }] : r.variants.map((v, index) => ({
         index,
@@ -154,7 +155,7 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         id: r.id,
         ...recipeFace(r),
         // How many of the item one dismantling breaks, when it is more than one.
-        count: (dismantling && (r.inputQuantity > 1)) ? r.inputQuantity : null,
+        count: (dismantling && (grid.units > 1)) ? grid.units : null,
         categories: r.categories,
         search: recipeSearchText(r),
         // Any variant that can be made now: it sorts and filters the recipe.
@@ -181,10 +182,14 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const glyphs = ForgeApp.#glyphs.map((d, i) => ({ d, angle: (360 / ForgeApp.#glyphs.length) * i }));
     const isArcane = theme === "arcane";
     const icons = { craft: isArcane ? "fa-wand-sparkles" : "fa-hammer", dismantle: isArcane ? "fa-burst" : "fa-pickaxe" };
-    // What the item in the circle breaks into, faint on the empty grid, when the actor knows how. A
-    // recipe it could only discover shows nothing: that would give it away.
-    const ghost = (dismantling && this.inputRef && actor) ? all.find(r => (r.kind === "dismantle") && known.has(r.id)
-      && refMatches(r.input, this.inputRef))?.outputs : null;
+    // What the item in the circle breaks into, faint on the empty grid, when the actor knows how: its
+    // receipt or the recipe's grid, planned exactly as the dismantle will. Short of units, the grid it
+    // would break into once there are enough. A recipe it could only discover shows nothing: that
+    // would give it away.
+    const recipe = (dismantling && this.inputRef && actor)
+      ? all.find(r => (r.kind === "dismantle") && known.has(r.id) && refMatches(r.input, this.inputRef)) : null;
+    const doc = recipe ? foundry.utils.fromUuidSync(this.inputRef.uuid) : null;
+    const ghost = doc ? (planDismantle(recipe, doc, actor, all)?.cells ?? dismantleGrid(recipe, all).cells) : null;
     return {
       theme,
       isArcane,
@@ -633,10 +638,10 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       }
       await strike;
       if ( outcome.state === "success" ) {
-        await this.#playBreak(outcome.recipe);
+        await this.#playBreak(outcome.parts);
         this.inputRef = null;
         // Each part on the cell it was drawn in, as the actor's real item.
-        this.slots = fillFromInventory({ cells: outcome.recipe.outputs }, getCraftingActor()) ?? Array(CELL_COUNT).fill(null);
+        this.slots = fillFromInventory({ cells: outcome.parts }, getCraftingActor()) ?? Array(CELL_COUNT).fill(null);
       }
       else {
         // A refused dismantle puts the item back under its own id, but the deleteItem hook has emptied
@@ -750,9 +755,9 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /**
    * The craft turned around: the item in the circle shudders, flares and bursts, then each part flies
    * out of it along a short arc into its cell, which lights as the part lands.
-   * @param {import("../recipes.js").Recipe} recipe
+   * @param {(import("../helpers.js").ItemRef|null)[]} parts   the nine cells the dismantle gave
    */
-  async #playBreak(recipe) {
+  async #playBreak(parts) {
     const overlay = this.element.querySelector(".gc-overlay");
     const circle = this.element.querySelector(".gc-result-slot");
     const icon = circle.querySelector("img");
@@ -771,7 +776,7 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     // The craft's flight reversed: born small at the circle's heart, rising, and settling into the cell.
     const flights = [];
-    recipe.outputs.forEach((part, index) => {
+    parts.forEach((part, index) => {
       if ( !part ) return;
       const cell = cells[index];
       const to = this.fx.centerOf(cell);
