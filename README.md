@@ -116,7 +116,16 @@ dismantling recipe for an item that already has one.
 A crafting recipe can start its own dismantling recipe. Open it, show the variant you want, and
 click the pickaxe after **Duplicate** (a starburst in the Arcane theme). The new recipe breaks what
 the crafting recipe makes, as many as one craft makes, back into that variant's ingredients, with
-the same tool. If the item already has a dismantling recipe, the button opens that one instead.
+the same tool. It follows that variant and has **Refund** on. If the item already has a dismantling
+recipe, the button opens that one instead.
+
+An item made at the table remembers what was spent on it. With **Refund** on, it breaks back into
+exactly that, whichever variant made it. Anything else, bought, looted or given, breaks into the parts
+on the grid. When crafting recipes make the item, a row of dots under the grid lists every way of
+making it. Light one and the grid follows that way, and stays current when its recipe changes. The
+pen gives the recipe its own parts instead. Light the cheapest way, so that nothing breaks into more
+than it cost. Crafted and bought copies share one line on the sheet, and the module keeps count of
+which are which.
 
 ![The GM's Recipe Book](docs/recipe-book.webp)
 
@@ -179,7 +188,8 @@ or could discover one, two buttons appear next to **Recipe Book**: the hammer cr
 pickaxe dismantles (a wand and a starburst in the Arcane theme). In dismantle mode the arrow turns
 toward the grid and the book lists your dismantling recipes. Drag the item from your sheet onto the
 circle, or click its recipe in the book. If you know the recipe, the grid shows faintly what the
-item breaks into. Press **Dismantle**, and the parts land on
+item breaks into. When the GM allows refunds, something you made breaks back into what you spent on
+it, and the faint parts show that before you press **Dismantle**. Press **Dismantle**, and the parts land on
 the grid as items on your sheet. Switch back to crafting and they are still on the grid, ready to
 use as ingredients. If your sheet has no room for all the parts, nothing is spent and the item
 stays in the circle.

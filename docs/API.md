@@ -77,8 +77,8 @@ only the crafting ones, so a listener that rewards crafting never rewards breaki
 |---|---|---|
 | `grid-crafter.preCraft` | `actor`, `recipe` (a copy, or `null` when the layout matches no recipe the actor can make), `items` (`Item[]` on the grid, one entry per filled cell), `veto` (`{ reason }`), `variant` (the index in `recipe.variants` of the variant the craft uses, or `null`) | Return `false` to cancel, and set `veto.reason` to tell the player why. Synchronous: an awaited roll inside it does not delay the craft. |
 | `grid-crafter.craft` | `actor`, `result` `{ state, recipe, variant, item, lost, ingredients }` | `state` is `"success"`, `"failure"`, `"refused"`, `"incomplete"` or `"missing"`. `variant` is the index in `recipe.variants` of the variant the grid made, `null` on a failure. `item` is the forged Item on success, else `null`. `ingredients` are `{ uuid, name, img, type, sources }`, one per filled cell. Not fired for a vetoed craft. |
-| `grid-crafter.preDismantle` | `actor`, `recipe` (a copy of the [dismantling recipe](#dismantling-recipes)), `item` (the `Item` in the table's circle), `veto` (`{ reason }`) | Return `false` to cancel, and set `veto.reason` to tell the player why, as with `preCraft`. |
-| `grid-crafter.dismantle` | `actor`, `result` `{ state, recipe, item, items }` | `state` is `"success"`, `"refused"`, `"incomplete"` or `"missing"`. `item` is the item that was in the circle, as `{ uuid, name, img, type, sources }`. `items` is, on success only, the Items that received each part, one per distinct part in the order `outputs` first names them; `null` otherwise. Not fired for a vetoed dismantle. |
+| `grid-crafter.preDismantle` | `actor`, `recipe` (a copy of the [dismantling recipe](#dismantling-recipes)), `item` (the `Item` in the table's circle), `veto` (`{ reason }`), `salvage` (`{ receipt, parts }`, what comes back) | Return `false` to cancel, and set `veto.reason` to tell the player why, as with `preCraft`. Change `salvage.parts` to change what the character receives. |
+| `grid-crafter.dismantle` | `actor`, `result` `{ state, recipe, item, items, parts, receipt }` | `state` is `"success"`, `"refused"`, `"incomplete"` or `"missing"`. `item` is the item that was in the circle, as `{ uuid, name, img, type, sources }`. `items` is, on success only, the Items that received each part, one per distinct part in the order they were given; `null` otherwise. `parts` is the nine cells of the table's grid, one unit of a part per filled cell, as `{ uuid, name, img, type, sources }` or `null`. `receipt` is the [receipt](#receipts) that was broken, or `null` when the item broke into the recipe's grid. Not fired for a vetoed dismantle. |
 
 **`grid-crafter.preCraft`** fires after Grid Crafter has checked the grid and found the recipe (or
 not), and before anything is written: no item spent, no loss rolled, nothing learned, no chat card.
@@ -136,6 +136,30 @@ Hooks.on("grid-crafter.preDismantle", (actor, recipe, item, veto) => {
   return false;
 });
 ```
+
+Its fifth argument, `salvage`, is what the dismantle is about to give. `salvage.receipt` is a copy of
+the [receipt](#receipts) being broken, or `null` when the item breaks into the recipe's grid.
+`salvage.parts` is one entry per distinct part, `{ uuid, name, img, quantity }`. Change the
+quantities, remove entries or add your own, and the character receives exactly what the list holds
+when the last listener returns. Grid Crafter knows nothing about skill checks or how fair a full
+refund is at your table; this is where you decide.
+
+```js
+// Half the parts, rounded down
+Hooks.on("grid-crafter.preDismantle", (actor, recipe, item, veto, salvage) => {
+  for ( const p of salvage.parts ) p.quantity = Math.floor(p.quantity / 2);
+});
+
+// What the table didn't make gives nothing back
+Hooks.on("grid-crafter.preDismantle", (actor, recipe, item, veto, salvage) => {
+  if ( !salvage.receipt ) salvage.parts.length = 0;
+});
+```
+
+The list is checked after the hook, before anything is written. An entry without a string `uuid` or
+a whole `quantity` above 0 is dropped. A `uuid` that doesn't resolve to an item refuses the
+dismantle, and nothing is spent. An empty list is allowed: the item is spent and nothing comes back.
+A listener changes what comes back, never what is spent, and it can't pick another receipt.
 
 **`grid-crafter.dismantle`** fires once per dismantle, after the chat card is posted:
 
@@ -247,6 +271,10 @@ the character carries, and settles as `"missing"` when the character carries non
 `cells` and `requires` at the top level are a recipe with one variant. `getRecipes()` always
 returns `variants`.
 
+A variant may carry an `id`, a string unique within its recipe. Without one it gets `v0`, `v1` and
+so on, by its place in the list you register, so the same variant has the same id on every load.
+A [dismantling recipe's `favorite`](#dismantling-recipes) points at a variant by this id.
+
 ### One grid, one recipe
 
 A layout on the grid makes one recipe at most, whatever the results. Two variants of different
@@ -315,6 +343,8 @@ sheet. It has no variants, no shape, no quantity made and no chance of loss.
 | `outputs` | yes | 1 to 9 item uuids, one per unit of a part: repeat a uuid for more than one. The table lays them out in this order, left to right and top to bottom, though where a part lands never matters. |
 | `inputQuantity` | no | How many units of `input` one dismantling spends, 1 to 10. Default `1`. |
 | `requires` | no | As for a crafting recipe: an item the character must carry, never spent. Without it the dismantle is refused with a chat card. |
+| `refund` | no | `true`: an item made at the table breaks back into exactly what was spent on it, as its [receipt](#receipts) says. Default `false`. |
+| `favorite` | no | `{ recipe, variant }`: a crafting recipe's full id, as `getRecipes()` lists it (`"my-module.axe"`), and the id of one of its [variants](#variants). An item with no receipt breaks into that variant's cells, and one dismantle spends as many units as that recipe's `quantity`. Read live, so a change to the variant changes the dismantle. Never checked when registered: the recipe it names may register later. |
 | `name` | no | Defaults to the input item's name. |
 | `categories`, `public`, `discoverable` | no | As for a crafting recipe. |
 
@@ -330,6 +360,16 @@ The fields of a crafting recipe (`cells`, `variants`, `result`, `shaped`, `quant
   requires: SMITHING_TOOLS
 }
 ```
+
+What an item breaks into, in order:
+
+1. With `refund`, an item that carries a receipt breaks into exactly what that receipt says.
+2. Otherwise, with a `favorite` that still resolves, it breaks into that way of making it.
+3. Otherwise, into `outputs`.
+
+`outputs` stays required even with a `favorite`: it is what the item breaks into if that crafting
+recipe or variant is ever removed. The GM's Recipe Book saves the favorite's cells into `outputs`
+each time, so the copy is current.
 
 Breaking the sword spends it and gives two ingots and a stick. Each distinct part is given once:
 where the part has a quantity the character receives one stack (added to a stack they carry), and
@@ -353,6 +393,44 @@ match each other as [items are matched](#how-items-are-matched). Hidden recipes 
 console naming the recipe that keeps it. As with grids, the world's recipes are there before any
 package registers; between packages, the first to register keeps the item. The GM's Recipe Book
 refuses to save a second dismantling recipe for an item.
+
+### Receipts
+
+An item made at the table carries what was spent on it, so a dismantling recipe with `refund` can
+give back exactly that, whichever variant made it. Without receipts, an axe made from stone and
+broken by a recipe written from the iron variant would give iron.
+
+The receipts sit on the item, oldest first, under the flag `flags.grid-crafter.receipts`:
+
+| Field | Description |
+|---|---|
+| `parts` | What one craft spent, one `{ uuid, name, img, type, sources }` per unit, as the variant names them (world or compendium items, which outlive the spend). |
+| `per` | How many units one craft made. One dismantle of this receipt breaks that many. |
+| `count` | How many units of the stack the receipt still covers. |
+
+Crafting onto a stack the character already carries adds a receipt to it; the same variant twice in
+a row makes one receipt with a larger `count`. On a system without quantities each copy is its own
+item and carries `[{ ..., count: 1 }]`.
+
+A stack can hold crafted and bought units on one line. Systems merge items into a stack on their
+own: dnd5e merges a consumable dropped onto a sheet that has one from the same source, with the same name,
+in the same container, and
+Daggerheart merges an item moved from another actor (measured on dnd5e 6.0.5 and Daggerheart
+2.10.10). That is safe: a merge raises the quantity and adds no receipt, so the new units are
+covered by none. Coverage never exceeds the stack's quantity. When a stack shrinks, the oldest
+receipts give way first, in the same write, so units used up and then bought again are not covered
+again.
+
+A dismantle with `refund` breaks the oldest receipt of the item in the circle whose units reach its
+`per`, taking those units from the item in the circle and then from other copies with a receipt for
+the same parts. A receipt covering fewer units than `per` is left alone, and those units break as if
+bought. Units under no receipt break into the `favorite` or `outputs`.
+
+Copying an item between actors copies its receipts too (dnd5e copies an item dropped from another
+actor's sheet; the system has already duplicated the item itself). Read, set and clear receipts with
+[`getReceipts`](#getreceiptsitem--object), [`setReceipts`](#setreceiptsitem-receipts--promise) and
+[`clearReceipts`](#clearreceiptsitem--promise), for a shop, a trade or anything else that knows
+which units changed hands.
 
 ---
 
@@ -412,7 +490,7 @@ Every recipe on this client: the world's recipes first, then registered ones. Te
 apart by `kind`: `"dismantle"` for a dismantling recipe, `"craft"` for a crafting one.
 
 A crafting recipe has `id`, `kind`,
-`name`, `categories` (a list, empty when none), `shaped`, `variants` (1 to 4, each with `cells`, 9
+`name`, `categories` (a list, empty when none), `shaped`, `variants` (1 to 4, each with its `id`, `cells`, 9
 entries that are `{ uuid, name, img, type, sources }` or `null`, and `requires`, the required item
 as the same object or `null`), `result`, `quantity`, `failLossChance` (`null` when it follows the
 world setting), `source`
@@ -421,7 +499,8 @@ world setting), `source`
 
 A dismantling recipe has `id`, `kind`, `name`, `categories`, `input` (the item it breaks, as
 `{ uuid, name, img, type, sources }`), `inputQuantity`, `requires` (the same object or `null`),
-`outputs` (9 entries, a part as that object or `null`), `source`, `public` and `discoverable`.
+`outputs` (9 entries, a part as that object or `null`), `favorite` (`{ recipe, variant }` or `null`),
+`refund`, `source`, `public` and `discoverable`.
 
 A package recipe the GM edited carries `edited: true`, and its fields are the GM's version. The
 objects are copies; changing them changes nothing.
@@ -515,6 +594,43 @@ const owners = game.users.filter(u => !u.isGM
   && canvas.tokens.controlled.some(t => t.actor?.testUserPermission(u, "OWNER")));
 await GridCrafter.shareRecipe("smithing-pack.iron-sword", owners.map(u => u.id));
 ```
+
+### `getReceipts(item)` → `object[]`
+
+The [receipts](#receipts) of an item, oldest first, trimmed to the units it holds. `item` is an
+`Item` or its uuid. The objects are copies; changing them changes nothing.
+
+```js
+const torch = game.user.character.items.getName("Torch");
+console.log(GridCrafter.getReceipts(torch));
+// [{ parts: [{ uuid: "Compendium.dnd5e.items.Item.0NoBBP3MMkvJlwZY", name: "Candle", ... }, ...], per: 1, count: 1 }]
+```
+
+### `setReceipts(item, receipts)` → `Promise`
+
+Replaces an item's receipts.
+
+- `item` *(Item | string)*: the item or its uuid.
+- `receipts` *(object[])*: oldest first, each `{ parts, per, count }`: `parts` 1 to 9 item uuids,
+  one per unit; `per` a whole number from 1 to 10; `count` a whole number, 0 or more.
+
+The receipts are written trimmed to the units the item holds, the oldest giving way first. Anything
+else throws an error naming the bad entry, and nothing is written. Only someone who owns the item
+can change it.
+
+```js
+// One torch on this stack was made from a tinderbox and a candle
+await GridCrafter.setReceipts(torch, [{
+  parts: ["Compendium.dnd5e.items.Item.1FSubnBpSTDmVaYV", "Compendium.dnd5e.items.Item.0NoBBP3MMkvJlwZY"],
+  per: 1,
+  count: 1
+}]);
+```
+
+### `clearReceipts(item)` → `Promise`
+
+Removes every receipt from an item, which then breaks as if it had been bought. `item` is an `Item`
+or its uuid.
 
 ### `forge()`
 
