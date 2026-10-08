@@ -14,7 +14,7 @@ import {
 import {
   CraftError, craft, dismantle, fillFromInventory, getKnownRecipeIds, getLearnedRecipeIds, hasRequiredItem, planDismantle
 } from "../crafting.js";
-import { dismantleGrid, getAllRecipes, isDiscoverable, recipeFace } from "../recipes.js";
+import { dismantleGrid, findRecipe, getAllRecipes, isDiscoverable, recipeFace } from "../recipes.js";
 import { BELLOWS_PERIOD, CraftFX, animate, runeGlyphs, wait } from "../effects.js";
 import { playCue } from "../sound.js";
 
@@ -190,6 +190,19 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       ? all.find(r => (r.kind === "dismantle") && known.has(r.id) && refMatches(r.input, this.inputRef)) : null;
     const doc = recipe ? foundry.utils.fromUuidSync(this.inputRef.uuid) : null;
     const ghost = doc ? (planDismantle(recipe, doc, actor, all)?.cells ?? dismantleGrid(recipe, all).cells) : null;
+    // The item the board's recipe requires, under the circle, so a missing tool is plain before the click.
+    // Only for a recipe the actor knows: a grid it could only discover shows nothing, like the ghost.
+    let benchRequires = null;
+    if ( dismantling ) benchRequires = recipe ? requires(recipe) : null;
+    else if ( actor && this.slots.some(Boolean) ) {
+      const found = findRecipe(this.slots, all.filter(r => (r.kind !== "dismantle") && known.has(r.id)));
+      // Several variants may fit one grid: none is needed if one of them needs none, and the craft takes
+      // a variant the actor can make, so that one's item is the one to show.
+      const variants = found ? found.matches.map(i => found.recipe.variants[i]) : [];
+      if ( variants.length && variants.every(v => v.requires) ) {
+        benchRequires = requires(variants.find(v => hasRequiredItem(v, actor)) ?? variants[0]);
+      }
+    }
     return {
       theme,
       isArcane,
@@ -206,6 +219,7 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       query: this.#query,
       readyOnly: this.#readyOnly,
       result: result ? { uuid: result.uuid, name: result.name, img: result.img, quantity: getQuantity(result) } : null,
+      benchRequires,
       glyphs
     };
   }

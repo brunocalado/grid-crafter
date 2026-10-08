@@ -28,8 +28,8 @@
           {{#each cells}}<img src="{{img}}" alt="">{{/each}}
         </span>
         {{/if}}
-        {{#if requires}}<span class="gc-requires {{#unless requires.has}}gc-lacking{{/unless}}"
-              data-tooltip="{{localize "GRIDCRAFTER.Recipe.Requires" name=requires.name}}"><img src="{{requires.img}}" alt=""></span>{{/if}}
+        {{#if requires}}<span class="gc-book-tool {{#unless requires.has}}gc-lacking{{/unless}}"
+              data-tooltip="{{localize "GRIDCRAFTER.Recipe.Requires" name=requires.name}}"><img src="{{requires.img}}" alt=""><span>{{requires.name}}</span></span>{{/if}}
       </button>
       {{/each}}
       {{#if public}}<i class="fa-solid fa-people-group gc-public-marker" data-tooltip="GRIDCRAFTER.Forge.PublicMarker"></i>{{/if}}
@@ -137,6 +137,7 @@
         <span></span><span></span><span></span>
       </div>
 
+      <div class="gc-result-column">
       {{#if dismantling}}
       <div class="gc-result-slot gc-input-slot {{#if input}}gc-filled{{/if}}" {{#if input}}data-tooltip="{{input.name}}"{{/if}}>
         {{#if input}}
@@ -151,6 +152,11 @@
         {{#if result}}<img src="{{result.img}}" alt="{{result.name}}" draggable="false">{{/if}}
       </div>
       {{/if}}
+      {{#if benchRequires}}
+      <div class="gc-requires {{#unless benchRequires.has}}gc-lacking{{/unless}}"
+           data-tooltip="{{localize "GRIDCRAFTER.Recipe.Requires" name=benchRequires.name}}"><img src="{{benchRequires.img}}" alt=""></div>
+      {{/if}}
+      </div>
     </div>
 
     <footer class="gc-controls">

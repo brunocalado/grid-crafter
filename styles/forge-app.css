@@ -150,10 +150,12 @@
   .gc-book-entry {
     --gc-entry-h: 44px;
     display: grid;
-    grid-template-columns: var(--gc-entry-h) var(--gc-entry-h) 1fr;
-    /* At least the icon's height, so a later variant's row, which has no icon, is as tall as the first. */
-    grid-template-rows: minmax(var(--gc-entry-h), auto);
-    grid-template-areas: "icon ingredients name";
+    grid-template-columns: var(--gc-entry-h) var(--gc-entry-h) minmax(0, 1fr);
+    /* The name at the top, the required item at the bottom, beside the icon and the ingredients. */
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "icon ingredients name"
+      "icon ingredients tool";
     gap: 2px 8px;
     align-items: center;
     width: 100%;
@@ -178,15 +180,6 @@
       opacity: 0.55;
     }
 
-    /* A badge on the result icon's bottom-right corner: under the name it would push a two-line
-       name past the grid's height. */
-    .gc-requires {
-      --gc-requires: 22px;
-      grid-area: icon;
-      align-self: end;
-      justify-self: end;
-      margin: 0 -6px -6px 0;
-    }
   }
 
   /* A recipe made more than one way: one card, a row per variant, named once. The card carries the
@@ -255,6 +248,48 @@
     line-height: 1.1;
   }
 
+  /* The item a variant requires, named: a long name ends in an ellipsis and the tooltip holds all of it.
+     Foundry turns off pointer events on a button's children, so this one turns them back on for its
+     tooltip; a click on it still reaches the entry. */
+  .gc-book-tool {
+    grid-area: tool;
+    align-self: end;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    color: var(--gc-text-dim);
+    font-size: var(--font-size-12);
+    line-height: 1.2;
+    pointer-events: auto;
+
+    img {
+      flex: none;
+      width: 16px;
+      height: 16px;
+      border: 1px solid var(--gc-metal-hi);
+      border-radius: 50%;
+    }
+
+    span {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    /* The crafter doesn't carry it: the reason the entry is dimmed. */
+    &.gc-lacking {
+      color: var(--gc-danger);
+
+      img {
+        border-color: var(--gc-danger);
+        filter: grayscale(1);
+        opacity: 0.7;
+      }
+    }
+  }
+
   /* How many of the item one dismantling breaks. */
   .gc-book-count {
     color: var(--gc-trim-hi);
@@ -268,6 +303,7 @@
 
   .gc-mini-grid {
     grid-area: ingredients;
+    align-self: center;
     display: grid;
     grid-template-columns: repeat(3, 14px);
     gap: 1px;
@@ -296,6 +332,8 @@
     align-content: center;
     gap: 1px;
     width: var(--gc-entry-h);
+    /* At least the icon's height, so a later variant's row, which has no icon, is as tall as the first. */
+    min-height: var(--gc-entry-h);
 
     img {
       width: 14px;
@@ -488,6 +526,19 @@
 
     &::before {
       background: conic-gradient(from 0deg, var(--gc-danger), transparent 25%, var(--gc-danger) 50%, transparent 75%, var(--gc-danger));
+    }
+  }
+
+  /* The required item hangs under the circle, out of the flow, so the grid, the arrows and the circle
+     keep their shared centre line. As in the Recipe Book. */
+  .gc-result-column {
+    position: relative;
+
+    .gc-requires {
+      position: absolute;
+      top: calc(100% + 12px);
+      left: 50%;
+      translate: -50% 0;
     }
   }
 
