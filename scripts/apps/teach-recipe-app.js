@@ -148,6 +148,9 @@ export class TeachRecipeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     })]);
     // A character was assigned or unassigned.
     this.#hooks.push(["updateUser", Hooks.on("updateUser", refresh)]);
+    // A deleted actor takes its row with it. An unlinked token's actor goes with its token, and a
+    // controlled token leaving the canvas is already caught by controlToken.
+    this.#hooks.push(["deleteActor", Hooks.on("deleteActor", actor => this.#listed.has(actor.uuid) && refresh())]);
   }
 
   /** @override */
@@ -168,7 +171,9 @@ export class TeachRecipeApp extends HandlebarsApplicationMixin(ApplicationV2) {
    * @this {TeachRecipeApp}
    */
   static async #onApply() {
-    const actors = [...this.pending].map(uuid => this.#listed.get(uuid));
+    // Something deleted since the last render is skipped: writing to it would throw and stop the rest.
+    const actors = [...this.pending].map(uuid => this.#listed.get(uuid))
+      .filter(actor => foundry.utils.fromUuidSync(actor.uuid, { strict: false }));
     // One write per actor with every recipe in it, and separate writes per actor, not one batch: a
     // synthetic actor's flag lives on its token's ActorDelta, a different document type and parent
     // from a world actor's.
