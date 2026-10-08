@@ -28,6 +28,7 @@
       "Shaped": "Shaped",
       "Shapeless": "Shapeless",
       "Public": "Public",
+      "Refund": "Refund",
       "Quantity": "Makes",
       "Consumes": "Consumes",
       "FailLoss": "Failure: chance to lose materials",
@@ -84,7 +85,11 @@
       "Unsaved": "Unsaved Changes",
       "DiscardChanges": "This recipe has unsaved changes. Discard them?",
       "QuantityHint": "How many of the result one successful craft makes. Items with a quantity get one stack; items without one arrive as separate copies.",
-      "ConsumesHint": "How many of the item one dismantling breaks."
+      "ConsumesHint": "How many of the item one dismantling breaks.",
+      "RefundHint": "An item made at the table breaks back into exactly what was spent on it.",
+      "RefundOther": "Everything else",
+      "RefundOtherHint": "Bought, looted or given, it breaks into the parts on the grid. When the grid follows a way of making the item, light the cheapest.",
+      "OwnParts": "Own parts"
     },
     "Search": {
       "Placeholder": "Name or ingredient",

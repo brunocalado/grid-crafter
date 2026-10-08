@@ -12,8 +12,9 @@ import {
   recipeSearchText, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
 import {
-  blankDismantle, blankRecipe, blankVariant, deleteRecipe, findInputTaken, findOverlap, getAllRecipes, getCategories, getHiddenIds,
-  getRecipe, getWorldRecipes, isDiscoverable, normalizeCategories, recipeFace, restoreRecipe, saveRecipe, setRecipeHidden
+  blankDismantle, blankRecipe, blankVariant, deleteRecipe, dismantleGrid, findInputTaken, findOverlap, getAllRecipes, getCategories,
+  getHiddenIds, getRecipe, getWorldRecipes, isDiscoverable, normalizeCategories, recipeFace, restoreRecipe, saveRecipe, setRecipeHidden,
+  waysToMake
 } from "../recipes.js";
 import { ShareRecipeApp } from "./share-recipe-app.js";
 import { ForgetRecipeApp, TeachRecipeApp } from "./teach-recipe-app.js";
@@ -68,7 +69,9 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       clearRequires: RecipeEditorApp.#onClearRequires,
       selectVariant: RecipeEditorApp.#onSelectVariant,
       addVariant: RecipeEditorApp.#onAddVariant,
-      removeVariant: RecipeEditorApp.#onRemoveVariant
+      removeVariant: RecipeEditorApp.#onRemoveVariant,
+      selectWay: RecipeEditorApp.#onSelectWay,
+      selectOwnParts: RecipeEditorApp.#onSelectOwnParts
     }
   };
 
@@ -166,6 +169,17 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const circle = dismantling
       ? { drop: "input", item: draft.input, clear: "clearInput", hint: "GRIDCRAFTER.Editor.DropInput" }
       : { drop: "result", item: draft.result, clear: "clearResult", hint: "GRIDCRAFTER.Editor.DropResult" };
+    // A dismantling grid may follow one way of making its item, read live from that crafting recipe as
+    // saved; the pen is the recipe's own parts. A favorite that no longer resolves lights the pen.
+    const way = this.#way;
+    const ways = (dismantling && draft.input) ? waysToMake(draft.input, all).map(w => ({
+      recipe: w.recipe.id,
+      variant: w.variant.id,
+      active: (w.recipe.id === way?.recipe.id) && (w.variant.id === way?.variant.id),
+      label: (w.recipe.variants.length > 1)
+        ? `${recipeFace(w.recipe).name} · ${game.i18n.localize("GRIDCRAFTER.Editor.Variant", { n: w.index + 1 })}`
+        : recipeFace(w.recipe).name
+    })).filter(w => w.variant) : [];
     return {
       theme,
       isArcane: theme === "arcane",
@@ -188,6 +202,11 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       selecting: !!selected,
       picked: selected?.size ?? 0,
       cells: this.#cells.map((item, index) => ({ index, item })),
+      // Following a way, the grid is that way's and can't be edited here.
+      linked: !!way,
+      ways: ways.length ? ways : null,
+      ownParts: !way,
+      inputQuantity: way ? way.recipe.quantity : draft.inputQuantity,
       // Where a part sits never matters, so a dismantling grid always reads as shapeless.
       shapeless: dismantling || !draft.shaped,
       requires: this.#holder.requires,
@@ -214,13 +233,26 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       quantityHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Quantity")}</strong><br>`
         + `${game.i18n.localize("GRIDCRAFTER.Editor.QuantityHint")}</p>`,
       consumesHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Consumes")}</strong><br>`
-        + `${game.i18n.localize("GRIDCRAFTER.Editor.ConsumesHint")}</p>`
+        + `${game.i18n.localize("GRIDCRAFTER.Editor.ConsumesHint")}</p>`,
+      refundHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Refund")}</strong><br>`
+        + `${game.i18n.localize("GRIDCRAFTER.Editor.RefundHint")}</p>`
+        + `<p><strong>${game.i18n.localize("GRIDCRAFTER.Editor.RefundOther")}</strong><br>`
+        + `${game.i18n.localize("GRIDCRAFTER.Editor.RefundOtherHint")}</p>`
     };
   }
 
-  /** The board's nine cells: the ingredients of the variant on show, or a dismantling recipe's parts. */
+  /**
+   * The board's nine cells: the ingredients of the variant on show, or a dismantling recipe's parts, which
+   * are the way it follows when it follows one.
+   */
   get #cells() {
-    return (this.draft.kind === "dismantle") ? this.draft.outputs : this.draft.variants[this.#variant].cells;
+    if ( this.draft.kind !== "dismantle" ) return this.draft.variants[this.#variant].cells;
+    return this.#way?.variant.cells ?? this.draft.outputs;
+  }
+
+  /** @returns {{recipe: Recipe, variant: object, index: number}|null} the way a dismantling draft follows */
+  get #way() {
+    return (this.draft.kind === "dismantle") ? dismantleGrid(this.draft, getAllRecipes()).way : null;
   }
 
   /** What keeps the board's required item: the variant on show, or a dismantling recipe itself. */
@@ -255,6 +287,9 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     for ( const el of this.element.querySelectorAll("[data-drop]") ) {
       el.addEventListener("dragover", ev => {
+        // A grid that follows a way takes no drop, so it doesn't light up for one. Core accepts every
+        // dragover on the page, so the drop itself is refused in #onDrop.
+        if ( context.linked && (ev.currentTarget.dataset.drop === "cell") ) return;
         ev.preventDefault();
         ev.currentTarget.classList.add("gc-drop-target");
       });
@@ -376,6 +411,9 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
         this.element.querySelector(".gc-discovery-value").textContent =
           game.i18n.localize(input.checked ? "GRIDCRAFTER.Recipe.Yes" : "GRIDCRAFTER.Recipe.No");
         break;
+      case "refund":
+        draft.refund = input.checked;
+        break;
     }
     this.#markDirty(false);
   }
@@ -404,11 +442,14 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     const drop = target.dataset.drop;
     const dismantling = this.draft.kind === "dismantle";
+    if ( (drop === "cell") && this.#way ) return;
     if ( (drop === "result") || (drop === "input") ) {
       const source = await this.#sourceItem(item);
       if ( !source ) return;
       this.draft[drop] = toItemRef(source);
       if ( !this.draft.name ) this.draft.name = source.name;
+      // The ways of making the old item are not this one's.
+      if ( drop === "input" ) this.draft.favorite = null;
     }
     // Any type: the item is looked for on the sheet, never placed on a grid, so a feature or a
     // proficiency is as good a requirement as a tool.
@@ -538,6 +579,14 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onSave() {
     const draft = this.draft;
     if ( draft.kind === "dismantle" ) {
+      // The saved parts are a copy of the way followed, kept current: what the item breaks into if that
+      // way is ever deleted, and what the search reads. A favorite that no longer resolves goes.
+      const way = this.#way;
+      if ( way ) {
+        draft.outputs = foundry.utils.deepClone(way.variant.cells);
+        draft.inputQuantity = way.recipe.quantity;
+      }
+      else draft.favorite = null;
       if ( !draft.input ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoInput"));
       if ( !draft.outputs.some(Boolean) ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoOutputs"));
       // One item, one dismantling recipe: a second would leave the table two answers.
@@ -844,6 +893,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @this {RecipeEditorApp} */
   static #onClearInput() {
     this.draft.input = null;
+    this.draft.favorite = null;
     this.dirty = true;
     this.render();
   }
@@ -880,6 +930,36 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.draft.variants.push(blankVariant());
     this.dirty = true;
     this.#showVariant(this.draft.variants.length - 1);
+  }
+
+  /**
+   * Follow one way of making the item: its grid, read live, is what an item with no receipt breaks into.
+   * @this {RecipeEditorApp}
+   */
+  static #onSelectWay(event, target) {
+    const { recipe, variant } = target.dataset;
+    if ( (this.draft.favorite?.recipe === recipe) && (this.draft.favorite?.variant === variant) ) return;
+    this.draft.favorite = { recipe, variant };
+    this.dirty = true;
+    this.#switched = true;
+    this.render();
+  }
+
+  /**
+   * Stop following a way: the grid becomes the recipe's own parts, starting from the way on show so the
+   * GM edits from what they were looking at.
+   * @this {RecipeEditorApp}
+   */
+  static #onSelectOwnParts() {
+    const way = this.#way;
+    // Already its own parts; a favorite that no longer resolves goes on Save.
+    if ( !way ) return;
+    this.draft.favorite = null;
+    this.draft.outputs = foundry.utils.deepClone(way.variant.cells);
+    this.draft.inputQuantity = way.recipe.quantity;
+    this.dirty = true;
+    this.#switched = true;
+    this.render();
   }
 
   /**

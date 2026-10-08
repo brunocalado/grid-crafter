@@ -266,8 +266,9 @@
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       }
 
+      /* Name, Public, Refund: Refund takes the slot a crafting recipe gives to Shape. */
       .gc-fields-top {
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 1fr auto auto;
       }
     }
 
@@ -390,6 +391,24 @@
   }
 
   /* The cells' remove button, shrunk onto the active dot's top-right, shown while it is hovered. */
+  /* A grid that follows a way of making the item is that way's, read-only: the trim border stays put and
+     nothing glows on hover. */
+  .gc-grid.gc-linked .gc-cell {
+    &,
+    &:hover {
+      border-color: var(--gc-trim);
+      box-shadow: inset 0 3px 8px #000c, inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    }
+  }
+
+  /* The pen, lit, reads as one more dot: the same glow border and fill. */
+  .gc-own-parts.gc-active {
+    border-color: var(--gc-glow);
+    background: var(--gc-glow);
+    color: var(--gc-bg-0);
+    box-shadow: 0 0 6px rgba(var(--gc-glow-rgb), 0.7);
+  }
+
   .gc-variant .gc-cell-clear {
     top: -4px;
     right: -5px;

@@ -84,7 +84,14 @@
           <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{publicHelp}}"
              data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="UP"></i>
         </fieldset>
-        {{#unless dismantling}}
+        {{#if dismantling}}
+        <fieldset class="gc-field gc-refund">
+          <legend>{{localize "GRIDCRAFTER.Recipe.Refund"}}</legend>
+          <input type="checkbox" class="gc-toggle" name="refund" {{#if draft.refund}}checked{{/if}}>
+          <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{refundHelp}}"
+             data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="LEFT"></i>
+        </fieldset>
+        {{else}}
         <fieldset class="gc-field gc-shape">
           <legend>{{localize "GRIDCRAFTER.Recipe.Shape"}}</legend>
           <label><input type="radio" name="shaped" value="shaped" {{#if draft.shaped}}checked{{/if}}> {{localize "GRIDCRAFTER.Recipe.Shaped"}}</label>
@@ -92,7 +99,7 @@
           <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{shapeHelp}}"
              data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="LEFT"></i>
         </fieldset>
-        {{/unless}}
+        {{/if}}
       </div>
       <div class="gc-fields-row">
         {{#unless dismantling}}
@@ -125,8 +132,8 @@
         {{#if dismantling}}
         <fieldset class="gc-field gc-quantity">
           <legend>{{localize "GRIDCRAFTER.Recipe.Consumes"}}</legend>
-          <input type="range" name="inputQuantity" min="1" max="10" step="1" value="{{draft.inputQuantity}}">
-          <output class="gc-quantity-value">{{draft.inputQuantity}}</output>
+          <input type="range" name="inputQuantity" min="1" max="10" step="1" value="{{inputQuantity}}" {{#if linked}}disabled{{/if}}>
+          <output class="gc-quantity-value">{{inputQuantity}}</output>
           <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{consumesHelp}}"
              data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="LEFT"></i>
         </fieldset>
@@ -144,16 +151,31 @@
 
     <div class="gc-recipe-board" {{#if selecting}}inert{{/if}}>
       <div class="gc-grid-column">
-        <div class="gc-grid {{#if shapeless}}gc-shapeless{{/if}}">
+        <div class="gc-grid {{#if shapeless}}gc-shapeless{{/if}} {{#if linked}}gc-linked{{/if}}">
           {{#each cells}}
           <div class="gc-cell" data-drop="cell" data-index="{{index}}" {{#if item}}data-tooltip="{{item.name}}"{{/if}}>
             {{#if item}}
             <img src="{{item.img}}" alt="{{item.name}}">
+            {{#unless @root.linked}}
             <button type="button" class="gc-cell-clear" data-action="clearCell" aria-label="{{localize "GRIDCRAFTER.Forge.Remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
+            {{/unless}}
             {{/if}}
           </div>
           {{/each}}
         </div>
+        {{#if ways}}
+        <div class="gc-variants gc-ways">
+          {{#each ways}}
+          <span class="gc-variant {{#if active}}gc-active{{/if}}">
+            <button type="button" class="gc-variant-dot" data-action="selectWay" data-recipe="{{recipe}}" data-variant="{{variant}}"
+                    aria-pressed="{{active}}" aria-label="{{label}}" data-tooltip="{{label}}"></button>
+          </span>
+          {{/each}}
+          <button type="button" class="gc-variant-add gc-own-parts {{#if ownParts}}gc-active{{/if}}" data-action="selectOwnParts"
+                  aria-pressed="{{ownParts}}" aria-label="{{localize "GRIDCRAFTER.Editor.OwnParts"}}"
+                  data-tooltip="GRIDCRAFTER.Editor.OwnParts"><i class="fa-solid fa-pen" inert></i></button>
+        </div>
+        {{/if}}
         {{#if variants}}
         <div class="gc-variants">
           {{#if variants.many}}
