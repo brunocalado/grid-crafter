@@ -35,8 +35,8 @@ export function registerRevealQuery() {
 export async function shareRecipe(recipe, userIds) {
   const users = userIds.map(id => game.users.get(id)).filter(u => u?.active && !u.isGM);
   new RecipeRevealApp({ recipeId: recipe.id }).render({ force: true });
-  const answers = await Promise.allSettled(users.map(u => u.query(REVEAL_QUERY, { id: recipe.id }, { timeout: 10 * 1000 })));
-  const missed = users.filter((u, i) => (answers[i].status !== "fulfilled") || (answers[i].value !== true));
+  const answers = await foundry.documents.User.queryMany(users, REVEAL_QUERY, { id: recipe.id }, { timeout: 10 * 1000 });
+  const missed = users.filter(u => (answers.get(u).status !== "fulfilled") || (answers.get(u).value !== true));
   if ( missed.length ) ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.ShareMissed",
     { names: game.i18n.getListFormatter().format(missed.map(u => u.name)) }));
 }

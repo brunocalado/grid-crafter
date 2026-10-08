@@ -138,7 +138,8 @@
       "UnknownRecipe": "There is no recipe with the id {id}.",
       "NoPlayersOnline": "No player is online.",
       "SaveBeforeSharing": "Save the recipe before sharing it.",
-      "ShareMissed": "The recipe could not be shown to {names}."
+      "ShareMissed": "The recipe could not be shown to {names}.",
+      "UserIdsNotList": "Pass the players as a list of user ids."
     },
     "Settings": {
       "RecipeEditor": {

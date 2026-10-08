@@ -147,6 +147,9 @@ export const api = {
     if ( !game.user.isGM ) return warn("GMOnly");
     const recipe = getRecipe(id);
     if ( !recipe ) return warn("UnknownRecipe", { id });
+    if ( (userIds !== undefined) && !(Array.isArray(userIds) && userIds.every(u => typeof u === "string")) ) {
+      return warn("UserIdsNotList");
+    }
     return shareRecipe(recipe, userIds ?? game.users.filter(u => u.active && !u.isGM).map(u => u.id));
   }
 };
