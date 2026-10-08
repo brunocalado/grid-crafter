@@ -13,7 +13,7 @@ import {
 } from "../helpers.js";
 import {
   blankRecipe, blankVariant, deleteRecipe, findOverlap, getAllRecipes, getCategories, getHiddenIds, getRecipe, getWorldRecipes,
-  isDiscoverable, normalizeCategories, restoreRecipe, saveRecipe, setRecipeHidden
+  isDiscoverable, normalizeCategories, recipeFace, restoreRecipe, saveRecipe, setRecipeHidden
 } from "../recipes.js";
 import { ShareRecipeApp } from "./share-recipe-app.js";
 import { ForgetRecipeApp, TeachRecipeApp } from "./teach-recipe-app.js";
@@ -96,7 +96,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** @override */
   async _prepareContext(options) {
-    const all = getAllRecipes();
+    // FIXME: interim, until the editor can show a dismantling recipe.
+    const all = getAllRecipes().filter(r => r.kind !== "dismantle");
     const hiddenIds = getHiddenIds();
     const [hidden, shown] = all.reduce((parts, r) => {
       parts[hiddenIds.has(r.id) ? 0 : 1].push(r);
@@ -123,7 +124,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // A recipe another package unregistered meanwhile can't be taught.
     if ( selected ) for ( const id of selected ) if ( !all.some(r => r.id === id) ) selected.delete(id);
     // While selecting, a lit row means "selected" and nothing else: the draft's row is lit only if picked.
-    const toEntry = r => ({ id: r.id, name: r.name || r.result?.name || "—", img: r.result?.img,
+    const toEntry = r => ({ id: r.id, name: recipeFace(r).name || "—", img: recipeFace(r).img,
       active: selected ? selected.has(r.id) : r.id === draft.id, search: recipeSearchText(r), public: r.public,
       edited: !!r.edited,
       variantsTip: (r.variants.length > 1) ? game.i18n.localize("GRIDCRAFTER.Editor.VariantsMarker", { count: r.variants.length }) : "" });

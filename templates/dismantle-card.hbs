@@ -1,0 +1,50 @@
+<div class="grid-crafter gc-chat-card gc-theme-{{theme}} {{#if success}}gc-success{{else}}gc-failure{{/if}}">
+  <header class="gc-chat-header">
+    {{#if success}}
+    <i class="fa-solid {{#if (eq theme "arcane")}}fa-burst{{else}}fa-pickaxe{{/if}}" inert></i>
+    <h3>{{localize "GRIDCRAFTER.Chat.Dismantled" name=actorName item=itemName}}</h3>
+    {{else if (eq state "refused")}}
+    <i class="fa-solid fa-box-open" inert></i>
+    <h3>{{localize "GRIDCRAFTER.Chat.DismantleRefused" name=actorName}}</h3>
+    {{else if (eq state "missing")}}
+    <i class="fa-solid fa-lock" inert></i>
+    <h3>{{localize "GRIDCRAFTER.Chat.DismantleMissing" name=actorName item=itemName}}</h3>
+    {{else}}
+    <i class="fa-solid fa-triangle-exclamation" inert></i>
+    <h3>{{localize "GRIDCRAFTER.Chat.DismantleIncomplete" name=actorName}}</h3>
+    {{/if}}
+  </header>
+
+  {{#if required}}
+  <p class="gc-chat-required {{#if (eq state "missing")}}gc-chat-missing{{/if}}">
+    <img src="{{required.img}}" alt=""> <span>{{required.label}}</span>
+  </p>
+  {{/if}}
+  {{#if (eq state "refused")}}
+  <p class="gc-chat-message">{{localize "GRIDCRAFTER.Chat.RefusedMessage" name=actorName}}</p>
+  {{else if (eq state "incomplete")}}
+  <p class="gc-chat-message">{{localize "GRIDCRAFTER.Chat.IncompleteMessage" name=actorName}}</p>
+  {{/if}}
+
+  <h4>{{#if spent}}{{localize "GRIDCRAFTER.Chat.Spent"}}{{else}}{{localize "GRIDCRAFTER.Chat.Attempted"}}{{/if}}</h4>
+  <ul class="gc-chat-items">
+    {{#each inputs}}
+    <li>
+      <img src="{{img}}" alt="">
+      <span class="gc-chat-name">{{name}}{{#if (gt count 1)}} ×{{count}}{{/if}}</span>
+    </li>
+    {{/each}}
+  </ul>
+
+  {{#if received}}
+  <h4>{{localize "GRIDCRAFTER.Chat.Received"}}</h4>
+  <ul class="gc-chat-items">
+    {{#each received}}
+    <li>
+      <img src="{{img}}" alt="">
+      <span class="gc-chat-name">{{name}}{{#if (gt count 1)}} ×{{count}}{{/if}}</span>
+    </li>
+    {{/each}}
+  </ul>
+  {{/if}}
+</div>

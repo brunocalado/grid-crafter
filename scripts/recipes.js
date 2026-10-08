@@ -21,21 +21,33 @@ import { refMatches, toItemRef } from "./helpers.js";
  */
 
 /**
+ * A crafting recipe makes one item from a grid; a dismantling recipe (`kind: "dismantle"`) breaks one
+ * item into parts. Anything but "dismantle" is a crafting recipe. The fields after `kind` belong to
+ * one kind or the other.
  * @typedef {object} Recipe
  * @property {string} id
+ * @property {"craft"|"dismantle"} kind
  * @property {string} name
  * @property {string[]} categories        groups it is listed under in the books; empty when none
- * @property {boolean} shaped              false: only which items, not where, matters; for every variant
- * @property {Variant[]} variants         1 to VARIANT_MAX, in the order they were added. Knowing the recipe
- *   is knowing all of them
- * @property {import("./helpers.js").ItemRef} result
- * @property {number} quantity            how many results one craft makes
- * @property {number|null} failLossChance  percent; null inherits the world default
  * @property {boolean} public            every character knows it
  * @property {boolean|null} discoverable  whether an actor that doesn't know it can make it; null
  *   inherits the world setting
  * @property {string} [source]            "world", or the id of the package that registered it
  * @property {boolean} [edited]          a package recipe the GM changed; Restore brings back the package's
+ *
+ * @property {boolean} shaped              craft: false when only which items, not where, matters; for every variant
+ * @property {Variant[]} variants         craft: 1 to VARIANT_MAX, in the order they were added. Knowing the
+ *   recipe is knowing all of them
+ * @property {import("./helpers.js").ItemRef} result   craft
+ * @property {number} quantity            craft: how many results one craft makes
+ * @property {number|null} failLossChance  craft: percent; null inherits the world default
+ *
+ * @property {import("./helpers.js").ItemRef} input   dismantle: the item that is broken
+ * @property {number} inputQuantity       dismantle: how many units of it one dismantling spends, 1 to 10
+ * @property {import("./helpers.js").ItemRef|null} requires   dismantle: an item the actor must carry,
+ *   never spent
+ * @property {(import("./helpers.js").ItemRef|null)[]} outputs   dismantle: nine cells, one unit of a part
+ *   per filled cell; where a part sits never matters
  */
 
 /** Recipes other packages registered through the API, keyed by id. They live in memory only. */
@@ -158,10 +170,11 @@ export function blankVariant() {
   return { cells: Array(CELL_COUNT).fill(null), requires: null };
 }
 
-/** @returns {Recipe} an empty recipe ready for the editor */
+/** @returns {Recipe} an empty crafting recipe ready for the editor */
 export function blankRecipe() {
   return {
     id: foundry.utils.randomID(),
+    kind: "craft",
     name: "",
     categories: [],
     shaped: true,
@@ -175,7 +188,17 @@ export function blankRecipe() {
 }
 
 /**
- * Can an actor that doesn't know the recipe make it by laying out its ingredients?
+ * The item a recipe is shown by in every book and card: what it makes, or what it breaks.
+ * @param {Recipe} recipe
+ * @returns {{name: string, img: string|undefined}}
+ */
+export function recipeFace(recipe) {
+  const item = (recipe.kind === "dismantle") ? recipe.input : recipe.result;
+  return { name: recipe.name || item?.name || "", img: item?.img };
+}
+
+/**
+ * Can an actor that doesn't know the recipe use it: lay out its ingredients, or break its item?
  * @param {Recipe} recipe
  * @returns {boolean}
  */
@@ -221,12 +244,51 @@ function variantFromData(data) {
 }
 
 /**
- * Register recipes on behalf of another package. Each recipe brings `variants: [{ cells, requires }]`,
- * or `cells` and `requires` at the top level as a recipe with one variant. Empty cells are null.
+ * Read a dismantling recipe a package handed us.
+ * @param {object} data   `{ input, inputQuantity, requires, outputs }`: outputs as 1 to 9 uuids, one per unit
+ * @param {string} id
+ * @param {string} packageId
+ * @returns {Recipe|string}   the recipe, or why it can't be used
+ */
+function dismantleFromData(data, id, packageId) {
+  const input = refFromUuid(data.input);
+  if ( !input ) return `unresolved input ${data.input}`;
+  const list = data.outputs;
+  if ( !Array.isArray(list) || !list.length || (list.length > CELL_COUNT) ) return `it needs 1 to ${CELL_COUNT} outputs`;
+  const outputs = list.map(uuid => refFromUuid(uuid));
+  const missing = list.filter((uuid, i) => !outputs[i]);
+  const requires = data.requires ? refFromUuid(data.requires) : null;
+  if ( data.requires && !requires ) missing.push(data.requires);
+  if ( missing.length ) return `unresolved items ${missing.join(", ")}`;
+  const recipe = {
+    id,
+    kind: "dismantle",
+    name: String(data.name ?? input.name),
+    categories: normalizeCategories(data.categories),
+    public: data.public === true,
+    discoverable: (typeof data.discoverable === "boolean") ? data.discoverable : null,
+    input,
+    inputQuantity: Math.clamp(Math.floor(Number(data.inputQuantity) || 1), 1, 10),
+    requires,
+    outputs: [...outputs, ...Array(CELL_COUNT - outputs.length).fill(null)],
+    source: packageId
+  };
+  // Read now, not once for the call: recipes registered earlier in the same call count too.
+  const other = findInputTaken(recipe, getAllRecipes());
+  if ( other ) return `${input.name} already has a dismantling recipe, "${other.name}" (${other.id})`;
+  return recipe;
+}
+
+/**
+ * Register recipes on behalf of another package. A crafting recipe brings `variants: [{ cells, requires }]`,
+ * or `cells` and `requires` at the top level as a recipe with one variant. Empty cells are null. A
+ * dismantling recipe (`kind: "dismantle"`) brings `input`, `inputQuantity`, `requires` and `outputs`
+ * instead; the fields of the other kind are ignored.
  *
- * One grid makes one recipe: a variant whose grid a recipe already present makes is dropped. The
- * world's recipes are there before any package registers, so they always keep their grids; between
- * packages, the first to register keeps it.
+ * One grid makes one recipe: a variant whose grid a recipe already present makes is dropped. One item
+ * has one dismantling recipe: a second one for it is skipped. The world's recipes are there before any
+ * package registers, so they always keep their grids and items; between packages, the first to register
+ * keeps them.
  * @param {string} packageId
  * @param {object[]} recipes
  * @returns {number} how many recipes were registered
@@ -240,6 +302,19 @@ export function registerRecipes(packageId, recipes) {
     const skip = (reason, ...details) => console.warn(`${MODULE_ID} | Recipe ${label} skipped: ${reason}.`, ...details);
     if ( !data?.id ) {
       skip("it needs an id");
+      continue;
+    }
+    if ( ![undefined, "craft", "dismantle"].includes(data.kind) ) {
+      skip(`unknown kind "${data.kind}"`);
+      continue;
+    }
+    if ( data.kind === "dismantle" ) {
+      const recipe = dismantleFromData(data, label, packageId);
+      if ( typeof recipe === "string" ) skip(recipe);
+      else {
+        registered.set(label, recipe);
+        count++;
+      }
       continue;
     }
     const many = data.variants !== undefined;
@@ -279,6 +354,7 @@ export function registerRecipes(packageId, recipes) {
     const chance = Number(data.failLossChance);
     registered.set(label, {
       id: label,
+      kind: "craft",
       name: String(data.name ?? result.name),
       categories: normalizeCategories(data.categories),
       shaped,
@@ -384,7 +460,7 @@ function variantMatches(shaped, variant, cells) {
  * The recipe a grid makes, and which of its variants the grid satisfies. One grid makes one recipe at
  * most (see findOverlap), but several variants of it may fit, each with its own required item.
  * @param {(object|null)[]} cells
- * @param {Recipe[]} recipes   the ones the crafter may make
+ * @param {Recipe[]} recipes   the crafting recipes the crafter may make
  * @returns {{recipe: Recipe, matches: number[]}|null}   matches: indexes in the recipe's variants
  */
 export function findRecipe(cells, recipes) {
@@ -400,7 +476,7 @@ export function findRecipe(cells, recipes) {
  * The recipe a failed grid was closest to: right items, wrong shape, in any variant. It decides what
  * a failure costs.
  * @param {(object|null)[]} cells
- * @param {Recipe[]} recipes   the ones the crafter may make
+ * @param {Recipe[]} recipes   the crafting recipes the crafter may make
  * @returns {Recipe|null}
  */
 export function findNearRecipe(cells, recipes) {
@@ -424,17 +500,28 @@ function variantsOverlap(a, aShaped, b, bShaped) {
 }
 
 /**
- * The first other recipe whose grid one of `recipe`'s variants could also fill. Such a grid would have
- * two answers, so it is refused. Hidden recipes count: hiding changes nothing in play.
+ * The first other crafting recipe whose grid one of `recipe`'s variants could also fill. Such a grid would
+ * have two answers, so it is refused. Hidden recipes count: hiding changes nothing in play.
  * @param {Recipe} recipe
  * @param {Recipe[]} recipes
  * @returns {{variant: number, other: Recipe}|null}   variant: the index in `recipe`'s variants
  */
 export function findOverlap(recipe, recipes) {
   for ( const other of recipes ) {
-    if ( other.id === recipe.id ) continue;
+    if ( (other.id === recipe.id) || (other.kind === "dismantle") ) continue;
     const variant = recipe.variants.findIndex(v => other.variants.some(o => variantsOverlap(v, recipe.shaped, o, other.shaped)));
     if ( variant >= 0 ) return { variant, other };
   }
   return null;
+}
+
+/**
+ * Another dismantling recipe that breaks the same item. Such an item would have two answers, so it is
+ * refused. Hidden ones count: hiding changes nothing in play.
+ * @param {Recipe} recipe   a dismantling recipe
+ * @param {Recipe[]} recipes
+ * @returns {Recipe|null}
+ */
+export function findInputTaken(recipe, recipes) {
+  return recipes.find(r => (r.kind === "dismantle") && (r.id !== recipe.id) && refMatches(recipe.input, r.input)) ?? null;
 }

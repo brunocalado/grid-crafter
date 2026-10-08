@@ -157,14 +157,17 @@ export function searchKey(text) {
 }
 
 /**
- * Everything a recipe search looks through: its name, what it makes, its categories, and every
- * variant's required item and ingredients.
+ * Everything a recipe search looks through: its name, its categories, and the items it names. For a
+ * crafting recipe, what it makes and every variant's required item and ingredients; for a dismantling
+ * one, what it breaks, its required item and its parts.
  * @param {object} recipe
  * @returns {string}
  */
 export function recipeSearchText(recipe) {
-  return searchKey([recipe.name, recipe.result?.name, ...recipe.categories,
-    ...recipe.variants.flatMap(v => [v.requires?.name, ...v.cells.map(c => c?.name)])].filter(Boolean).join(" "));
+  const items = (recipe.kind === "dismantle")
+    ? [recipe.input, recipe.requires, ...recipe.outputs]
+    : [recipe.result, ...recipe.variants.flatMap(v => [v.requires, ...v.cells])];
+  return searchKey([recipe.name, ...recipe.categories, ...items.map(i => i?.name)].filter(Boolean).join(" "));
 }
 
 /**

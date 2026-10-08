@@ -14,7 +14,7 @@ import {
 import {
   CraftError, craft, fillFromInventory, getKnownRecipeIds, getLearnedRecipeIds, hasRequiredItem
 } from "../crafting.js";
-import { getAllRecipes } from "../recipes.js";
+import { getAllRecipes, recipeFace } from "../recipes.js";
 import { BELLOWS_PERIOD, CraftFX, animate, runeGlyphs, wait } from "../effects.js";
 import { playCue } from "../sound.js";
 
@@ -93,7 +93,8 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const learned = new Set(getLearnedRecipeIds(actor));
     // One row per variant, in the recipe's order: the recipe moves as a whole, a row never jumps ahead
     // of its siblings.
-    const book = getAllRecipes().filter(r => known.has(r.id)).map(r => {
+    // FIXME: interim, until the table can show a dismantling recipe.
+    const book = getAllRecipes().filter(r => known.has(r.id) && (r.kind !== "dismantle")).map(r => {
       const rows = r.variants.map((v, index) => ({
         index,
         first: index === 0,
@@ -104,8 +105,7 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       }));
       return {
         id: r.id,
-        name: r.name || r.result?.name,
-        img: r.result?.img,
+        ...recipeFace(r),
         categories: r.categories,
         search: recipeSearchText(r),
         // Any variant that can be made now: it sorts and filters the recipe.

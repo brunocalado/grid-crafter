@@ -123,7 +123,12 @@
       "Kept": "The materials survived ({chance}% chance of loss).",
       "NoLoss": "The materials were not lost.",
       "Taught": "{names} learned a recipe",
-      "TaughtMany": "{names} learned {count} recipes"
+      "TaughtMany": "{names} learned {count} recipes",
+      "Dismantled": "{name} dismantled {item}",
+      "DismantleRefused": "{name} could not take the parts",
+      "DismantleMissing": "{name} lacks what dismantling {item} needs",
+      "DismantleIncomplete": "{name}'s dismantling was interrupted",
+      "Received": "Received"
     },
     "Theme": {
       "forge": "Forge (fire, sparks, metal)",
@@ -136,6 +141,7 @@
       "Vetoed": "The craft was stopped.",
       "ItemGone": "{name} is no longer available.",
       "NotEnough": "There is not enough {name} for that.",
+      "CannotDismantle": "{name} can't be dismantled.",
       "ResultGone": "The item this recipe makes ({name}) no longer exists. Ask the GM to fix the recipe.",
       "TypeNotAllowed": "{name} cannot be used for crafting.",
       "NotOwner": "You do not own {name}.",

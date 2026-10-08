@@ -10,7 +10,7 @@ import { MODULE_ID, TEMPLATE_PATH } from "../constants.js";
 import { getCraftingActor, getTheme } from "../helpers.js";
 import { getLearnedRecipeIds, learnRecipes, reportTaught } from "../crafting.js";
 import { CraftFX, animate, runeGlyphs, wait } from "../effects.js";
-import { getRecipe } from "../recipes.js";
+import { getRecipe, recipeFace } from "../recipes.js";
 import { playCue } from "../sound.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -74,7 +74,7 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const known = learner && getLearnedRecipeIds(actor).includes(recipe.id);
     return {
       isArcane: theme === "arcane",
-      name: recipe.name || recipe.result.name,
+      name: recipeFace(recipe).name,
       shaped: recipe.shaped,
       cells: recipe.shaped ? variant.cells : variant.cells.filter(Boolean),
       result: recipe.result,

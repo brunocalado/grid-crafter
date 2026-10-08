@@ -10,7 +10,7 @@ import {
   FLAG_KNOWN_RECIPES, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, SETTING_QUANTITY_PATH, TEMPLATE_PATH
 } from "./constants.js";
 import { getCraftingActor, getQuantity, getTheme, itemOrigin, refMatches, toItemRef } from "./helpers.js";
-import { findNearRecipe, findRecipe, getAllRecipes, isDiscoverable } from "./recipes.js";
+import { findNearRecipe, findRecipe, getAllRecipes, isDiscoverable, recipeFace } from "./recipes.js";
 
 /**
  * @typedef {object} CraftOutcome
@@ -23,6 +23,17 @@ import { findNearRecipe, findRecipe, getAllRecipes, isDiscoverable } from "./rec
  * @property {number|null} variant  the index of the recipe's variant the grid made; null when no recipe matched
  * @property {Item|null} item       the forged item on the actor, on success only
  * @property {boolean} lost         failure only: the materials were destroyed
+ */
+
+/**
+ * @typedef {object} DismantleOutcome
+ * @property {"success"|"refused"|"incomplete"|"missing"} state
+ *   success: every part reached the actor; refused: the actor's sheet would not take all of them, nothing
+ *   spent; incomplete: spent, but the parts never arrived and the item could not be put back; missing:
+ *   the actor lacks the item the recipe requires, nothing spent
+ * @property {import("./recipes.js").Recipe} recipe
+ * @property {Item[]|null} items   on success only: the items that received each part, in the order of the
+ *   recipe's distinct parts
  */
 
 /**
@@ -53,14 +64,20 @@ export function getKnownRecipeIds(actor) {
 }
 
 /**
- * Does the actor carry the item a variant requires? Any type counts, a feature as much as a tool.
- * @param {import("./recipes.js").Variant} variant
+ * Does the actor carry the item a variant, or a dismantling recipe, requires? Any type counts, a feature
+ * as much as a tool.
+ * @param {{requires: import("./helpers.js").ItemRef|null}} holder
  * @param {Actor} actor
  * @returns {boolean}
  */
-export function hasRequiredItem(variant, actor) {
-  return !variant.requires
-    || actor.items.some(i => ((getQuantity(i) ?? 1) > 0) && refMatches(variant.requires, toItemRef(i)));
+export function hasRequiredItem(holder, actor) {
+  return !holder.requires
+    || actor.items.some(i => ((getQuantity(i) ?? 1) > 0) && refMatches(holder.requires, toItemRef(i)));
+}
+
+/** @returns {CraftError} the refusal for a user with no actor to craft or dismantle for */
+function noActorError() {
+  return new CraftError(game.i18n.localize(game.user.isGM ? "GRIDCRAFTER.Errors.NoActorGM" : "GRIDCRAFTER.Errors.NoActor"));
 }
 
 /**
@@ -70,9 +87,7 @@ export function hasRequiredItem(variant, actor) {
  */
 export async function craft(slots) {
   const actor = getCraftingActor();
-  if ( !actor ) {
-    throw new CraftError(game.i18n.localize(game.user.isGM ? "GRIDCRAFTER.Errors.NoActorGM" : "GRIDCRAFTER.Errors.NoActor"));
-  }
+  if ( !actor ) throw noActorError();
   if ( !slots.some(Boolean) ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.EmptyGrid"));
 
   // Re-read every ingredient: the grid holds snapshots, and an item may have been used or deleted since.
@@ -110,7 +125,7 @@ export async function craft(slots) {
   // A recipe the actor doesn't know is out of reach unless it can be discovered: the grid then fails
   // like any wrong layout, so it gives away nothing.
   const known = new Set(getKnownRecipeIds(actor));
-  const usable = getAllRecipes().filter(r => known.has(r.id) || isDiscoverable(r));
+  const usable = getAllRecipes().filter(r => (r.kind !== "dismantle") && (known.has(r.id) || isDiscoverable(r)));
   const found = findRecipe(cells, usable);
   const recipe = found?.recipe ?? null;
   // Several variants may fit one grid with different tools: take one the actor can make.
@@ -136,7 +151,8 @@ export async function craft(slots) {
     throw new CraftError(reason || game.i18n.localize("GRIDCRAFTER.Errors.Vetoed"));
   }
   if ( recipe ) {
-    const { item, missing } = await forge(actor, usage, source, recipe.quantity);
+    const { items, missing } = await forge(actor, usage, [{ source, quantity: recipe.quantity }]);
+    const item = items?.[0];
     if ( !item ) {
       const incomplete = missing.length > 0;
       // The card shows the result that did not arrive, and on an incomplete craft only what stayed spent.
@@ -178,33 +194,147 @@ async function settle(actor, outcome, { ingredients, ...card }) {
 }
 
 /**
- * Spend the ingredients, then give the actor the result. If the actor does not take all of it, put
- * the ingredients back.
+ * Break the item in the table's circle into the parts its dismantling recipe names, for the current
+ * user's crafting actor. Anything that spends nothing and posts no card is thrown as a CraftError.
+ * @param {import("./helpers.js").ItemRef} ref
+ * @returns {Promise<DismantleOutcome>}
+ */
+export async function dismantle(ref) {
+  const actor = getCraftingActor();
+  if ( !actor ) throw noActorError();
+  const doc = await fromUuid(ref.uuid);
+  if ( !doc ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.ItemGone", { name: ref.name }));
+  // Only the crafting actor's own items, for a GM too: breaking a directory or compendium item would
+  // make parts out of nothing.
+  const origin = itemOrigin(doc);
+  if ( origin !== "actor" ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotFromInventory", { name: doc.name }));
+  if ( doc.parent.uuid !== actor.uuid ) {
+    throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotYourCharacter", { name: doc.name }));
+  }
+  if ( !doc.isOwner ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotOwner", { name: doc.name }));
+
+  // An item no recipe the actor may use covers is refused for free: no loss, no card, so trying an
+  // item gives nothing away.
+  const item = toItemRef(doc);
+  const known = new Set(getKnownRecipeIds(actor));
+  const recipe = getAllRecipes().find(r => (r.kind === "dismantle") && (known.has(r.id) || isDiscoverable(r))
+    && refMatches(r.input, item));
+  if ( !recipe ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.CannotDismantle", { name: doc.name }));
+
+  // The units come from the item in the circle first, then from other copies on the sheet: a system
+  // without quantities keeps one document per copy.
+  const usage = new Map();
+  let need = recipe.inputQuantity;
+  for ( const candidate of [doc, ...actor.items.filter(i => (i.id !== doc.id) && refMatches(recipe.input, toItemRef(i)))] ) {
+    const count = Math.min(getQuantity(candidate) ?? 1, need);
+    if ( count <= 0 ) continue;
+    usage.set(candidate.uuid, { doc: candidate, count });
+    need -= count;
+    if ( !need ) break;
+  }
+  if ( need > 0 ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotEnough", { name: doc.name }));
+
+  // One output per distinct part: two cells of Iron are one output of two units.
+  const parts = [];
+  for ( const cell of recipe.outputs ) {
+    if ( !cell ) continue;
+    const same = parts.find(p => p.ref.uuid === cell.uuid);
+    if ( same ) same.quantity++;
+    else parts.push({ ref: cell, quantity: 1 });
+  }
+  const sources = await Promise.all(parts.map(p => fromUuid(p.ref.uuid)));
+  const gone = parts.find((p, i) => !sources[i]);
+  if ( gone ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.ResultGone", { name: gone.ref.name }));
+
+  // Refs now: the spend below may delete the documents they describe.
+  const spent = [...usage.values()].map(({ doc, count }) => ({ id: doc.id, name: doc.name, img: doc.img, count }));
+  const card = { item, spent };
+  // As with crafting, refused before anything is spent and before preDismantle, and saying what is
+  // missing gives the recipe away on purpose.
+  if ( !hasRequiredItem(recipe, actor) ) return settleDismantle(actor, { state: "missing", recipe, items: null }, card);
+  const veto = { reason: "" };
+  if ( Hooks.call(`${MODULE_ID}.preDismantle`, actor, foundry.utils.deepClone(recipe), doc, veto) === false ) {
+    const reason = (typeof veto.reason === "string") && veto.reason.trim();
+    throw new CraftError(reason || game.i18n.localize("GRIDCRAFTER.Errors.Vetoed"));
+  }
+
+  const { items, missing } = await forge(actor, usage, parts.map((p, i) => ({ source: sources[i], quantity: p.quantity })));
+  if ( !items ) {
+    const incomplete = missing.length > 0;
+    // On an incomplete dismantle the card lists only what stayed spent.
+    return settleDismantle(actor, { state: incomplete ? "incomplete" : "refused", recipe, items: null },
+      { item, spent: incomplete ? spent.filter(s => missing.includes(s.id)) : spent });
+  }
+  await learnRecipes(actor, [recipe.id]);
+  return settleDismantle(actor, { state: "success", recipe, items }, {
+    ...card, received: items.map((it, i) => ({ name: it.name, img: it.img, count: parts[i].quantity }))
+  });
+}
+
+/**
+ * Post the dismantle report, then tell other packages. Its own hook: a listener that rewards crafting
+ * must not reward breaking things.
+ * @param {Actor} actor
+ * @param {DismantleOutcome} outcome
+ * @param {object} card
+ * @param {import("./helpers.js").ItemRef} card.item   the item in the circle, as a plain ref: spent, it
+ *   no longer exists as a document
+ * @param {{name: string, img: string, count: number}[]} card.spent
+ * @param {{name: string, img: string, count: number}[]} [card.received]
+ * @returns {Promise<DismantleOutcome>}
+ */
+async function settleDismantle(actor, outcome, { item, spent, received }) {
+  const { state, recipe } = outcome;
+  const requires = recipe.requires;
+  const content = await foundry.applications.handlebars.renderTemplate(`${TEMPLATE_PATH}/dismantle-card.hbs`, {
+    theme: getTheme(),
+    state,
+    success: state === "success",
+    spent: (state === "success") || (state === "incomplete"),
+    actorName: actor.name,
+    itemName: item.name,
+    inputs: spent,
+    received,
+    required: (requires && ["success", "missing"].includes(state)) ? {
+      img: requires.img,
+      label: game.i18n.localize(`GRIDCRAFTER.Chat.${(state === "missing") ? "Requires" : "MadeWith"}`, { name: requires.name })
+    } : null
+  });
+  await ChatMessage.implementation.create({
+    speaker: ChatMessage.implementation.getSpeaker({ actor }),
+    content
+  });
+  Hooks.callAll(`${MODULE_ID}.dismantle`, actor, { ...outcome, recipe: foundry.utils.deepClone(recipe), item });
+  return outcome;
+}
+
+/**
+ * Spend the ingredients, then give the actor what they make. If the actor does not take all of it,
+ * put the ingredients back.
  *
- * Spending comes first so a system that limits inventory (slots, weight) measures the result against
+ * Spending comes first so a system that limits inventory (slots, weight) measures the outputs against
  * the room the ingredients leave behind. It has to be separate writes: a modifyBatch is not atomic,
  * and core runs every operation's pre-workflow against the state before the batch, then silently
  * drops an operation a system emptied in _preCreateOperation while sending the rest.
  * @param {Actor} actor
  * @param {Map<string, {doc: Item, count: number}>} usage
- * @param {Item} source      the recipe's result as it exists in the world or a compendium
- * @param {number} quantity
- * @returns {Promise<{item: Item|null, missing?: string[]}>}  the item that received the result, or null
- *   when the actor refused it; then the ids of the ingredients that could not be put back
+ * @param {{source: Item, quantity: number}[]} outputs   each as it exists in the world or a compendium
+ * @returns {Promise<{items: Item[]|null, missing?: string[]}>}  the items that received each output, or
+ *   null when the actor refused them; then the ids of the ingredients that could not be put back
  */
-async function forge(actor, usage, source, quantity) {
+async function forge(actor, usage, outputs) {
   // Copied before spending: after an update the document's source already holds the new quantity.
   const before = [...usage.values()].map(({ doc }) => doc.toObject());
   const operations = consumeOperations(actor, usage);
   if ( operations.length ) await foundry.documents.modifyBatch(operations);
 
-  let item = null;
+  let items = null;
   try {
-    item = await deliver(actor, usage, source, quantity);
+    items = await deliver(actor, usage, outputs);
   } catch(err) {
-    console.error(`${MODULE_ID} | Could not give ${source.name} to ${actor.name}.`, err);
+    console.error(`${MODULE_ID} | Could not give ${outputs.map(o => o.source.name).join(", ")} to ${actor.name}.`, err);
   }
-  if ( item ) return { item };
+  if ( items ) return { items };
 
   try {
     await restore(actor, before);
@@ -216,53 +346,75 @@ async function forge(actor, usage, source, quantity) {
     const doc = actor.items.get(data._id);
     return !doc || (getQuantity(doc) !== getQuantity(data));
   }).map(data => data._id);
-  return { item: null, missing };
+  return { items: null, missing };
 }
 
 /**
- * Add the result to the actor: onto a stack of it the actor already carries, or as new items.
- * A system may refuse the write or trim it (fewer copies, a smaller quantity); anything short of the
- * whole result is undone and counts as a refusal.
+ * Give the actor every output at once: onto stacks of it the actor already carries, where the system
+ * counts quantities, and as new items otherwise. A system may refuse or trim either write (fewer copies,
+ * a smaller quantity); anything short of all of it is undone and counts as a refusal.
  * @param {Actor} actor
- * @param {Map<string, {doc: Item, count: number}>} usage
- * @param {Item} source
- * @param {number} quantity
- * @returns {Promise<Item|null>}
+ * @param {Map<string, {doc: Item, count: number}>} usage   spent items, never stacked onto: putting them
+ *   back would undo the output
+ * @param {{source: Item, quantity: number}[]} outputs
+ * @returns {Promise<Item[]|null>}   the items that received each output, in order; null when refused
  */
-async function deliver(actor, usage, source, quantity) {
+async function deliver(actor, usage, outputs) {
   const path = game.settings.get(MODULE_ID, SETTING_QUANTITY_PATH);
-  const sourceRef = toItemRef(source);
+  /** @type {Map<string, {doc: Item, was: number, add: number}>} */
+  const stacks = new Map();
+  const batch = [];
+  const plan = outputs.map(({ source, quantity }) => {
+    const sourceRef = toItemRef(source);
+    // Stack onto a copy of the same item the actor already carries, when the system counts quantities.
+    const stack = actor.items.find(i => !usage.has(i.uuid) && (getQuantity(i) !== null)
+      && sourceRef.sources.some(s => toItemRef(i).sources.includes(s)));
+    if ( stack ) {
+      const entry = stacks.get(stack.id) ?? { doc: stack, was: getQuantity(stack), add: 0 };
+      entry.add += quantity;
+      stacks.set(stack.id, entry);
+      return { stack };
+    }
+    const data = source.toObject();
+    for ( const key of ["_id", "folder", "sort", "ownership"] ) delete data[key];
+    // Record where the copy came from, as Foundry does for an import or a clone, so the next craft can
+    // stack onto it and recipes that use it as an ingredient recognise it.
+    if ( source.pack ) foundry.utils.setProperty(data, "_stats.compendiumSource", source.uuid);
+    else foundry.utils.setProperty(data, "_stats.duplicateSource", source.uuid);
+    const counted = getQuantity(source) !== null;
+    const index = batch.length;
+    if ( counted ) {
+      foundry.utils.setProperty(data, path, quantity);
+      batch.push(data);
+    }
+    else batch.push(...Array.from({ length: quantity }, () => foundry.utils.deepClone(data)));
+    return { index, counted, quantity };
+  });
 
-  // Stack onto a copy of the same item the actor already carries, when the system counts quantities.
-  const stack = actor.items.find(i => !usage.has(i.uuid) && (getQuantity(i) !== null)
-    && sourceRef.sources.some(s => toItemRef(i).sources.includes(s)));
-  if ( stack ) {
-    const was = getQuantity(stack);
-    await actor.updateEmbeddedDocuments("Item", [{ _id: stack.id, [path]: was + quantity }]);
-    if ( getQuantity(stack) === was + quantity ) return stack;
-    if ( getQuantity(stack) !== was ) await actor.updateEmbeddedDocuments("Item", [{ _id: stack.id, [path]: was }]);
-    return null;
+  let created = [];
+  let delivered = false;
+  try {
+    if ( stacks.size ) {
+      await actor.updateEmbeddedDocuments("Item", [...stacks.values()].map(s => ({ _id: s.doc.id, [path]: s.was + s.add })));
+      if ( ![...stacks.values()].every(s => getQuantity(s.doc) === s.was + s.add) ) return null;
+    }
+    if ( batch.length ) {
+      // createEmbeddedDocuments returns [] when the system empties the batch, and only what was kept when
+      // it trims it. What is kept need not be the first ones (cairn2e drops whatever doesn't fit), so
+      // what came back pairs with what was sent only once all of it came back.
+      created = await actor.createEmbeddedDocuments("Item", batch);
+      if ( created.length !== batch.length ) return null;
+      if ( !plan.every(p => p.stack || !p.counted || (getQuantity(created[p.index]) === p.quantity)) ) return null;
+    }
+    delivered = true;
+    return plan.map(p => p.stack ?? created[p.index]);
+  } finally {
+    if ( !delivered ) {
+      if ( created.length ) await actor.deleteEmbeddedDocuments("Item", created.map(i => i.id));
+      const back = [...stacks.values()].filter(s => getQuantity(s.doc) !== s.was).map(s => ({ _id: s.doc.id, [path]: s.was }));
+      if ( back.length ) await actor.updateEmbeddedDocuments("Item", back);
+    }
   }
-
-  const data = source.toObject();
-  for ( const key of ["_id", "folder", "sort", "ownership"] ) delete data[key];
-  // Record where the copy came from, as Foundry does for an import or a clone, so the next craft can
-  // stack onto it and recipes that use it as an ingredient recognise it.
-  if ( source.pack ) foundry.utils.setProperty(data, "_stats.compendiumSource", source.uuid);
-  else foundry.utils.setProperty(data, "_stats.duplicateSource", source.uuid);
-  const counted = getQuantity(source) !== null;
-  let batch;
-  if ( counted ) {
-    foundry.utils.setProperty(data, path, quantity);
-    batch = [data];
-  }
-  else batch = Array.from({ length: quantity }, () => foundry.utils.deepClone(data));
-  // createEmbeddedDocuments returns [] when the system empties the batch, and only what was kept when it
-  // trims it.
-  const created = await actor.createEmbeddedDocuments("Item", batch);
-  if ( (created.length === batch.length) && (!counted || (getQuantity(created[0]) === quantity)) ) return created[0];
-  if ( created.length ) await actor.deleteEmbeddedDocuments("Item", created.map(i => i.id));
-  return null;
 }
 
 /**
@@ -331,7 +483,7 @@ export async function reportTaught(recipes, learners) {
     theme: getTheme(),
     title: (recipes.length === 1) ? game.i18n.localize("GRIDCRAFTER.Chat.Taught", { names })
       : game.i18n.localize("GRIDCRAFTER.Chat.TaughtMany", { names, count: recipes.length }),
-    recipes: recipes.map(r => ({ name: r.name || r.result?.name, img: r.result?.img }))
+    recipes: recipes.map(recipeFace)
   });
   await ChatMessage.implementation.create({
     speaker: { alias: game.user.name },
