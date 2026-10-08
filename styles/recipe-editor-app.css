@@ -277,7 +277,7 @@
     }
   }
 
-  .gc-cell .gc-cell-clear {
+  :is(.gc-cell, .gc-requires) .gc-cell-clear {
     position: absolute;
     top: 2px;
     right: 2px;
@@ -294,7 +294,7 @@
     color: var(--gc-text);
   }
 
-  .gc-cell:hover .gc-cell-clear {
+  :is(.gc-cell, .gc-requires):hover .gc-cell-clear {
     display: block;
   }
 
@@ -302,6 +302,19 @@
     font-size: 28px;
     color: var(--gc-glow);
     text-shadow: 0 0 10px var(--gc-glow);
+  }
+
+  /* The required item hangs under the result, out of the flow, so the grid, the arrow and the result
+     keep their shared centre line. */
+  .gc-result-column {
+    position: relative;
+
+    .gc-requires {
+      position: absolute;
+      top: calc(100% + 12px);
+      left: 50%;
+      translate: -50% 0;
+    }
   }
 
   .gc-result {

@@ -61,7 +61,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       toggleSelect: RecipeEditorApp.#onToggleSelect,
       setCategory: RecipeEditorApp.#onSetCategory,
       clearCell: RecipeEditorApp.#onClearCell,
-      clearResult: RecipeEditorApp.#onClearResult
+      clearResult: RecipeEditorApp.#onClearResult,
+      clearRequires: RecipeEditorApp.#onClearRequires
     }
   };
 
@@ -184,7 +185,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     for ( const el of this.element.querySelectorAll("[data-drop]") ) {
       el.addEventListener("dblclick", ev => {
         const { drop, index } = ev.currentTarget.dataset;
-        const ref = (drop === "result") ? this.draft.result : this.draft.cells[Number(index)];
+        const ref = (drop === "result") ? this.draft.result
+          : (drop === "requires") ? this.draft.requires : this.draft.cells[Number(index)];
         if ( ref ) fromUuid(ref.uuid).then(item => item?.sheet?.render({ force: true }));
       });
     }
@@ -338,19 +340,19 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     } catch {
       return;
     }
-    if ( target.dataset.drop === "result" ) {
-      // The result is copied onto the crafter's sheet, so it must outlive any one actor: an item from a
-      // sheet is replaced by the world or compendium item it came from.
-      let source = item;
-      if ( itemOrigin(item) === "actor" ) {
-        const stats = item._stats ?? {};
-        source = await fromUuid(stats.compendiumSource ?? stats.duplicateSource ?? "");
-        if ( !source || (itemOrigin(source) === "actor") ) {
-          return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.ResultFromActor"));
-        }
-      }
+    const drop = target.dataset.drop;
+    if ( drop === "result" ) {
+      const source = await this.#sourceItem(item);
+      if ( !source ) return;
       this.draft.result = toItemRef(source);
       if ( !this.draft.name ) this.draft.name = source.name;
+    }
+    // Any type: the item is looked for on the sheet, never placed on a grid, so a feature or a
+    // proficiency is as good a requirement as a tool.
+    else if ( drop === "requires" ) {
+      const source = await this.#sourceItem(item);
+      if ( !source ) return;
+      this.draft.requires = toItemRef(source);
     }
     else {
       if ( !isTypeAllowed(item.type) ) {
@@ -360,6 +362,22 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     this.dirty = true;
     this.render();
+  }
+
+  /**
+   * The result is copied onto the crafter's sheet and the required item is shown in every book, so
+   * both must outlive any one actor: an item from a sheet is replaced by the world or compendium item
+   * it came from.
+   * @param {Item} item
+   * @returns {Promise<Item|null>}   null, after a warning, when the item exists only on a sheet
+   */
+  async #sourceItem(item) {
+    if ( itemOrigin(item) !== "actor" ) return item;
+    const stats = item._stats ?? {};
+    const source = await fromUuid(stats.compendiumSource ?? stats.duplicateSource ?? "");
+    if ( source && (itemOrigin(source) !== "actor") ) return source;
+    ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.FromActor", { name: item.name }));
+    return null;
   }
 
   /**
@@ -595,6 +613,13 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @this {RecipeEditorApp} */
   static #onClearResult() {
     this.draft.result = null;
+    this.dirty = true;
+    this.render();
+  }
+
+  /** @this {RecipeEditorApp} */
+  static #onClearRequires() {
+    this.draft.requires = null;
     this.dirty = true;
     this.render();
   }

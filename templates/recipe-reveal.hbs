@@ -33,8 +33,15 @@
     </div>
     {{/if}}
     <div class="gc-arrow" aria-hidden="true"><span></span><span></span><span></span></div>
-    <div class="gc-result-slot gc-reveal-result" data-tooltip="{{result.name}}{{#if many}} ×{{quantity}}{{/if}}">
-      <img src="{{result.img}}" alt="{{result.name}}">
+    <div class="gc-reveal-result-column">
+      <div class="gc-result-slot gc-reveal-result" data-tooltip="{{result.name}}{{#if many}} ×{{quantity}}{{/if}}">
+        <img src="{{result.img}}" alt="{{result.name}}">
+      </div>
+      {{#if requires}}
+      <span class="gc-requires gc-reveal-requires" data-tooltip="{{localize "GRIDCRAFTER.Recipe.Requires" name=requires.name}}">
+        <img src="{{requires.img}}" alt="{{requires.name}}">
+      </span>
+      {{/if}}
     </div>
   </div>
   {{#unless shaped}}<p class="gc-reveal-note">{{localize "GRIDCRAFTER.Reveal.Shapeless"}}</p>{{/unless}}

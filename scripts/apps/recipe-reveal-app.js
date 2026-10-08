@@ -67,6 +67,7 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
       shaped: recipe.shaped,
       cells: recipe.shaped ? recipe.cells : recipe.cells.filter(Boolean),
       result: recipe.result,
+      requires: recipe.requires ?? null,
       quantity: recipe.quantity,
       many: recipe.quantity > 1,
       canLearn: learner && !known,
@@ -106,6 +107,7 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const cells = el.querySelectorAll(".gc-reveal-cell");
     const arrow = el.querySelector(".gc-arrow");
     const slot = el.querySelector(".gc-reveal-result");
+    const requires = el.querySelector(".gc-reveal-requires");
     const controls = el.querySelector(".gc-reveal-controls");
     await wait(350);
     for ( const cell of cells ) {
@@ -125,6 +127,8 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
       { transform: "scale(1.35) rotate(6deg)", opacity: 1, offset: 0.55 },
       { transform: "scale(1) rotate(0)", opacity: 1 }
     ], { duration: 900, easing: "cubic-bezier(.2,.9,.3,1.2)" });
+    if ( requires ) await animate(requires, [{ opacity: 0, transform: "translateY(-6px)" }, { opacity: 1, transform: "none" }],
+      { duration: 350, easing: "ease-out" });
     if ( controls ) await animate(controls, [{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: "ease-out" });
   }
 

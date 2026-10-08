@@ -11,7 +11,9 @@ import {
   bindSearch, filterGroups, getCollapsed, getCraftingActor, getDropData, getQuantity, getTheme, groupByCategory,
   isTypeAllowed, itemDragData, itemOrigin, readCaret, recipeSearchText, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
-import { CraftError, craft, fillFromInventory, getKnownRecipeIds, getLearnedRecipeIds } from "../crafting.js";
+import {
+  CraftError, craft, fillFromInventory, getKnownRecipeIds, getLearnedRecipeIds, hasRequiredItem
+} from "../crafting.js";
 import { getAllRecipes } from "../recipes.js";
 import { CraftFX, animate, runeGlyphs, wait } from "../effects.js";
 import { playCue } from "../sound.js";
@@ -97,7 +99,8 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       cells: r.shaped ? r.cells : r.cells.filter(Boolean),
       category: r.category,
       search: recipeSearchText(r),
-      ready: !!(actor && fillFromInventory(r, actor)),
+      ready: !!(actor && fillFromInventory(r, actor) && hasRequiredItem(r, actor)),
+      requires: r.requires ? { name: r.requires.name, img: r.requires.img, has: !!actor && hasRequiredItem(r, actor) } : null,
       // Known only because it is public. Learned recipes carry no marker: no marker means "yours".
       public: !learned.has(r.id)
     }));

@@ -127,6 +127,25 @@
     &.gc-missing {
       opacity: 0.55;
     }
+
+    /* In the bottom-right corner, across from the public marker, so the entry's two-column layout
+       stays as it is. Inside the button, so it moves with the hover nudge. */
+    &:has(.gc-requires) {
+      position: relative;
+      padding-right: 36px;
+    }
+
+    .gc-requires {
+      --gc-requires: 24px;
+      position: absolute;
+      right: 6px;
+      bottom: 6px;
+    }
+  }
+
+  /* The lacking token is the reason the entry is dimmed, so it stays legible through the fade. */
+  .gc-book-entry.gc-missing:has(.gc-lacking) {
+    opacity: 0.8;
   }
 
   .gc-book-result {

@@ -16,6 +16,8 @@
           {{#each cells}}<img src="{{img}}" alt="">{{/each}}
         </span>
         {{/if}}
+        {{#if requires}}<span class="gc-requires {{#unless requires.has}}gc-lacking{{/unless}}"
+              data-tooltip="{{localize "GRIDCRAFTER.Recipe.Requires" name=requires.name}}"><img src="{{requires.img}}" alt=""></span>{{/if}}
       </button>
       {{#if public}}<i class="fa-solid fa-people-group gc-public-marker" data-tooltip="GRIDCRAFTER.Forge.PublicMarker"></i>{{/if}}
     </li>

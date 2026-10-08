@@ -107,7 +107,25 @@
     opacity: 0;
   }
 
-  .gc-reveal-result img {
+  /* The required item hangs under the result, out of the flow, so the board keeps its centre line. */
+  .gc-reveal-result-column {
+    position: relative;
+  }
+
+  /* A one-row shapeless board is no taller than the result: room for the token below, mirrored above so
+     the centre line stays put. */
+  .gc-reveal-board:has(.gc-reveal-requires) {
+    min-height: 260px;
+  }
+
+  .gc-reveal-requires {
+    position: absolute;
+    top: calc(100% + 12px);
+    left: calc(50% - (var(--gc-requires) / 2));
+  }
+
+  .gc-reveal-result img,
+  .gc-reveal-requires {
     opacity: 0;
     will-change: transform, opacity;
   }
@@ -115,7 +133,8 @@
   &.gc-revealed {
     .gc-arrow,
     .gc-reveal-controls,
-    .gc-reveal-result img {
+    .gc-reveal-result img,
+    .gc-reveal-requires {
       opacity: 1;
     }
   }
