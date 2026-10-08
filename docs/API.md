@@ -75,7 +75,7 @@ hooks are where you add them.
 | Hook | Args | Notes |
 |---|---|---|
 | `grid-crafter.preCraft` | `actor`, `recipe` (a copy, or `null` when the layout matches no recipe the actor can make), `items` (`Item[]` on the grid, one entry per filled cell) | Return `false` to cancel. Synchronous: an awaited roll inside it does not delay the craft. |
-| `grid-crafter.craft` | `actor`, `result` `{ success, recipe, item, lost, refused, incomplete, cancelled: false, ingredients }` | `item` is the forged Item on success, else `null`. `ingredients` are `{ uuid, name, img, type, sources }`. Not fired for a cancelled craft. |
+| `grid-crafter.craft` | `actor`, `result` `{ state, recipe, item, lost, ingredients }` | `state` is `"success"`, `"failure"`, `"refused"` or `"incomplete"`. `item` is the forged Item on success, else `null`. `ingredients` are `{ uuid, name, img, type, sources }`, one per filled cell. Not fired for a cancelled craft. |
 
 **`grid-crafter.preCraft`** fires after Grid Crafter has checked the grid and found the recipe (or
 not), and before anything is written: no item spent, no loss rolled, nothing learned, no chat card.
@@ -91,13 +91,22 @@ Hooks.on("grid-crafter.preCraft", (actor, recipe, items) => {
 });
 ```
 
-**`grid-crafter.craft`** fires once per craft, after the chat card is posted, whatever the outcome:
-success, failure (with or without the materials lost), a result the actor refused, or an
-incomplete craft. The ingredients are passed as plain data, because the spent ones no longer exist.
+**`grid-crafter.craft`** fires once per craft, after the chat card is posted, whatever the outcome.
+`result.state` says which one, the same outcome the chat card shows:
+
+| `state` | What happened |
+|---|---|
+| `"success"` | The result reached the character. `item` is the forged Item. |
+| `"failure"` | The grid matched no recipe the character can make. `lost` is `true` when the materials were destroyed anyway. |
+| `"refused"` | The recipe matched, but the character's sheet would not take the result. Nothing was spent. |
+| `"incomplete"` | The materials were spent, the result never arrived, and they could not be put back. |
+
+A craft stopped by `preCraft` fires nothing, so `state` is never `"cancelled"` here. The
+ingredients are passed as plain data, because the spent ones no longer exist.
 
 ```js
 Hooks.on("grid-crafter.craft", (actor, result) => {
-  if ( result.success ) actor.update({ "system.xp": actor.system.xp + 10 });
+  if ( result.state === "success" ) actor.update({ "system.xp": actor.system.xp + 10 });
 });
 ```
 

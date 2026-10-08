@@ -388,17 +388,22 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         return;
       }
       await strike;
-      // A listener on the preCraft hook stopped it and owns the explanation; nothing was spent.
-      if ( outcome.cancelled ) return;
-      if ( outcome.success ) {
-        await this.#playSuccess(outcome.item);
-        this.slots = Array(CELL_COUNT).fill(null);
-        this.resultUuid = outcome.item.uuid;
-      }
-      else {
-        if ( outcome.refused ) this.slots = slots;
-        await this.#playFailure(outcome.lost);
-        if ( outcome.lost ) this.slots = Array(CELL_COUNT).fill(null);
+      switch ( outcome.state ) {
+        // A listener on the preCraft hook stopped it and owns the explanation; nothing was spent.
+        case "cancelled": return;
+        case "success":
+          await this.#playSuccess(outcome.item);
+          this.slots = Array(CELL_COUNT).fill(null);
+          this.resultUuid = outcome.item.uuid;
+          break;
+        case "refused":
+          this.slots = slots;
+          // falls through
+        case "failure":
+        case "incomplete":
+          await this.#playFailure(outcome.lost);
+          if ( outcome.lost ) this.slots = Array(CELL_COUNT).fill(null);
+          break;
       }
     } finally {
       this.busy = false;

@@ -14,13 +14,13 @@ import { findNearRecipe, findRecipe, getAllRecipes, isDiscoverable } from "./rec
 
 /**
  * @typedef {object} CraftOutcome
- * @property {boolean} success
+ * @property {"success"|"failure"|"refused"|"incomplete"|"cancelled"} state
+ *   success: the result reached the actor; failure: no recipe matched; refused: the actor's sheet
+ *   would not take the result, nothing spent; incomplete: spent, but the result never arrived and the
+ *   materials could not be put back; cancelled: a preCraft listener stopped it, nothing happened
  * @property {import("./recipes.js").Recipe|null} recipe
- * @property {Item|null} item       the forged item on the actor, on success
- * @property {boolean} lost         on failure: whether the ingredients were destroyed anyway
- * @property {boolean} refused      the recipe matched but the actor could not take the result; nothing was spent
- * @property {boolean} incomplete   the materials were spent, the result is missing and they could not be put back
- * @property {boolean} cancelled    a preCraft listener stopped the craft before anything was written
+ * @property {Item|null} item       the forged item on the actor, on success only
+ * @property {boolean} lost         failure only: the materials were destroyed
  */
 
 /**
@@ -102,52 +102,52 @@ export async function craft(slots) {
   const used = docs.filter(Boolean);
   const source = recipe ? await fromUuid(recipe.result.uuid) : null;
   if ( recipe && !source ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.ResultGone", { name: recipe.result.name }));
+  // Refs now: the spend below may delete the documents they describe.
+  const ingredients = used.map(toItemRef);
   // Another package may veto the craft. Fired before any write, so a veto costs nothing.
   if ( Hooks.call(`${MODULE_ID}.preCraft`, actor, recipe ? foundry.utils.deepClone(recipe) : null, used) === false ) {
-    return { success: false, recipe, item: null, lost: false, refused: false, incomplete: false, cancelled: true };
+    return { state: "cancelled", recipe, item: null, lost: false };
   }
-  // Captured before anything is spent: a deleted ingredient can no longer be read.
-  const ingredients = used.map(toItemRef);
   if ( recipe ) {
     const { item, missing } = await forge(actor, usage, source, recipe.quantity);
     if ( !item ) {
       const incomplete = missing.length > 0;
-      await report({ actor, state: incomplete ? "incomplete" : "refused", recipe, item: source, quantity: recipe.quantity,
-        used: incomplete ? used.filter(d => missing.includes(d.id)) : used });
-      const outcome = { success: false, recipe, item: null, lost: false, refused: !incomplete, incomplete, cancelled: false };
-      announce(actor, outcome, ingredients);
-      return outcome;
+      // The card shows the result that did not arrive, and on an incomplete craft only what stayed spent.
+      return settle(actor, { state: incomplete ? "incomplete" : "refused", recipe, item: null, lost: false }, {
+        ingredients, item: source, quantity: recipe.quantity,
+        used: incomplete ? used.filter(d => missing.includes(d.id)) : used
+      });
     }
     await learnRecipes(actor, [recipe.id]);
-    await report({ actor, state: "success", recipe, used, item, quantity: recipe.quantity });
-    const outcome = { success: true, recipe, item, lost: false, refused: false, incomplete: false, cancelled: false };
-    announce(actor, outcome, ingredients);
-    return outcome;
+    return settle(actor, { state: "success", recipe, item, lost: false }, { ingredients, used, quantity: recipe.quantity });
   }
 
   const near = findNearRecipe(cells, usable);
   const chance = near?.failLossChance ?? game.settings.get(MODULE_ID, SETTING_FAIL_LOSS_CHANCE);
   const lost = (chance > 0) && usage.size && ((Math.random() * 100) < chance);
   if ( lost ) await foundry.documents.modifyBatch(consumeOperations(actor, usage));
-  await report({ actor, state: "failure", used, lost: !!lost, chance });
-  const outcome = { success: false, recipe: null, item: null, lost: !!lost, refused: false, incomplete: false, cancelled: false };
-  announce(actor, outcome, ingredients);
-  return outcome;
+  return settle(actor, { state: "failure", recipe: null, item: null, lost: !!lost }, { ingredients, used, chance });
 }
 
 /**
- * Tell other packages how a craft settled. Ingredients are passed as plain refs: spent ones no
- * longer exist as documents.
+ * Post the craft report, tell other packages, and hand the outcome back to the table. One place for
+ * all three, so the chat card and the hook can never disagree about what happened.
  * @param {Actor} actor
  * @param {CraftOutcome} outcome
- * @param {import("./helpers.js").ItemRef[]} ingredients
+ * @param {object} card
+ * @param {import("./helpers.js").ItemRef[]} card.ingredients   for the hook, as plain refs: spent ones
+ *   no longer exist as documents
+ * @param {Item} [card.item]   overrides the outcome's item on the card only
+ * @returns {Promise<CraftOutcome>}
  */
-function announce(actor, outcome, ingredients) {
+async function settle(actor, outcome, { ingredients, ...card }) {
+  await report({ actor, ...outcome, ...card });
   Hooks.callAll(`${MODULE_ID}.craft`, actor, {
     ...outcome,
     recipe: outcome.recipe ? foundry.utils.deepClone(outcome.recipe) : null,
     ingredients
   });
+  return outcome;
 }
 
 /**
