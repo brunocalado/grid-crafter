@@ -6,7 +6,7 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { CATEGORY_MAX, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH, VARIANT_MAX } from "../constants.js";
+import { CATEGORY_MAX, MODULE_ID, RECIPE_NAME_MAX, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH, VARIANT_MAX } from "../constants.js";
 import {
   bindSearch, confirmDialog, filterGroups, getCollapsed, getDropData, getTheme, groupByCategory, isTypeAllowed, itemOrigin, readCaret,
   recipeSearchText, restoreCaret, setCollapsed, toItemRef
@@ -187,6 +187,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       groups,
       query: this.#query,
       draft,
+      nameMax: RECIPE_NAME_MAX,
       isNew,
       hidden: hiddenIds.has(draft.id),
       // A blank recipe has no source until it is saved into the world.
@@ -447,7 +448,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       const source = await this.#sourceItem(item);
       if ( !source ) return;
       this.draft[drop] = toItemRef(source);
-      if ( !this.draft.name ) this.draft.name = source.name;
+      if ( !this.draft.name ) this.draft.name = source.name.slice(0, RECIPE_NAME_MAX);
       // The ways of making the old item are not this one's.
       if ( drop === "input" ) this.draft.favorite = null;
     }
@@ -593,7 +594,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       if ( findInputTaken(draft, getAllRecipes()) ) {
         return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.InputTaken", { name: draft.input.name }));
       }
-      draft.name = draft.name.trim() || draft.input.name;
+      draft.name = (draft.name.trim() || draft.input.name).slice(0, RECIPE_NAME_MAX);
       return this.#commit(draft);
     }
     if ( !draft.result ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoResult"));
@@ -611,7 +612,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this.#showVariant(variant);
       return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.GridTaken", { name: other.name || other.result.name }));
     }
-    draft.name = draft.name.trim() || draft.result.name;
+    draft.name = (draft.name.trim() || draft.result.name).slice(0, RECIPE_NAME_MAX);
     return this.#commit(draft);
   }
 

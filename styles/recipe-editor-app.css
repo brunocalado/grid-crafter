@@ -139,6 +139,14 @@
       border-radius: 4px;
     }
 
+    /* An item's own name has no limit, and a recipe without one shows it. */
+    span {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
     /* Through the row as well, so pointing at a marker doesn't drop the entry's hover. */
     &:hover,
     li:hover > & {

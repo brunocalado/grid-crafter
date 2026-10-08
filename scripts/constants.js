@@ -34,6 +34,9 @@ export const FLAG_RECEIPTS = "receipts";
 
 export const CATEGORY_MAX = 24;
 
+// A recipe name past this breaks the Recipe Book's layout and buries the name under the list row's markers.
+export const RECIPE_NAME_MAX = 40;
+
 // The most ways one recipe can be made.
 export const VARIANT_MAX = 4;
 

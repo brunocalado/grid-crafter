@@ -7,8 +7,8 @@
  */
 
 import {
-  CATEGORY_MAX, CELL_COUNT, GRID_SIZE, MODULE_ID, SETTING_DISCOVERY, SETTING_HIDDEN_RECIPES, SETTING_RECIPE_EDITS,
-  SETTING_RECIPES, VARIANT_MAX
+  CATEGORY_MAX, CELL_COUNT, GRID_SIZE, MODULE_ID, RECIPE_NAME_MAX, SETTING_DISCOVERY, SETTING_HIDDEN_RECIPES,
+  SETTING_RECIPE_EDITS, SETTING_RECIPES, VARIANT_MAX
 } from "./constants.js";
 import { refMatches, toItemRef } from "./helpers.js";
 
@@ -320,7 +320,7 @@ function dismantleFromData(data, id, packageId) {
   const recipe = {
     id,
     kind: "dismantle",
-    name: String(data.name ?? input.name),
+    name: String(data.name ?? input.name).slice(0, RECIPE_NAME_MAX),
     categories: normalizeCategories(data.categories),
     public: data.public === true,
     discoverable: (typeof data.discoverable === "boolean") ? data.discoverable : null,
@@ -417,7 +417,7 @@ export function registerRecipes(packageId, recipes) {
     registered.set(label, {
       id: label,
       kind: "craft",
-      name: String(data.name ?? result.name),
+      name: String(data.name ?? result.name).slice(0, RECIPE_NAME_MAX),
       categories: normalizeCategories(data.categories),
       shaped,
       public: data.public === true,

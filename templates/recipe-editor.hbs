@@ -76,7 +76,7 @@
       <div class="gc-fields-row gc-fields-top">
         <fieldset class="gc-field gc-name">
           <legend>{{#if dismantling}}<i class="fa-solid {{#if isArcane}}fa-burst{{else}}fa-pickaxe{{/if}}" inert></i> {{localize "GRIDCRAFTER.Recipe.NameDismantle"}}{{else}}<i class="fa-solid {{#if isArcane}}fa-wand-sparkles{{else}}fa-hammer{{/if}}" inert></i> {{localize "GRIDCRAFTER.Recipe.NameCraft"}}{{/if}}</legend>
-          <input type="text" name="name" value="{{draft.name}}" placeholder="{{circle.item.name}}">
+          <input type="text" name="name" value="{{draft.name}}" placeholder="{{circle.item.name}}" maxlength="{{nameMax}}">
         </fieldset>
         <fieldset class="gc-field gc-public">
           <legend>{{localize "GRIDCRAFTER.Recipe.Public"}}</legend>
