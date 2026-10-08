@@ -187,6 +187,22 @@ export function blankRecipe() {
   };
 }
 
+/** @returns {Recipe} an empty dismantling recipe ready for the editor */
+export function blankDismantle() {
+  return {
+    id: foundry.utils.randomID(),
+    kind: "dismantle",
+    name: "",
+    categories: [],
+    public: false,
+    discoverable: null,
+    input: null,
+    inputQuantity: 1,
+    requires: null,
+    outputs: Array(CELL_COUNT).fill(null)
+  };
+}
+
 /**
  * The item a recipe is shown by in every book and card: what it makes, or what it breaks.
  * @param {Recipe} recipe

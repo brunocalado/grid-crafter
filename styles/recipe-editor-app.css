@@ -39,6 +39,42 @@
     }
   }
 
+  /* Craft | Dismantle: one button's frame split in two. Each half lights on its own, from inside: the
+     frame clips an outer glow. */
+  .gc-new-split {
+    display: flex;
+    flex: none;
+    border: 1px solid var(--gc-trim);
+    border-radius: var(--gc-radius);
+    overflow: hidden;
+    transition: border-color 150ms;
+
+    /* Two pixels short of a button: the frame's border makes up the rest. */
+    .gc-button {
+      flex: 1;
+      min-width: 0;
+      height: 30px;
+      min-height: 0;
+      border: none;
+      border-radius: 0;
+
+      &:hover:not(:disabled),
+      &:focus-visible {
+        outline: none;
+        box-shadow: inset 0 0 12px rgba(var(--gc-glow-rgb), 0.55);
+        color: var(--gc-trim-hi);
+      }
+    }
+
+    .gc-button + .gc-button {
+      border-left: 1px solid var(--gc-trim);
+    }
+
+    &:has(.gc-button:hover:not(:disabled), .gc-button:focus-visible) {
+      border-color: var(--gc-trim-hi);
+    }
+  }
+
   /* The search and the selection-mode button, paired like the forge's search and ready filter. */
   .gc-list-tools {
     display: flex;
@@ -221,6 +257,18 @@
 
     .gc-fields-top {
       grid-template-columns: 1fr auto auto;
+    }
+
+    /* A dismantling recipe has no Shape, Failure or Makes: Name takes Shape's room, and Discovery and
+       Consumes share their row. The rows keep their heights, so the window doesn't jump between kinds. */
+    &.gc-dismantling {
+      .gc-fields-row {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      }
+
+      .gc-fields-top {
+        grid-template-columns: 1fr auto;
+      }
     }
 
     .gc-name input {

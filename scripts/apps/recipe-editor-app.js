@@ -12,8 +12,8 @@ import {
   recipeSearchText, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
 import {
-  blankRecipe, blankVariant, deleteRecipe, findOverlap, getAllRecipes, getCategories, getHiddenIds, getRecipe, getWorldRecipes,
-  isDiscoverable, normalizeCategories, recipeFace, restoreRecipe, saveRecipe, setRecipeHidden
+  blankDismantle, blankRecipe, blankVariant, deleteRecipe, findInputTaken, findOverlap, getAllRecipes, getCategories, getHiddenIds,
+  getRecipe, getWorldRecipes, isDiscoverable, normalizeCategories, recipeFace, restoreRecipe, saveRecipe, setRecipeHidden
 } from "../recipes.js";
 import { ShareRecipeApp } from "./share-recipe-app.js";
 import { ForgetRecipeApp, TeachRecipeApp } from "./teach-recipe-app.js";
@@ -34,7 +34,8 @@ function sourceLabel(source) {
 const HIDDEN_GROUP = "::hidden";
 
 /**
- * The GM's recipe book: build a recipe by dropping items on a grid and a result slot.
+ * The GM's recipe book: build a recipe by dropping items on a grid and a result slot. A dismantling
+ * recipe uses the same board turned around: its parts on the grid, the item it breaks in the circle.
  */
 export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
@@ -49,6 +50,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     position: { width: 1120, height: "auto" },
     actions: {
       newRecipe: RecipeEditorApp.#onNew,
+      createDismantle: RecipeEditorApp.#onCreateDismantle,
       selectRecipe: RecipeEditorApp.#onSelect,
       saveRecipe: RecipeEditorApp.#onSave,
       deleteRecipe: RecipeEditorApp.#onDelete,
@@ -62,6 +64,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       setCategory: RecipeEditorApp.#onSetCategory,
       clearCell: RecipeEditorApp.#onClearCell,
       clearResult: RecipeEditorApp.#onClearResult,
+      clearInput: RecipeEditorApp.#onClearInput,
       clearRequires: RecipeEditorApp.#onClearRequires,
       selectVariant: RecipeEditorApp.#onSelectVariant,
       addVariant: RecipeEditorApp.#onAddVariant,
@@ -96,8 +99,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** @override */
   async _prepareContext(options) {
-    // FIXME: interim, until the editor can show a dismantling recipe.
-    const all = getAllRecipes().filter(r => r.kind !== "dismantle");
+    const all = getAllRecipes();
     const hiddenIds = getHiddenIds();
     const [hidden, shown] = all.reduce((parts, r) => {
       parts[hiddenIds.has(r.id) ? 0 : 1].push(r);
@@ -116,9 +118,9 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this.draft = first ? foundry.utils.deepClone(first) : blankRecipe();
     }
     const draft = this.draft;
+    const dismantling = draft.kind === "dismantle";
     // Another GM, or Restore, may have removed the variant on show.
-    this.#variant = Math.min(this.#variant, draft.variants.length - 1);
-    const variant = draft.variants[this.#variant];
+    if ( !dismantling ) this.#variant = Math.min(this.#variant, draft.variants.length - 1);
     const isNew = !all.some(r => r.id === draft.id);
     const selected = this.#selected;
     // A recipe another package unregistered meanwhile can't be taught.
@@ -126,8 +128,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // While selecting, a lit row means "selected" and nothing else: the draft's row is lit only if picked.
     const toEntry = r => ({ id: r.id, name: recipeFace(r).name || "—", img: recipeFace(r).img,
       active: selected ? selected.has(r.id) : r.id === draft.id, search: recipeSearchText(r), public: r.public,
-      edited: !!r.edited,
-      variantsTip: (r.variants.length > 1) ? game.i18n.localize("GRIDCRAFTER.Editor.VariantsMarker", { count: r.variants.length }) : "" });
+      edited: !!r.edited, dismantle: r.kind === "dismantle",
+      variantsTip: (r.variants?.length > 1) ? game.i18n.localize("GRIDCRAFTER.Editor.VariantsMarker", { count: r.variants.length }) : "" });
     const groups = Object.entries(Object.groupBy(shown, r => r.source)).map(([source, recipes]) => {
       const group = {
         key: source,
@@ -159,8 +161,15 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       hiddenGroup: true,
       recipes: hidden.map(r => ({ ...toEntry(r), origin: sourceLabel(r.source) }))
     });
+    const theme = getTheme();
+    // The circle holds what the recipe makes, or what it breaks.
+    const circle = dismantling
+      ? { drop: "input", item: draft.input, clear: "clearInput", hint: "GRIDCRAFTER.Editor.DropInput" }
+      : { drop: "result", item: draft.result, clear: "clearResult", hint: "GRIDCRAFTER.Editor.DropResult" };
     return {
-      theme: getTheme(),
+      theme,
+      isArcane: theme === "arcane",
+      dismantling,
       groups,
       query: this.#query,
       draft,
@@ -178,10 +187,13 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       dirty: this.dirty,
       selecting: !!selected,
       picked: selected?.size ?? 0,
-      cells: variant.cells.map((item, index) => ({ index, item })),
-      requires: variant.requires,
-      // A recipe with one variant shows no dots, only the +.
-      variants: {
+      cells: this.#cells.map((item, index) => ({ index, item })),
+      // Where a part sits never matters, so a dismantling grid always reads as shapeless.
+      shapeless: dismantling || !draft.shaped,
+      requires: this.#holder.requires,
+      circle,
+      // A recipe with one variant shows no dots, only the +; a dismantling recipe has neither.
+      variants: dismantling ? null : {
         many: draft.variants.length > 1,
         canAdd: draft.variants.length < VARIANT_MAX,
         list: draft.variants.map((v, index) => ({ index, active: index === this.#variant,
@@ -200,13 +212,20 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       discoveryHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Discovery")}</strong><br>`
         + `${game.i18n.localize("GRIDCRAFTER.Editor.DiscoveryHint")}</p>`,
       quantityHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Quantity")}</strong><br>`
-        + `${game.i18n.localize("GRIDCRAFTER.Editor.QuantityHint")}</p>`
+        + `${game.i18n.localize("GRIDCRAFTER.Editor.QuantityHint")}</p>`,
+      consumesHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Consumes")}</strong><br>`
+        + `${game.i18n.localize("GRIDCRAFTER.Editor.ConsumesHint")}</p>`
     };
   }
 
-  /** @returns {import("../recipes.js").Variant} the variant the board shows */
-  get #board() {
-    return this.draft.variants[this.#variant];
+  /** The board's nine cells: the ingredients of the variant on show, or a dismantling recipe's parts. */
+  get #cells() {
+    return (this.draft.kind === "dismantle") ? this.draft.outputs : this.draft.variants[this.#variant].cells;
+  }
+
+  /** What keeps the board's required item: the variant on show, or a dismantling recipe itself. */
+  get #holder() {
+    return (this.draft.kind === "dismantle") ? this.draft : this.draft.variants[this.#variant];
   }
 
   /** @override */
@@ -224,8 +243,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     for ( const el of this.element.querySelectorAll("[data-drop]") ) {
       el.addEventListener("dblclick", ev => {
         const { drop, index } = ev.currentTarget.dataset;
-        const ref = (drop === "result") ? this.draft.result
-          : (drop === "requires") ? this.#board.requires : this.#board.cells[Number(index)];
+        const ref = (drop === "result") ? this.draft.result : (drop === "input") ? this.draft.input
+          : (drop === "requires") ? this.#holder.requires : this.#cells[Number(index)];
         if ( ref ) fromUuid(ref.uuid).then(item => item?.sheet?.render({ force: true }));
       });
     }
@@ -332,6 +351,10 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
         draft.quantity = Math.clamp(Math.round(Number(input.value) || 1), 1, 10);
         this.element.querySelector(".gc-quantity-value").textContent = String(draft.quantity);
         break;
+      case "inputQuantity":
+        draft.inputQuantity = Math.clamp(Math.round(Number(input.value) || 1), 1, 10);
+        this.element.querySelector(".gc-quantity-value").textContent = String(draft.inputQuantity);
+        break;
       case "failLossChance":
         draft.failLossChance = Math.clamp(Math.round(Number(input.value) || 0), 0, 100);
         this.element.querySelector(".gc-loss-value").textContent = `${draft.failLossChance}%`;
@@ -380,10 +403,11 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       return;
     }
     const drop = target.dataset.drop;
-    if ( drop === "result" ) {
+    const dismantling = this.draft.kind === "dismantle";
+    if ( (drop === "result") || (drop === "input") ) {
       const source = await this.#sourceItem(item);
       if ( !source ) return;
-      this.draft.result = toItemRef(source);
+      this.draft[drop] = toItemRef(source);
       if ( !this.draft.name ) this.draft.name = source.name;
     }
     // Any type: the item is looked for on the sheet, never placed on a grid, so a feature or a
@@ -391,22 +415,29 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     else if ( drop === "requires" ) {
       const source = await this.#sourceItem(item);
       if ( !source ) return;
-      this.#board.requires = toItemRef(source);
+      this.#holder.requires = toItemRef(source);
+    }
+    // A part lands on the actor's sheet like a result, so it is kept the same way and may be of any
+    // type: Craftable Item Types governs what players lay on the crafting grid, not what they get.
+    else if ( dismantling ) {
+      const source = await this.#sourceItem(item);
+      if ( !source ) return;
+      this.#cells[Number(target.dataset.index)] = toItemRef(source);
     }
     else {
       if ( !isTypeAllowed(item.type) ) {
         return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.TypeNotAllowed", { name: item.name }));
       }
-      this.#board.cells[Number(target.dataset.index)] = toItemRef(item);
+      this.#cells[Number(target.dataset.index)] = toItemRef(item);
     }
     this.dirty = true;
     this.render();
   }
 
   /**
-   * The result is copied onto the crafter's sheet and the required item is shown in every book, so
-   * both must outlive any one actor: an item from a sheet is replaced by the world or compendium item
-   * it came from.
+   * The result, a dismantled item's parts and the item it breaks are matched or copied onto a sheet,
+   * and the required item is shown in every book, so all of them must outlive any one actor: an item
+   * from a sheet is replaced by the world or compendium item it came from.
    * @param {Item} item
    * @returns {Promise<Item|null>}   null, after a warning, when the item exists only on a sheet
    */
@@ -431,10 +462,14 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     });
   }
 
-  /** @this {RecipeEditorApp} */
-  static async #onNew() {
+  /**
+   * Start a crafting or a dismantling recipe, as the half of the split button says. The kind is fixed
+   * from here on.
+   * @this {RecipeEditorApp}
+   */
+  static async #onNew(event, target) {
     if ( !(await this.#confirmDiscard()) ) return;
-    this.draft = blankRecipe();
+    this.draft = (target.dataset.kind === "dismantle") ? blankDismantle() : blankRecipe();
     this.#variant = 0;
     this.dirty = false;
     this.render();
@@ -450,7 +485,14 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( target.dataset.recipeId === this.draft?.id ) return;
     if ( !(await this.#confirmDiscard()) ) return;
     const recipe = getAllRecipes().find(r => r.id === target.dataset.recipeId);
-    if ( !recipe ) return;
+    if ( recipe ) this.#open(recipe);
+  }
+
+  /**
+   * Put a saved recipe on the board, in place of the draft.
+   * @param {Recipe} recipe
+   */
+  #open(recipe) {
     // A recipe picked through a search must not vanish into a closed group once the search is cleared.
     this.#reveal(getHiddenIds().has(recipe.id) ? [HIDDEN_GROUP] : this.#groupKeys(recipe));
     this.draft = foundry.utils.deepClone(recipe);
@@ -495,6 +537,16 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @this {RecipeEditorApp} */
   static async #onSave() {
     const draft = this.draft;
+    if ( draft.kind === "dismantle" ) {
+      if ( !draft.input ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoInput"));
+      if ( !draft.outputs.some(Boolean) ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoOutputs"));
+      // One item, one dismantling recipe: a second would leave the table two answers.
+      if ( findInputTaken(draft, getAllRecipes()) ) {
+        return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.InputTaken", { name: draft.input.name }));
+      }
+      draft.name = draft.name.trim() || draft.input.name;
+      return this.#commit(draft);
+    }
     if ( !draft.result ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoResult"));
     // Each refusal shows the variant it is about.
     const empty = draft.variants.findIndex(v => !v.cells.some(Boolean));
@@ -511,6 +563,14 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.GridTaken", { name: other.name || other.result.name }));
     }
     draft.name = draft.name.trim() || draft.result.name;
+    return this.#commit(draft);
+  }
+
+  /**
+   * Save a draft that passed its checks.
+   * @param {Recipe} draft
+   */
+  async #commit(draft) {
     await saveRecipe(draft);
     // Read back, so a package recipe's draft carries `edited` and the footer offers Restore.
     this.draft = foundry.utils.deepClone(getRecipe(draft.id));
@@ -571,6 +631,35 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static #onDuplicate() {
     this.draft = { ...foundry.utils.deepClone(this.draft), id: foundry.utils.randomID(), source: "world" };
     delete this.draft.edited;
+    this.dirty = true;
+    this.render();
+  }
+
+  /**
+   * Start the dismantling recipe of the crafting recipe on show, from the variant on the board: it
+   * breaks what the recipe makes, as many as one craft makes, back into that variant's ingredients,
+   * with the same tool. Built from unsaved edits, like Duplicate. An item that already has a
+   * dismantling recipe opens that one instead: one item, one dismantling recipe.
+   * @this {RecipeEditorApp}
+   */
+  static async #onCreateDismantle() {
+    const source = this.draft;
+    if ( !source.result ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoResult"));
+    const existing = findInputTaken({ id: null, input: source.result }, getAllRecipes());
+    // Either way the crafting draft leaves the board.
+    if ( !(await this.#confirmDiscard()) ) return;
+    if ( existing ) return this.#open(existing);
+    const variant = source.variants[this.#variant];
+    this.draft = {
+      ...blankDismantle(),
+      name: source.name,
+      categories: [...source.categories],
+      input: foundry.utils.deepClone(source.result),
+      inputQuantity: source.quantity,
+      requires: foundry.utils.deepClone(variant.requires),
+      outputs: foundry.utils.deepClone(variant.cells)
+    };
+    this.#variant = 0;
     this.dirty = true;
     this.render();
   }
@@ -734,7 +823,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** @this {RecipeEditorApp} */
   static #onClearCell(event, target) {
-    this.#board.cells[Number(target.closest("[data-index]").dataset.index)] = null;
+    this.#cells[Number(target.closest("[data-index]").dataset.index)] = null;
     this.dirty = true;
     this.render();
   }
@@ -747,8 +836,15 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /** @this {RecipeEditorApp} */
+  static #onClearInput() {
+    this.draft.input = null;
+    this.dirty = true;
+    this.render();
+  }
+
+  /** @this {RecipeEditorApp} */
   static #onClearRequires() {
-    this.#board.requires = null;
+    this.#holder.requires = null;
     this.dirty = true;
     this.render();
   }

@@ -8,8 +8,9 @@
         {{#if img}}<img src="{{img}}" alt="">{{else}}<span class="gc-noimg"></span>{{/if}}
         <span>{{name}}</span>
       </button>
-      {{#if (or public edited variantsTip)}}
+      {{#if (or dismantle public edited variantsTip)}}
       <span class="gc-row-markers">
+        {{#if dismantle}}<i class="fa-solid {{#if @root.isArcane}}fa-burst{{else}}fa-pickaxe{{/if}} gc-dismantle-marker" data-tooltip="GRIDCRAFTER.Editor.DismantleMarker"></i>{{/if}}
         {{#if variantsTip}}<i class="fa-solid fa-layer-group gc-variants-marker" data-tooltip="{{variantsTip}}"></i>{{/if}}
         {{#if edited}}<i class="fa-solid fa-pen-nib gc-edited-marker" data-tooltip="GRIDCRAFTER.Editor.EditedMarker"></i>{{/if}}
         {{#if public}}<i class="fa-solid fa-people-group gc-public-marker" data-tooltip="GRIDCRAFTER.Editor.PublicMarker"></i>{{/if}}
@@ -29,7 +30,14 @@
   </summary>
   {{/inline}}
   <aside class="gc-recipe-list">
-    <button type="button" class="gc-button gc-new" data-action="newRecipe" {{#if selecting}}disabled{{/if}}><i class="fa-solid fa-plus" inert></i> {{localize "GRIDCRAFTER.Editor.New"}}</button>
+    <div class="gc-new-split" role="group">
+      <button type="button" class="gc-button" data-action="newRecipe" data-kind="craft" data-tooltip="GRIDCRAFTER.Editor.NewCraftHint"
+              {{#if selecting}}disabled{{/if}}>
+        <i class="fa-solid {{#if isArcane}}fa-wand-sparkles{{else}}fa-hammer{{/if}}" inert></i> {{localize "GRIDCRAFTER.Editor.NewCraft"}}</button>
+      <button type="button" class="gc-button" data-action="newRecipe" data-kind="dismantle" data-tooltip="GRIDCRAFTER.Editor.NewDismantleHint"
+              {{#if selecting}}disabled{{/if}}>
+        <i class="fa-solid {{#if isArcane}}fa-burst{{else}}fa-pickaxe{{/if}}" inert></i> {{localize "GRIDCRAFTER.Editor.NewDismantle"}}</button>
+    </div>
     <div class="gc-list-tools">
       <div class="gc-search">
         <i class="fa-solid fa-magnifying-glass" inert></i>
@@ -64,11 +72,11 @@
   </aside>
 
   <section class="gc-recipe-detail">
-    <div class="gc-recipe-fields" {{#if selecting}}inert{{/if}}>
+    <div class="gc-recipe-fields {{#if dismantling}}gc-dismantling{{/if}}" {{#if selecting}}inert{{/if}}>
       <div class="gc-fields-row gc-fields-top">
         <fieldset class="gc-field gc-name">
           <legend>{{localize "GRIDCRAFTER.Recipe.Name"}}</legend>
-          <input type="text" name="name" value="{{draft.name}}" placeholder="{{draft.result.name}}">
+          <input type="text" name="name" value="{{draft.name}}" placeholder="{{circle.item.name}}">
         </fieldset>
         <fieldset class="gc-field gc-public">
           <legend>{{localize "GRIDCRAFTER.Recipe.Public"}}</legend>
@@ -76,6 +84,7 @@
           <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{publicHelp}}"
              data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="UP"></i>
         </fieldset>
+        {{#unless dismantling}}
         <fieldset class="gc-field gc-shape">
           <legend>{{localize "GRIDCRAFTER.Recipe.Shape"}}</legend>
           <label><input type="radio" name="shaped" value="shaped" {{#if draft.shaped}}checked{{/if}}> {{localize "GRIDCRAFTER.Recipe.Shaped"}}</label>
@@ -83,8 +92,10 @@
           <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{shapeHelp}}"
              data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="LEFT"></i>
         </fieldset>
+        {{/unless}}
       </div>
       <div class="gc-fields-row">
+        {{#unless dismantling}}
         <fieldset class="gc-field gc-loss">
           <legend>{{localize "GRIDCRAFTER.Recipe.FailLoss"}}</legend>
           <label class="gc-inherit">
@@ -96,6 +107,7 @@
           {{/unless}}
           <output class="gc-loss-value">{{lossChance}}%</output>
         </fieldset>
+        {{/unless}}
         <fieldset class="gc-field gc-discovery">
           <legend>{{localize "GRIDCRAFTER.Recipe.Discovery"}}</legend>
           <label class="gc-inherit">
@@ -110,6 +122,15 @@
           <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{discoveryHelp}}"
              data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="UP"></i>
         </fieldset>
+        {{#if dismantling}}
+        <fieldset class="gc-field gc-quantity">
+          <legend>{{localize "GRIDCRAFTER.Recipe.Consumes"}}</legend>
+          <input type="range" name="inputQuantity" min="1" max="10" step="1" value="{{draft.inputQuantity}}">
+          <output class="gc-quantity-value">{{draft.inputQuantity}}</output>
+          <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{consumesHelp}}"
+             data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="LEFT"></i>
+        </fieldset>
+        {{else}}
         <fieldset class="gc-field gc-quantity">
           <legend>{{localize "GRIDCRAFTER.Recipe.Quantity"}}</legend>
           <input type="range" name="quantity" min="1" max="10" step="1" value="{{draft.quantity}}">
@@ -117,12 +138,13 @@
           <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{quantityHelp}}"
              data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="LEFT"></i>
         </fieldset>
+        {{/if}}
       </div>
     </div>
 
     <div class="gc-recipe-board" {{#if selecting}}inert{{/if}}>
       <div class="gc-grid-column">
-        <div class="gc-grid {{#unless draft.shaped}}gc-shapeless{{/unless}}">
+        <div class="gc-grid {{#if shapeless}}gc-shapeless{{/if}}">
           {{#each cells}}
           <div class="gc-cell" data-drop="cell" data-index="{{index}}" {{#if item}}data-tooltip="{{item.name}}"{{/if}}>
             {{#if item}}
@@ -132,6 +154,7 @@
           </div>
           {{/each}}
         </div>
+        {{#if variants}}
         <div class="gc-variants">
           {{#if variants.many}}
           {{#each variants.list}}
@@ -148,13 +171,14 @@
                   aria-label="{{localize "GRIDCRAFTER.Editor.AddVariant"}}" data-tooltip="GRIDCRAFTER.Editor.AddVariant"><i class="fa-solid fa-plus" inert></i></button>
           {{/if}}
         </div>
+        {{/if}}
       </div>
-      <i class="fa-solid fa-angles-right gc-board-arrow" inert></i>
+      <i class="fa-solid {{#if dismantling}}fa-angles-left{{else}}fa-angles-right{{/if}} gc-board-arrow" inert></i>
       <div class="gc-result-column">
-        <div class="gc-cell gc-result" data-drop="result" data-tooltip="{{#if draft.result}}{{draft.result.name}}{{else}}{{localize "GRIDCRAFTER.Editor.DropResult"}}{{/if}}">
-          {{#if draft.result}}
-          <img src="{{draft.result.img}}" alt="{{draft.result.name}}">
-          <button type="button" class="gc-cell-clear" data-action="clearResult" aria-label="{{localize "GRIDCRAFTER.Forge.Remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
+        <div class="gc-cell gc-result" data-drop="{{circle.drop}}" data-tooltip="{{#if circle.item}}{{circle.item.name}}{{else}}{{localize circle.hint}}{{/if}}">
+          {{#if circle.item}}
+          <img src="{{circle.item.img}}" alt="{{circle.item.name}}">
+          <button type="button" class="gc-cell-clear" data-action="{{circle.clear}}" aria-label="{{localize "GRIDCRAFTER.Forge.Remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
           {{/if}}
         </div>
         <div class="gc-requires {{#unless requires}}gc-empty{{/unless}}" data-drop="requires"
@@ -201,6 +225,11 @@
         </button>
         <button type="button" class="gc-icon-button" data-action="duplicateRecipe" {{#if isNew}}disabled{{/if}}
                 aria-label="{{localize "GRIDCRAFTER.Editor.DuplicateHint"}}" data-tooltip="GRIDCRAFTER.Editor.DuplicateHint"><i class="fa-solid fa-clone" inert></i></button>
+        {{#unless dismantling}}
+        <button type="button" class="gc-icon-button" data-action="createDismantle" {{#if isNew}}disabled{{/if}}
+                aria-label="{{localize "GRIDCRAFTER.Editor.CreateDismantleHint"}}" data-tooltip="GRIDCRAFTER.Editor.CreateDismantleHint">
+          <i class="fa-solid {{#if isArcane}}fa-burst{{else}}fa-pickaxe{{/if}}" inert></i></button>
+        {{/unless}}
       </div>
       <div class="gc-knowledge">
         <button type="button" class="gc-icon-button" data-action="shareRecipe" {{#if isNew}}disabled{{/if}}
