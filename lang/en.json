@@ -21,7 +21,8 @@
       "ReadyOnlyDismantle": "Only what you can dismantle now"
     },
     "Recipe": {
-      "Name": "Recipe name",
+      "NameCraft": "Crafting recipe",
+      "NameDismantle": "Dismantling recipe",
       "Categories": "Categories",
       "CategoryNone": "Other",
       "Shape": "Shape",

@@ -272,6 +272,11 @@
       }
     }
 
+    /* The legend names the kind being edited, with the same icon as its New button. */
+    .gc-name > legend i {
+      color: var(--gc-trim-hi);
+    }
+
     .gc-name input {
       flex: 1;
       height: 32px;
