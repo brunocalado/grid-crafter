@@ -100,10 +100,14 @@
     opacity: 0.55;
   }
 
+  /* Icon, ingredients and name side by side: the icon matches the mini grid's height (3 cells of
+     14px plus two 1px gaps), so the entry is only as tall as the grid, and the name takes the
+     column on the right that used to be empty. */
   .gc-book-entry {
+    --gc-entry-h: 44px;
     display: grid;
-    grid-template-columns: 36px 1fr;
-    grid-template-rows: auto auto;
+    grid-template-columns: var(--gc-entry-h) var(--gc-entry-h) 1fr;
+    grid-template-areas: "icon ingredients name";
     gap: 2px 8px;
     align-items: center;
     width: 100%;
@@ -128,18 +132,14 @@
       opacity: 0.55;
     }
 
-    /* In the bottom-right corner, across from the public marker, so the entry's two-column layout
-       stays as it is. Inside the button, so it moves with the hover nudge. */
-    &:has(.gc-requires) {
-      position: relative;
-      padding-right: 36px;
-    }
-
+    /* A badge on the result icon's bottom-right corner: under the name it would push a two-line
+       name past the grid's height. */
     .gc-requires {
-      --gc-requires: 24px;
-      position: absolute;
-      right: 6px;
-      bottom: 6px;
+      --gc-requires: 22px;
+      grid-area: icon;
+      align-self: end;
+      justify-self: end;
+      margin: 0 -6px -6px 0;
     }
   }
 
@@ -149,14 +149,16 @@
   }
 
   .gc-book-result {
-    grid-row: span 2;
-    width: 36px;
-    height: 36px;
+    grid-area: icon;
+    width: var(--gc-entry-h);
+    height: var(--gc-entry-h);
     border: 1px solid var(--gc-trim);
     border-radius: 4px;
   }
 
   .gc-book-name {
+    grid-area: name;
+    align-self: start;
     font-weight: bold;
     line-height: 1.1;
   }
@@ -167,6 +169,7 @@
   }
 
   .gc-mini-grid {
+    grid-area: ingredients;
     display: grid;
     grid-template-columns: repeat(3, 14px);
     gap: 1px;
@@ -187,14 +190,18 @@
     }
   }
 
+  /* Wraps at three across, so a shapeless recipe takes the same footprint as a shaped one. */
   .gc-mini-list {
+    grid-area: ingredients;
     display: flex;
     flex-wrap: wrap;
-    gap: 2px;
+    align-content: center;
+    gap: 1px;
+    width: var(--gc-entry-h);
 
     img {
-      width: 16px;
-      height: 16px;
+      width: 14px;
+      height: 14px;
       border: none;
       border-radius: 50%;
     }
