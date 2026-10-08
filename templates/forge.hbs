@@ -4,7 +4,7 @@
     {{#each recipes}}
     <li data-search="{{search}}" {{#if ready}}data-ready{{/if}}>
       <button type="button" class="gc-book-entry {{#unless ready}}gc-missing{{/unless}}" data-action="fillRecipe"
-              data-recipe-id="{{id}}" data-tooltip="{{#if ready}}{{localize "GRIDCRAFTER.Forge.FillHint"}}{{else}}{{localize "GRIDCRAFTER.Forge.MissingHint"}}{{/if}}">
+              data-recipe-id="{{id}}" data-variant="{{variant}}" data-tooltip="{{#if ready}}{{localize "GRIDCRAFTER.Forge.FillHint"}}{{else}}{{localize "GRIDCRAFTER.Forge.MissingHint"}}{{/if}}">
         <img class="gc-book-result" src="{{img}}" alt="">
         <span class="gc-book-name">{{name}}</span>
         {{#if shaped}}

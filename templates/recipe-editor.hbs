@@ -138,10 +138,10 @@
           <button type="button" class="gc-cell-clear" data-action="clearResult" aria-label="{{localize "GRIDCRAFTER.Forge.Remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
           {{/if}}
         </div>
-        <div class="gc-requires {{#unless draft.requires}}gc-empty{{/unless}}" data-drop="requires"
-             data-tooltip="{{#if draft.requires}}{{localize "GRIDCRAFTER.Recipe.Requires" name=draft.requires.name}}{{else}}{{localize "GRIDCRAFTER.Editor.DropRequires"}}{{/if}}">
-          {{#if draft.requires}}
-          <img src="{{draft.requires.img}}" alt="{{draft.requires.name}}">
+        <div class="gc-requires {{#unless requires}}gc-empty{{/unless}}" data-drop="requires"
+             data-tooltip="{{#if requires}}{{localize "GRIDCRAFTER.Recipe.Requires" name=requires.name}}{{else}}{{localize "GRIDCRAFTER.Editor.DropRequires"}}{{/if}}">
+          {{#if requires}}
+          <img src="{{requires.img}}" alt="{{requires.name}}">
           <button type="button" class="gc-cell-clear" data-action="clearRequires" aria-label="{{localize "GRIDCRAFTER.Forge.Remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
           {{else}}
           <i class="fa-solid fa-key" inert></i>

@@ -157,14 +157,14 @@ export function searchKey(text) {
 }
 
 /**
- * Everything a recipe search looks through: its name, what it makes, its categories, the item it
- * requires, its ingredients.
+ * Everything a recipe search looks through: its name, what it makes, its categories, and every
+ * variant's required item and ingredients.
  * @param {object} recipe
  * @returns {string}
  */
 export function recipeSearchText(recipe) {
-  return searchKey([recipe.name, recipe.result?.name, ...recipe.categories, recipe.requires?.name,
-    ...recipe.cells.map(c => c?.name)].filter(Boolean).join(" "));
+  return searchKey([recipe.name, recipe.result?.name, ...recipe.categories,
+    ...recipe.variants.flatMap(v => [v.requires?.name, ...v.cells.map(c => c?.name)])].filter(Boolean).join(" "));
 }
 
 /**

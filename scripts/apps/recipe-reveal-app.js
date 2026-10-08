@@ -55,6 +55,7 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
   async _prepareContext(options) {
     const theme = getTheme();
     const recipe = getRecipe(this.recipeId);
+    const variant = recipe.variants[0];
     const actor = getCraftingActor();
     // A GM sees a preview, and a player without a character has nowhere to write it: neither gets a
     // button or a label.
@@ -65,9 +66,9 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isArcane: theme === "arcane",
       name: recipe.name || recipe.result.name,
       shaped: recipe.shaped,
-      cells: recipe.shaped ? recipe.cells : recipe.cells.filter(Boolean),
+      cells: recipe.shaped ? variant.cells : variant.cells.filter(Boolean),
       result: recipe.result,
-      requires: recipe.requires ?? null,
+      requires: variant.requires,
       quantity: recipe.quantity,
       many: recipe.quantity > 1,
       canLearn: learner && !known,

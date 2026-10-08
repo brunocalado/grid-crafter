@@ -12,8 +12,8 @@ import {
   recipeSearchText, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
 import {
-  blankRecipe, deleteRecipe, getAllRecipes, getCategories, getHiddenIds, getRecipe, getWorldRecipes, isDiscoverable,
-  normalizeCategories, restoreRecipe, saveRecipe, setRecipeHidden
+  blankRecipe, deleteRecipe, findOverlap, getAllRecipes, getCategories, getHiddenIds, getRecipe, getWorldRecipes,
+  isDiscoverable, normalizeCategories, restoreRecipe, saveRecipe, setRecipeHidden
 } from "../recipes.js";
 import { ShareRecipeApp } from "./share-recipe-app.js";
 import { ForgetRecipeApp, TeachRecipeApp } from "./teach-recipe-app.js";
@@ -164,7 +164,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       dirty: this.dirty,
       selecting: !!selected,
       picked: selected?.size ?? 0,
-      cells: draft.cells.map((item, index) => ({ index, item })),
+      cells: draft.variants[0].cells.map((item, index) => ({ index, item })),
+      requires: draft.variants[0].requires,
       inherit: draft.failLossChance === null,
       lossChance: draft.failLossChance ?? game.settings.get(MODULE_ID, SETTING_FAIL_LOSS_CHANCE),
       discoverInherit: draft.discoverable === null,
@@ -191,8 +192,9 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     for ( const el of this.element.querySelectorAll("[data-drop]") ) {
       el.addEventListener("dblclick", ev => {
         const { drop, index } = ev.currentTarget.dataset;
+        const variant = this.draft.variants[0];
         const ref = (drop === "result") ? this.draft.result
-          : (drop === "requires") ? this.draft.requires : this.draft.cells[Number(index)];
+          : (drop === "requires") ? variant.requires : variant.cells[Number(index)];
         if ( ref ) fromUuid(ref.uuid).then(item => item?.sheet?.render({ force: true }));
       });
     }
@@ -358,13 +360,13 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     else if ( drop === "requires" ) {
       const source = await this.#sourceItem(item);
       if ( !source ) return;
-      this.draft.requires = toItemRef(source);
+      this.draft.variants[0].requires = toItemRef(source);
     }
     else {
       if ( !isTypeAllowed(item.type) ) {
         return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.TypeNotAllowed", { name: item.name }));
       }
-      this.draft.cells[Number(target.dataset.index)] = toItemRef(item);
+      this.draft.variants[0].cells[Number(target.dataset.index)] = toItemRef(item);
     }
     this.dirty = true;
     this.render();
@@ -461,7 +463,15 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onSave() {
     const draft = this.draft;
     if ( !draft.result ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoResult"));
-    if ( !draft.cells.some(Boolean) ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoIngredients"));
+    if ( !draft.variants.every(v => v.cells.some(Boolean)) ) {
+      return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoIngredients"));
+    }
+    // One grid, one recipe: whatever the results, a layout another recipe makes would have two answers.
+    const overlap = findOverlap(draft, getAllRecipes());
+    if ( overlap ) {
+      const { other } = overlap;
+      return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.GridTaken", { name: other.name || other.result.name }));
+    }
     draft.name = draft.name.trim() || draft.result.name;
     await saveRecipe(draft);
     // Read back, so a package recipe's draft carries `edited` and the footer offers Restore.
@@ -684,7 +694,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** @this {RecipeEditorApp} */
   static #onClearCell(event, target) {
-    this.draft.cells[Number(target.closest("[data-index]").dataset.index)] = null;
+    this.draft.variants[0].cells[Number(target.closest("[data-index]").dataset.index)] = null;
     this.dirty = true;
     this.render();
   }
@@ -698,7 +708,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** @this {RecipeEditorApp} */
   static #onClearRequires() {
-    this.draft.requires = null;
+    this.draft.variants[0].requires = null;
     this.dirty = true;
     this.render();
   }

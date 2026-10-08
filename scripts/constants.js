@@ -31,6 +31,9 @@ export const FLAG_KNOWN_RECIPES = "knownRecipes";
 
 export const CATEGORY_MAX = 24;
 
+// The most ways one recipe can be made.
+export const VARIANT_MAX = 4;
+
 export const GRID_SIZE = 3;
 export const CELL_COUNT = GRID_SIZE * GRID_SIZE;
 

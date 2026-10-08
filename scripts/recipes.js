@@ -8,20 +8,27 @@
 
 import {
   CATEGORY_MAX, CELL_COUNT, GRID_SIZE, MODULE_ID, SETTING_DISCOVERY, SETTING_HIDDEN_RECIPES, SETTING_RECIPE_EDITS,
-  SETTING_RECIPES
+  SETTING_RECIPES, VARIANT_MAX
 } from "./constants.js";
 import { refMatches, toItemRef } from "./helpers.js";
+
+/**
+ * One way to make a recipe.
+ * @typedef {object} Variant
+ * @property {(import("./helpers.js").ItemRef|null)[]} cells   nine cells, row by row
+ * @property {import("./helpers.js").ItemRef|null} requires   an item the crafter must carry, of any type;
+ *   never placed on the grid and never spent
+ */
 
 /**
  * @typedef {object} Recipe
  * @property {string} id
  * @property {string} name
  * @property {string[]} categories        groups it is listed under in the books; empty when none
- * @property {boolean} shaped              false: only which items, not where, matters
- * @property {(import("./helpers.js").ItemRef|null)[]} cells   nine cells, row by row
+ * @property {boolean} shaped              false: only which items, not where, matters; for every variant
+ * @property {Variant[]} variants         1 to VARIANT_MAX, in the order they were added. Knowing the recipe
+ *   is knowing all of them
  * @property {import("./helpers.js").ItemRef} result
- * @property {import("./helpers.js").ItemRef|null} requires   an item the crafter must carry, of any type;
- *   never placed on the grid and never spent
  * @property {number} quantity            how many results one craft makes
  * @property {number|null} failLossChance  percent; null inherits the world default
  * @property {boolean} public            every character knows it
@@ -146,6 +153,11 @@ export function getCategories() {
   return [...names].sort((a, b) => a.localeCompare(b));
 }
 
+/** @returns {Variant} an empty grid with no required item */
+export function blankVariant() {
+  return { cells: Array(CELL_COUNT).fill(null), requires: null };
+}
+
 /** @returns {Recipe} an empty recipe ready for the editor */
 export function blankRecipe() {
   return {
@@ -154,9 +166,8 @@ export function blankRecipe() {
     categories: [],
     shaped: true,
     public: false,
-    cells: Array(CELL_COUNT).fill(null),
+    variants: [blankVariant()],
     result: null,
-    requires: null,
     quantity: 1,
     failLossChance: null,
     discoverable: null
@@ -193,8 +204,29 @@ function refFromUuid(uuid) {
 }
 
 /**
- * Register recipes on behalf of another package. Accepts the cells as a flat list of nine uuids or as
- * three rows of three; empty cells are null.
+ * Read one variant a package handed us.
+ * @param {object} data   `{ cells, requires }`, cells as a flat list of nine uuids or three rows of three
+ * @returns {Variant|string}   the variant, or why it can't be used
+ */
+function variantFromData(data) {
+  const flat = Array.isArray(data?.cells?.[0]) ? data.cells.flat() : data?.cells;
+  if ( !Array.isArray(flat) || (flat.length !== CELL_COUNT) ) return `it needs ${CELL_COUNT} cells`;
+  const cells = flat.map(uuid => (uuid ? refFromUuid(uuid) : null));
+  const missing = flat.filter((uuid, i) => uuid && !cells[i]);
+  const requires = data.requires ? refFromUuid(data.requires) : null;
+  if ( data.requires && !requires ) missing.push(data.requires);
+  if ( missing.length ) return `unresolved items ${missing.join(", ")}`;
+  if ( !cells.some(Boolean) ) return "no ingredient";
+  return { cells, requires };
+}
+
+/**
+ * Register recipes on behalf of another package. Each recipe brings `variants: [{ cells, requires }]`,
+ * or `cells` and `requires` at the top level as a recipe with one variant. Empty cells are null.
+ *
+ * One grid makes one recipe: a variant whose grid a recipe already present makes is dropped. The
+ * world's recipes are there before any package registers, so they always keep their grids; between
+ * packages, the first to register keeps it.
  * @param {string} packageId
  * @param {object[]} recipes
  * @returns {number} how many recipes were registered
@@ -205,17 +237,43 @@ export function registerRecipes(packageId, recipes) {
   let count = 0;
   for ( const data of recipes ) {
     const label = `${packageId}.${data?.id ?? "?"}`;
-    const flat = Array.isArray(data?.cells?.[0]) ? data.cells.flat() : data?.cells;
-    if ( !data?.id || !Array.isArray(flat) || (flat.length !== CELL_COUNT) ) {
-      console.warn(`${MODULE_ID} | Recipe ${label} skipped: it needs an id and ${CELL_COUNT} cells.`);
+    const skip = (reason, ...details) => console.warn(`${MODULE_ID} | Recipe ${label} skipped: ${reason}.`, ...details);
+    if ( !data?.id ) {
+      skip("it needs an id");
       continue;
     }
-    const cells = flat.map(uuid => (uuid ? refFromUuid(uuid) : null));
-    const missing = flat.filter((uuid, i) => uuid && !cells[i]);
+    const many = data.variants !== undefined;
+    // Which grid did the author mean?
+    if ( many && ((data.cells != null) || (data.requires != null)) ) {
+      skip("it has both variants and cells or requires; give one or the other");
+      continue;
+    }
+    const entries = many ? data.variants : [{ cells: data.cells, requires: data.requires }];
+    if ( !Array.isArray(entries) || !entries.length || (entries.length > VARIANT_MAX) ) {
+      skip(`it needs 1 to ${VARIANT_MAX} variants`);
+      continue;
+    }
     const result = refFromUuid(data.result);
-    const requires = data.requires ? refFromUuid(data.requires) : null;
-    if ( missing.length || !result || !cells.some(Boolean) || (data.requires && !requires) ) {
-      console.warn(`${MODULE_ID} | Recipe ${label} skipped: unresolved items.`, missing, data.result, data.requires);
+    if ( !result ) {
+      skip("unresolved result", data.result);
+      continue;
+    }
+    const shaped = data.shaped !== false;
+    // Read now, not once for the call: recipes registered earlier in this loop count too.
+    const others = getAllRecipes();
+    const variants = [];
+    entries.forEach((entry, i) => {
+      // A shorthand recipe has nothing left once its one grid goes, so it is skipped by name.
+      const drop = reason => (many ? console.warn(`${MODULE_ID} | Recipe ${label}, variants[${i}], dropped: ${reason}.`)
+        : skip(reason));
+      const variant = variantFromData(entry);
+      if ( typeof variant === "string" ) return drop(variant);
+      const other = findOverlap({ id: label, shaped, variants: [variant] }, others)?.other;
+      if ( other ) return drop(`its grid already belongs to "${other.name || other.result.name}" (${other.id})`);
+      variants.push(variant);
+    });
+    if ( !variants.length ) {
+      if ( many ) skip("none of its variants can be used");
       continue;
     }
     const chance = Number(data.failLossChance);
@@ -223,11 +281,10 @@ export function registerRecipes(packageId, recipes) {
       id: label,
       name: String(data.name ?? result.name),
       categories: normalizeCategories(data.categories),
-      shaped: data.shaped !== false,
+      shaped,
       public: data.public === true,
-      cells,
+      variants,
       result,
-      requires,
       quantity: Math.clamp(Math.floor(Number(data.quantity) || 1), 1, 10),
       failLossChance: Number.isFinite(chance) ? Math.clamp(chance, 0, 100) : null,
       discoverable: (typeof data.discoverable === "boolean") ? data.discoverable : null,
@@ -309,36 +366,75 @@ function sameItems(ingredients, items) {
 }
 
 /**
- * Does a grid satisfy a recipe? Shaped recipes match anywhere in the grid, exactly as drawn.
- * @param {Recipe} recipe
+ * Does a grid satisfy one variant? A shaped variant matches anywhere in the grid, exactly as drawn.
+ * @param {boolean} shaped
+ * @param {Variant} variant
  * @param {(object|null)[]} cells
  * @returns {boolean}
  */
-export function recipeMatches(recipe, cells) {
-  if ( !recipe.shaped ) return sameItems(recipe.cells.filter(Boolean), cells.filter(Boolean));
+function variantMatches(shaped, variant, cells) {
+  if ( !shaped ) return sameItems(variant.cells.filter(Boolean), cells.filter(Boolean));
   const grid = crop(cells);
-  const pattern = crop(recipe.cells);
+  const pattern = crop(variant.cells);
   if ( !grid.length || !pattern.length ) return false;
   return samePattern(pattern, grid);
 }
 
 /**
- * The first recipe a grid satisfies.
+ * The recipe a grid makes, and which of its variants the grid satisfies. One grid makes one recipe at
+ * most (see findOverlap), but several variants of it may fit, each with its own required item.
  * @param {(object|null)[]} cells
  * @param {Recipe[]} recipes   the ones the crafter may make
- * @returns {Recipe|null}
+ * @returns {{recipe: Recipe, matches: number[]}|null}   matches: indexes in the recipe's variants
  */
 export function findRecipe(cells, recipes) {
-  return recipes.find(r => r.result && recipeMatches(r, cells)) ?? null;
+  for ( const recipe of recipes ) {
+    if ( !recipe.result ) continue;
+    const matches = recipe.variants.flatMap((v, i) => (variantMatches(recipe.shaped, v, cells) ? [i] : []));
+    if ( matches.length ) return { recipe, matches };
+  }
+  return null;
 }
 
 /**
- * The recipe a failed grid was closest to: right items, wrong shape. It decides what a failure costs.
+ * The recipe a failed grid was closest to: right items, wrong shape, in any variant. It decides what
+ * a failure costs.
  * @param {(object|null)[]} cells
  * @param {Recipe[]} recipes   the ones the crafter may make
  * @returns {Recipe|null}
  */
 export function findNearRecipe(cells, recipes) {
   const items = cells.filter(Boolean);
-  return recipes.find(r => sameItems(r.cells.filter(Boolean), items)) ?? null;
+  return recipes.find(r => r.variants.some(v => sameItems(v.cells.filter(Boolean), items))) ?? null;
+}
+
+/**
+ * Could one grid satisfy both variants? Shaped against shaped: the same cropped pattern. Anything against
+ * a shapeless variant: the same items, because a shapeless variant takes any layout, the shaped one's
+ * included. The required item never counts: a crafter may carry both.
+ * @param {Variant} a
+ * @param {boolean} aShaped
+ * @param {Variant} b
+ * @param {boolean} bShaped
+ * @returns {boolean}
+ */
+function variantsOverlap(a, aShaped, b, bShaped) {
+  if ( aShaped && bShaped ) return samePattern(crop(a.cells), crop(b.cells));
+  return sameItems(a.cells.filter(Boolean), b.cells.filter(Boolean));
+}
+
+/**
+ * The first other recipe whose grid one of `recipe`'s variants could also fill. Such a grid would have
+ * two answers, so it is refused. Hidden recipes count: hiding changes nothing in play.
+ * @param {Recipe} recipe
+ * @param {Recipe[]} recipes
+ * @returns {{variant: number, other: Recipe}|null}   variant: the index in `recipe`'s variants
+ */
+export function findOverlap(recipe, recipes) {
+  for ( const other of recipes ) {
+    if ( other.id === recipe.id ) continue;
+    const variant = recipe.variants.findIndex(v => other.variants.some(o => variantsOverlap(v, recipe.shaped, o, other.shaped)));
+    if ( variant >= 0 ) return { variant, other };
+  }
+  return null;
 }

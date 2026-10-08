@@ -91,19 +91,25 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // A player with no character still sees the public recipes; crafting is what needs the character.
     const known = new Set(getKnownRecipeIds(actor));
     const learned = new Set(getLearnedRecipeIds(actor));
-    const book = getAllRecipes().filter(r => known.has(r.id)).map(r => ({
-      id: r.id,
-      name: r.name || r.result?.name,
-      img: r.result?.img,
-      shaped: r.shaped,
-      cells: r.shaped ? r.cells : r.cells.filter(Boolean),
-      categories: r.categories,
-      search: recipeSearchText(r),
-      ready: !!(actor && fillFromInventory(r, actor) && hasRequiredItem(r, actor)),
-      requires: r.requires ? { name: r.requires.name, img: r.requires.img, has: !!actor && hasRequiredItem(r, actor) } : null,
-      // Known only because it is public. Learned recipes carry no marker: no marker means "yours".
-      public: !learned.has(r.id)
-    }));
+    const makeable = v => !!(actor && fillFromInventory(v, actor) && hasRequiredItem(v, actor));
+    const book = getAllRecipes().filter(r => known.has(r.id)).map(r => {
+      const index = Math.max(0, r.variants.findIndex(makeable));
+      const v = r.variants[index];
+      return {
+        id: r.id,
+        variant: index,
+        name: r.name || r.result?.name,
+        img: r.result?.img,
+        shaped: r.shaped,
+        cells: r.shaped ? v.cells : v.cells.filter(Boolean),
+        categories: r.categories,
+        search: recipeSearchText(r),
+        ready: makeable(v),
+        requires: v.requires ? { name: v.requires.name, img: v.requires.img, has: !!actor && hasRequiredItem(v, actor) } : null,
+        // Known only because it is public. Learned recipes carry no marker: no marker means "yours".
+        public: !learned.has(r.id)
+      };
+    });
     // Players don't care which package a recipe came from, so the book groups by category alone.
     // A recipe with several categories is listed in each.
     // Craftable recipes lead each group.
@@ -357,8 +363,9 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static #onFillRecipe(event, target) {
     if ( this.busy ) return;
     const recipe = getAllRecipes().find(r => r.id === target.dataset.recipeId);
+    const variant = recipe?.variants[Number(target.dataset.variant)];
     const actor = getCraftingActor();
-    const filled = recipe && actor ? fillFromInventory(recipe, actor) : null;
+    const filled = variant && actor ? fillFromInventory(variant, actor) : null;
     if ( !filled ) {
       return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.MissingIngredients", { name: recipe?.name ?? "" }));
     }

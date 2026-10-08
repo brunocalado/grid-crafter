@@ -141,6 +141,7 @@
       "FromActor": "{name} exists only on a character's sheet. Use the item from the Items directory or a compendium.",
       "NoResult": "Drop the item this recipe makes in the result slot.",
       "NoIngredients": "Place at least one ingredient on the grid.",
+      "GridTaken": "This grid already makes {name}.",
       "GMOnly": "Only a GM can do that.",
       "NotAnActor": "Pass an actor or a token, or the uuid of one.",
       "UnknownRecipe": "There is no recipe with the id {id}.",

@@ -17,9 +17,10 @@ import { findNearRecipe, findRecipe, getAllRecipes, isDiscoverable } from "./rec
  * @property {"success"|"failure"|"refused"|"incomplete"|"missing"} state
  *   success: the result reached the actor; failure: no recipe matched; refused: the actor's sheet
  *   would not take the result, nothing spent; incomplete: spent, but the result never arrived and the
- *   materials could not be put back; missing: the recipe matched, but the actor lacks the item it
- *   requires, nothing spent
+ *   materials could not be put back; missing: the grid fits the recipe, but the actor lacks the item
+ *   every fitting variant requires, nothing spent
  * @property {import("./recipes.js").Recipe|null} recipe
+ * @property {number|null} variant  the index of the recipe's variant the grid made; null when no recipe matched
  * @property {Item|null} item       the forged item on the actor, on success only
  * @property {boolean} lost         failure only: the materials were destroyed
  */
@@ -52,14 +53,14 @@ export function getKnownRecipeIds(actor) {
 }
 
 /**
- * Does the actor carry the item a recipe requires? Any type counts, a feature as much as a tool.
- * @param {import("./recipes.js").Recipe} recipe
+ * Does the actor carry the item a variant requires? Any type counts, a feature as much as a tool.
+ * @param {import("./recipes.js").Variant} variant
  * @param {Actor} actor
  * @returns {boolean}
  */
-export function hasRequiredItem(recipe, actor) {
-  return !recipe.requires
-    || actor.items.some(i => ((getQuantity(i) ?? 1) > 0) && refMatches(recipe.requires, toItemRef(i)));
+export function hasRequiredItem(variant, actor) {
+  return !variant.requires
+    || actor.items.some(i => ((getQuantity(i) ?? 1) > 0) && refMatches(variant.requires, toItemRef(i)));
 }
 
 /**
@@ -110,7 +111,10 @@ export async function craft(slots) {
   // like any wrong layout, so it gives away nothing.
   const known = new Set(getKnownRecipeIds(actor));
   const usable = getAllRecipes().filter(r => known.has(r.id) || isDiscoverable(r));
-  const recipe = findRecipe(cells, usable);
+  const found = findRecipe(cells, usable);
+  const recipe = found?.recipe ?? null;
+  // Several variants may fit one grid with different tools: take one the actor can make.
+  const variant = found ? (found.matches.find(i => hasRequiredItem(recipe.variants[i], actor)) ?? found.matches[0]) : null;
   const used = docs.filter(Boolean);
   const source = recipe ? await fromUuid(recipe.result.uuid) : null;
   if ( recipe && !source ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.ResultGone", { name: recipe.result.name }));
@@ -119,15 +123,15 @@ export async function craft(slots) {
   // Refused before anything is spent or learned, and before preCraft: only a craft that can really
   // happen is offered for veto. Saying what is missing gives the recipe away, and that is meant: the
   // character has found it and lacks the means.
-  if ( recipe && !hasRequiredItem(recipe, actor) ) {
-    return settle(actor, { state: "missing", recipe, item: null, lost: false },
+  if ( recipe && !hasRequiredItem(recipe.variants[variant], actor) ) {
+    return settle(actor, { state: "missing", recipe, variant, item: null, lost: false },
       { ingredients, used, item: source, quantity: recipe.quantity });
   }
   // Another package may veto the craft. Fired before any write, so a veto costs nothing. The listener
   // explains itself through veto.reason and the table shows it, so the player always gets exactly one
   // message, never silence and never two.
   const veto = { reason: "" };
-  if ( Hooks.call(`${MODULE_ID}.preCraft`, actor, recipe ? foundry.utils.deepClone(recipe) : null, used, veto) === false ) {
+  if ( Hooks.call(`${MODULE_ID}.preCraft`, actor, recipe ? foundry.utils.deepClone(recipe) : null, used, veto, variant) === false ) {
     const reason = (typeof veto.reason === "string") && veto.reason.trim();
     throw new CraftError(reason || game.i18n.localize("GRIDCRAFTER.Errors.Vetoed"));
   }
@@ -136,20 +140,20 @@ export async function craft(slots) {
     if ( !item ) {
       const incomplete = missing.length > 0;
       // The card shows the result that did not arrive, and on an incomplete craft only what stayed spent.
-      return settle(actor, { state: incomplete ? "incomplete" : "refused", recipe, item: null, lost: false }, {
+      return settle(actor, { state: incomplete ? "incomplete" : "refused", recipe, variant, item: null, lost: false }, {
         ingredients, item: source, quantity: recipe.quantity,
         used: incomplete ? used.filter(d => missing.includes(d.id)) : used
       });
     }
     await learnRecipes(actor, [recipe.id]);
-    return settle(actor, { state: "success", recipe, item, lost: false }, { ingredients, used, quantity: recipe.quantity });
+    return settle(actor, { state: "success", recipe, variant, item, lost: false }, { ingredients, used, quantity: recipe.quantity });
   }
 
   const near = findNearRecipe(cells, usable);
   const chance = near?.failLossChance ?? game.settings.get(MODULE_ID, SETTING_FAIL_LOSS_CHANCE);
   const lost = (chance > 0) && usage.size && ((Math.random() * 100) < chance);
   if ( lost ) await foundry.documents.modifyBatch(consumeOperations(actor, usage));
-  return settle(actor, { state: "failure", recipe: null, item: null, lost: !!lost }, { ingredients, used, chance });
+  return settle(actor, { state: "failure", recipe: null, variant: null, item: null, lost: !!lost }, { ingredients, used, chance });
 }
 
 /**
@@ -356,7 +360,8 @@ export async function forgetRecipes(actor, recipeIds) {
  * @param {object} data
  * @param {"success"|"failure"|"refused"|"incomplete"|"missing"} data.state
  */
-async function report({ actor, state, recipe, used, item, quantity, lost, chance }) {
+async function report({ actor, state, recipe, variant, used, item, quantity, lost, chance }) {
+  const requires = recipe?.variants[variant].requires;
   // Group repeated items so "Iron Ingot x3" reads as one line.
   const groups = [];
   for ( const doc of used ) {
@@ -377,10 +382,10 @@ async function report({ actor, state, recipe, used, item, quantity, lost, chance
     groups,
     result: item ? { name: item.name, img: item.img, quantity } : null,
     // On a success it is a quiet note; on "missing" it is the reason for the card.
-    required: (recipe?.requires && ["success", "missing"].includes(state)) ? {
-      img: recipe.requires.img,
+    required: (requires && ["success", "missing"].includes(state)) ? {
+      img: requires.img,
       label: game.i18n.localize(`GRIDCRAFTER.Chat.${(state === "missing") ? "Requires" : "MadeWith"}`,
-        { name: recipe.requires.name })
+        { name: requires.name })
     } : null,
     lost,
     chance
@@ -392,17 +397,17 @@ async function report({ actor, state, recipe, used, item, quantity, lost, chance
 }
 
 /**
- * Items on the actor that satisfy each cell of a recipe, for filling the grid from the recipe book.
+ * Items on the actor that satisfy each cell of a variant, for filling the grid from the recipe book.
  * The same stack may fill several cells while its quantity lasts.
- * @param {import("./recipes.js").Recipe} recipe
+ * @param {import("./recipes.js").Variant} variant
  * @param {Actor} actor
  * @returns {(import("./helpers.js").ItemRef|null)[]|null}   null when the actor lacks something
  */
-export function fillFromInventory(recipe, actor) {
+export function fillFromInventory(variant, actor) {
   const left = new Map(actor.items.map(i => [i.id, getQuantity(i) ?? 1]));
   const refs = new Map(actor.items.map(i => [i.id, toItemRef(i)]));
   const out = [];
-  for ( const ing of recipe.cells ) {
+  for ( const ing of variant.cells ) {
     if ( !ing ) {
       out.push(null);
       continue;
