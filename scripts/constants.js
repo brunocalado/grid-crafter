@@ -29,6 +29,9 @@ export const SETTING_SOUND_SHARE = "soundShare";
 // User flags
 export const FLAG_KNOWN_RECIPES = "knownRecipes";
 
+// Item flags
+export const FLAG_RECEIPTS = "receipts";
+
 export const CATEGORY_MAX = 24;
 
 // The most ways one recipe can be made.

@@ -7,9 +7,10 @@
  */
 
 import {
-  FLAG_KNOWN_RECIPES, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, SETTING_QUANTITY_PATH, TEMPLATE_PATH
+  FLAG_KNOWN_RECIPES, FLAG_RECEIPTS, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, SETTING_QUANTITY_PATH, TEMPLATE_PATH
 } from "./constants.js";
 import { getCraftingActor, getQuantity, getTheme, itemOrigin, refMatches, toItemRef } from "./helpers.js";
+import { addReceipt, getReceipts } from "./receipts.js";
 import { findNearRecipe, findRecipe, getAllRecipes, isDiscoverable, recipeFace } from "./recipes.js";
 
 /**
@@ -151,7 +152,10 @@ export async function craft(slots) {
     throw new CraftError(reason || game.i18n.localize("GRIDCRAFTER.Errors.Vetoed"));
   }
   if ( recipe ) {
-    const { items, missing } = await forge(actor, usage, [{ source, quantity: recipe.quantity }]);
+    // From the variant, not the grid: its refs point at world or compendium items that outlive the spend.
+    const receipt = { parts: foundry.utils.deepClone(recipe.variants[variant].cells.filter(Boolean)),
+      per: recipe.quantity, count: recipe.quantity };
+    const { items, missing } = await forge(actor, usage, [{ source, quantity: recipe.quantity, receipt }]);
     const item = items?.[0];
     if ( !item ) {
       const incomplete = missing.length > 0;
@@ -320,7 +324,8 @@ async function settleDismantle(actor, outcome, { item, spent, received }) {
  * drops an operation a system emptied in _preCreateOperation while sending the rest.
  * @param {Actor} actor
  * @param {Map<string, {doc: Item, count: number}>} usage
- * @param {{source: Item, quantity: number}[]} outputs   each as it exists in the world or a compendium
+ * @param {{source: Item, quantity: number, receipt?: import("./receipts.js").Receipt}[]} outputs   each as
+ *   it exists in the world or a compendium, with what was spent on it when it was crafted
  * @returns {Promise<{items: Item[]|null, missing?: string[]}>}  the items that received each output, or
  *   null when the actor refused them; then the ids of the ingredients that could not be put back
  */
@@ -358,22 +363,29 @@ async function forge(actor, usage, outputs) {
  * @param {Actor} actor
  * @param {Map<string, {doc: Item, count: number}>} usage   spent items, never stacked onto: putting them
  *   back would undo the output
- * @param {{source: Item, quantity: number}[]} outputs
+ * @param {{source: Item, quantity: number, receipt?: import("./receipts.js").Receipt}[]} outputs
  * @returns {Promise<Item[]|null>}   the items that received each output, in order; null when refused
  */
 async function deliver(actor, usage, outputs) {
   const path = game.settings.get(MODULE_ID, SETTING_QUANTITY_PATH);
-  /** @type {Map<string, {doc: Item, was: number, add: number}>} */
+  const key = `flags.${MODULE_ID}.${FLAG_RECEIPTS}`;
+  /**
+   * `receipts` is what the stack is written with, null when no output brought one; `before` is the raw
+   * flag, for the rollback.
+   * @type {Map<string, {doc: Item, was: number, add: number, receipts: object[]|null, before: object[]}>}
+   */
   const stacks = new Map();
   const batch = [];
-  const plan = outputs.map(({ source, quantity }) => {
+  const plan = outputs.map(({ source, quantity, receipt }) => {
     const sourceRef = toItemRef(source);
     // Stack onto a copy of the same item the actor already carries, when the system counts quantities.
     const stack = actor.items.find(i => !usage.has(i.uuid) && (getQuantity(i) !== null)
       && sourceRef.sources.some(s => toItemRef(i).sources.includes(s)));
     if ( stack ) {
-      const entry = stacks.get(stack.id) ?? { doc: stack, was: getQuantity(stack), add: 0 };
+      const entry = stacks.get(stack.id) ?? { doc: stack, was: getQuantity(stack), add: 0, receipts: null,
+        before: stack.getFlag(MODULE_ID, FLAG_RECEIPTS) ?? [] };
       entry.add += quantity;
+      if ( receipt ) entry.receipts = addReceipt(entry.receipts ?? getReceipts(stack), receipt);
       stacks.set(stack.id, entry);
       return { stack };
     }
@@ -384,6 +396,9 @@ async function deliver(actor, usage, outputs) {
     if ( source.pack ) foundry.utils.setProperty(data, "_stats.compendiumSource", source.uuid);
     else foundry.utils.setProperty(data, "_stats.duplicateSource", source.uuid);
     const counted = getQuantity(source) !== null;
+    // A world item used as the source may carry receipts of its own; a copy carries only what it cost.
+    // Where the system counts no quantities, each copy is its own document and covers itself.
+    foundry.utils.setProperty(data, key, receipt ? [counted ? receipt : { ...receipt, count: 1 }] : []);
     const index = batch.length;
     if ( counted ) {
       foundry.utils.setProperty(data, path, quantity);
@@ -397,7 +412,10 @@ async function deliver(actor, usage, outputs) {
   let delivered = false;
   try {
     if ( stacks.size ) {
-      await actor.updateEmbeddedDocuments("Item", [...stacks.values()].map(s => ({ _id: s.doc.id, [path]: s.was + s.add })));
+      // One write per stack for both, so the trim in preUpdateItem measures the receipts against the new quantity.
+      await actor.updateEmbeddedDocuments("Item", [...stacks.values()].map(s => ({
+        _id: s.doc.id, [path]: s.was + s.add, ...(s.receipts ? { [key]: s.receipts } : {})
+      })));
       if ( ![...stacks.values()].every(s => getQuantity(s.doc) === s.was + s.add) ) return null;
     }
     if ( batch.length ) {
@@ -413,7 +431,9 @@ async function deliver(actor, usage, outputs) {
   } finally {
     if ( !delivered ) {
       if ( created.length ) await actor.deleteEmbeddedDocuments("Item", created.map(i => i.id));
-      const back = [...stacks.values()].filter(s => getQuantity(s.doc) !== s.was).map(s => ({ _id: s.doc.id, [path]: s.was }));
+      // The flag goes back as an empty list, never a deletion key, when the stack had none.
+      const back = [...stacks.values()].filter(s => s.receipts || (getQuantity(s.doc) !== s.was))
+        .map(s => ({ _id: s.doc.id, [path]: s.was, ...(s.receipts ? { [key]: s.before } : {}) }));
       if ( back.length ) await actor.updateEmbeddedDocuments("Item", back);
     }
   }
@@ -421,15 +441,17 @@ async function deliver(actor, usage, outputs) {
 
 /**
  * Put spent ingredients back as they were before the craft: deleted ones recreated with their own ids,
- * so the grid's references stay valid, and decremented ones returned to their old quantity.
+ * so the grid's references stay valid, and decremented ones returned to their old quantity and their
+ * receipts, which the spend trimmed.
  * @param {Actor} actor
  * @param {object[]} before   the ingredients' source data, copied before spending
  */
 async function restore(actor, before) {
   const path = game.settings.get(MODULE_ID, SETTING_QUANTITY_PATH);
+  const key = `flags.${MODULE_ID}.${FLAG_RECEIPTS}`;
   const data = before.filter(d => !actor.items.has(d._id));
   const updates = before.filter(d => actor.items.has(d._id))
-    .map(d => ({ _id: d._id, [path]: getQuantity(d) }));
+    .map(d => ({ _id: d._id, [path]: getQuantity(d), [key]: foundry.utils.getProperty(d, key) ?? [] }));
   const operations = [];
   if ( data.length ) operations.push({ action: "create", documentName: "Item", parent: actor, data, keepId: true });
   if ( updates.length ) operations.push({ action: "update", documentName: "Item", parent: actor, updates });

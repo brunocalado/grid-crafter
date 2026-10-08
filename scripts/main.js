@@ -10,10 +10,12 @@ import { MODULE_ID } from "./constants.js";
 import { registerSettings } from "./settings.js";
 import { api } from "./api.js";
 import { registerRevealQuery } from "./share.js";
+import { registerReceiptHooks } from "./receipts.js";
 
 Hooks.once("init", () => {
   registerSettings();
   registerRevealQuery();
+  registerReceiptHooks();
   game.modules.get(MODULE_ID).api = api;
   globalThis.GridCrafter = api;
 });
