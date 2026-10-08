@@ -131,8 +131,12 @@
       padding-right: 26px;
     }
 
-    &:has(.gc-edited-marker):has(.gc-public-marker) .gc-recipe-entry {
+    &:has(.gc-row-markers > :nth-child(2)) .gc-recipe-entry {
       padding-right: 42px;
+    }
+
+    &:has(.gc-row-markers > :nth-child(3)) .gc-recipe-entry {
+      padding-right: 58px;
     }
   }
 
@@ -254,12 +258,13 @@
     }
   }
 
+  /* The bottom padding makes room for the variant row hanging under the grid. */
   .gc-recipe-board {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 26px;
-    padding: 18px 0;
+    padding: 18px 0 42px;
   }
 
   .gc-grid {
@@ -277,7 +282,7 @@
     }
   }
 
-  :is(.gc-cell, .gc-requires) .gc-cell-clear {
+  :is(.gc-cell, .gc-requires, .gc-variant) .gc-cell-clear {
     position: absolute;
     top: 2px;
     right: 2px;
@@ -295,6 +300,58 @@
   }
 
   :is(.gc-cell, .gc-requires):hover .gc-cell-clear {
+    display: block;
+  }
+
+  /* The variant dots and the + hang under the grid, out of the flow, so the grid, the arrow and the
+     result keep their shared centre line. They sit as far under the grid as the required item sits
+     under the result. */
+  .gc-grid-column {
+    position: relative;
+
+    .gc-variants {
+      position: absolute;
+      top: calc(100% + 12px);
+      left: 0;
+      right: 0;
+    }
+  }
+
+  .gc-variant-add {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    min-height: 0;
+    padding: 0;
+    background: var(--gc-bg-0);
+    border: 1px solid var(--gc-trim);
+    border-radius: 50%;
+    color: var(--gc-text-dim);
+    font-size: 10px;
+
+    &:hover {
+      border-color: var(--gc-trim-hi);
+      box-shadow: 0 0 8px rgba(var(--gc-glow-rgb), 0.5);
+    }
+  }
+
+  /* 8px from the last dot's circle: half its button's spare width, plus this. */
+  .gc-variant + .gc-variant-add {
+    margin-left: 4px;
+  }
+
+  /* The cells' remove button, shrunk onto the active dot's top-right, shown while it is hovered. */
+  .gc-variant .gc-cell-clear {
+    top: -4px;
+    right: -5px;
+    width: 14px;
+    height: 14px;
+    line-height: 12px;
+    font-size: 8px;
+  }
+
+  .gc-variant:hover .gc-cell-clear {
     display: block;
   }
 

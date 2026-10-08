@@ -265,6 +265,50 @@
     }
   }
 
+  /* The ways a recipe can be made, as a row of dots under its grid, in the editor and the reveal. Each
+     dot's button is wider than its circle, so the circles sit 8px apart with no gap between buttons. */
+  .gc-variants {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gc-variant {
+    position: relative;
+    display: flex;
+  }
+
+  .gc-variant-dot {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    min-height: 0;
+    padding: 0;
+    background: none;
+    border: none;
+
+    &::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border: 1px solid var(--gc-trim);
+      border-radius: 50%;
+      background: var(--gc-bg-0);
+      transition: border-color 150ms;
+    }
+
+    &:hover::before {
+      border-color: var(--gc-trim-hi);
+    }
+
+    .gc-active > &::before {
+      border-color: var(--gc-glow);
+      background: var(--gc-glow);
+      box-shadow: 0 0 6px rgba(var(--gc-glow-rgb), 0.7);
+    }
+  }
+
   /* A window's one main action, alone at the bottom: Craft, Learn. Craft's size is the default; a smaller
      window sets the three properties. */
   .gc-primary {

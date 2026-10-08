@@ -8,8 +8,9 @@
         {{#if img}}<img src="{{img}}" alt="">{{else}}<span class="gc-noimg"></span>{{/if}}
         <span>{{name}}</span>
       </button>
-      {{#if (or public edited)}}
+      {{#if (or public edited variantsTip)}}
       <span class="gc-row-markers">
+        {{#if variantsTip}}<i class="fa-solid fa-layer-group gc-variants-marker" data-tooltip="{{variantsTip}}"></i>{{/if}}
         {{#if edited}}<i class="fa-solid fa-pen-nib gc-edited-marker" data-tooltip="GRIDCRAFTER.Editor.EditedMarker"></i>{{/if}}
         {{#if public}}<i class="fa-solid fa-people-group gc-public-marker" data-tooltip="GRIDCRAFTER.Editor.PublicMarker"></i>{{/if}}
       </span>
@@ -120,15 +121,33 @@
     </div>
 
     <div class="gc-recipe-board" {{#if selecting}}inert{{/if}}>
-      <div class="gc-grid {{#unless draft.shaped}}gc-shapeless{{/unless}}">
-        {{#each cells}}
-        <div class="gc-cell" data-drop="cell" data-index="{{index}}" {{#if item}}data-tooltip="{{item.name}}"{{/if}}>
-          {{#if item}}
-          <img src="{{item.img}}" alt="{{item.name}}">
-          <button type="button" class="gc-cell-clear" data-action="clearCell" aria-label="{{localize "GRIDCRAFTER.Forge.Remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
+      <div class="gc-grid-column">
+        <div class="gc-grid {{#unless draft.shaped}}gc-shapeless{{/unless}}">
+          {{#each cells}}
+          <div class="gc-cell" data-drop="cell" data-index="{{index}}" {{#if item}}data-tooltip="{{item.name}}"{{/if}}>
+            {{#if item}}
+            <img src="{{item.img}}" alt="{{item.name}}">
+            <button type="button" class="gc-cell-clear" data-action="clearCell" aria-label="{{localize "GRIDCRAFTER.Forge.Remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
+            {{/if}}
+          </div>
+          {{/each}}
+        </div>
+        <div class="gc-variants">
+          {{#if variants.many}}
+          {{#each variants.list}}
+          <span class="gc-variant {{#if active}}gc-active{{/if}}">
+            <button type="button" class="gc-variant-dot" data-action="selectVariant" data-index="{{index}}"
+                    aria-pressed="{{active}}" aria-label="{{label}}"></button>
+            {{#if active}}<button type="button" class="gc-cell-clear" data-action="removeVariant"
+                    aria-label="{{localize "GRIDCRAFTER.Editor.RemoveVariant"}}"><i class="fa-solid fa-xmark" inert></i></button>{{/if}}
+          </span>
+          {{/each}}
+          {{/if}}
+          {{#if variants.canAdd}}
+          <button type="button" class="gc-variant-add" data-action="addVariant"
+                  aria-label="{{localize "GRIDCRAFTER.Editor.AddVariant"}}" data-tooltip="GRIDCRAFTER.Editor.AddVariant"><i class="fa-solid fa-plus" inert></i></button>
           {{/if}}
         </div>
-        {{/each}}
       </div>
       <i class="fa-solid fa-angles-right gc-board-arrow" inert></i>
       <div class="gc-result-column">

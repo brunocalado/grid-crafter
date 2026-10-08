@@ -6,13 +6,13 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { CATEGORY_MAX, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH } from "../constants.js";
+import { CATEGORY_MAX, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH, VARIANT_MAX } from "../constants.js";
 import {
   bindSearch, confirmDialog, filterGroups, getCollapsed, getDropData, getTheme, groupByCategory, isTypeAllowed, itemOrigin, readCaret,
   recipeSearchText, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
 import {
-  blankRecipe, deleteRecipe, findOverlap, getAllRecipes, getCategories, getHiddenIds, getRecipe, getWorldRecipes,
+  blankRecipe, blankVariant, deleteRecipe, findOverlap, getAllRecipes, getCategories, getHiddenIds, getRecipe, getWorldRecipes,
   isDiscoverable, normalizeCategories, restoreRecipe, saveRecipe, setRecipeHidden
 } from "../recipes.js";
 import { ShareRecipeApp } from "./share-recipe-app.js";
@@ -62,7 +62,10 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       setCategory: RecipeEditorApp.#onSetCategory,
       clearCell: RecipeEditorApp.#onClearCell,
       clearResult: RecipeEditorApp.#onClearResult,
-      clearRequires: RecipeEditorApp.#onClearRequires
+      clearRequires: RecipeEditorApp.#onClearRequires,
+      selectVariant: RecipeEditorApp.#onSelectVariant,
+      addVariant: RecipeEditorApp.#onAddVariant,
+      removeVariant: RecipeEditorApp.#onRemoveVariant
     }
   };
 
@@ -75,6 +78,12 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** Unsaved edits on the draft. */
   dirty = false;
+
+  /** Index of the variant the board shows. Back to 0 on New, on picking another recipe, on Restore. */
+  #variant = 0;
+
+  /** The next render shows another variant: its items fade in. */
+  #switched = false;
 
   /** The recipe list's search, as typed. */
   #query = "";
@@ -106,6 +115,9 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       this.draft = first ? foundry.utils.deepClone(first) : blankRecipe();
     }
     const draft = this.draft;
+    // Another GM, or Restore, may have removed the variant on show.
+    this.#variant = Math.min(this.#variant, draft.variants.length - 1);
+    const variant = draft.variants[this.#variant];
     const isNew = !all.some(r => r.id === draft.id);
     const selected = this.#selected;
     // A recipe another package unregistered meanwhile can't be taught.
@@ -113,7 +125,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // While selecting, a lit row means "selected" and nothing else: the draft's row is lit only if picked.
     const toEntry = r => ({ id: r.id, name: r.name || r.result?.name || "—", img: r.result?.img,
       active: selected ? selected.has(r.id) : r.id === draft.id, search: recipeSearchText(r), public: r.public,
-      edited: !!r.edited });
+      edited: !!r.edited,
+      variantsTip: (r.variants.length > 1) ? game.i18n.localize("GRIDCRAFTER.Editor.VariantsMarker", { count: r.variants.length }) : "" });
     const groups = Object.entries(Object.groupBy(shown, r => r.source)).map(([source, recipes]) => {
       const group = {
         key: source,
@@ -164,8 +177,15 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       dirty: this.dirty,
       selecting: !!selected,
       picked: selected?.size ?? 0,
-      cells: draft.variants[0].cells.map((item, index) => ({ index, item })),
-      requires: draft.variants[0].requires,
+      cells: variant.cells.map((item, index) => ({ index, item })),
+      requires: variant.requires,
+      // A recipe with one variant shows no dots, only the +.
+      variants: {
+        many: draft.variants.length > 1,
+        canAdd: draft.variants.length < VARIANT_MAX,
+        list: draft.variants.map((v, index) => ({ index, active: index === this.#variant,
+          label: game.i18n.localize("GRIDCRAFTER.Editor.Variant", { n: index + 1 }) }))
+      },
       inherit: draft.failLossChance === null,
       lossChance: draft.failLossChance ?? game.settings.get(MODULE_ID, SETTING_FAIL_LOSS_CHANCE),
       discoverInherit: draft.discoverable === null,
@@ -183,18 +203,28 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     };
   }
 
+  /** @returns {import("../recipes.js").Variant} the variant the board shows */
+  get #board() {
+    return this.draft.variants[this.#variant];
+  }
+
   /** @override */
   async _onRender(context, options) {
     await super._onRender(context, options);
     const theme = getTheme();
     for ( const t of ["forge", "arcane"] ) this.element.classList.toggle(`gc-theme-${t}`, t === theme);
     this.#bindRecipeList();
+    if ( this.#switched ) {
+      this.#switched = false;
+      const items = this.element.querySelectorAll(".gc-grid .gc-cell > img, .gc-result-column .gc-requires > img");
+      items.forEach((img, i) => img.animate([{ opacity: 0, transform: "translateY(3px)" }, { opacity: 1, transform: "none" }],
+        { duration: 180, delay: i * 30, easing: "ease-out", fill: "backwards" }));
+    }
     for ( const el of this.element.querySelectorAll("[data-drop]") ) {
       el.addEventListener("dblclick", ev => {
         const { drop, index } = ev.currentTarget.dataset;
-        const variant = this.draft.variants[0];
         const ref = (drop === "result") ? this.draft.result
-          : (drop === "requires") ? variant.requires : variant.cells[Number(index)];
+          : (drop === "requires") ? this.#board.requires : this.#board.cells[Number(index)];
         if ( ref ) fromUuid(ref.uuid).then(item => item?.sheet?.render({ force: true }));
       });
     }
@@ -360,13 +390,13 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     else if ( drop === "requires" ) {
       const source = await this.#sourceItem(item);
       if ( !source ) return;
-      this.draft.variants[0].requires = toItemRef(source);
+      this.#board.requires = toItemRef(source);
     }
     else {
       if ( !isTypeAllowed(item.type) ) {
         return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.TypeNotAllowed", { name: item.name }));
       }
-      this.draft.variants[0].cells[Number(target.dataset.index)] = toItemRef(item);
+      this.#board.cells[Number(target.dataset.index)] = toItemRef(item);
     }
     this.dirty = true;
     this.render();
@@ -404,6 +434,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onNew() {
     if ( !(await this.#confirmDiscard()) ) return;
     this.draft = blankRecipe();
+    this.#variant = 0;
     this.dirty = false;
     this.render();
   }
@@ -422,6 +453,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // A recipe picked through a search must not vanish into a closed group once the search is cleared.
     this.#reveal(getHiddenIds().has(recipe.id) ? [HIDDEN_GROUP] : this.#groupKeys(recipe));
     this.draft = foundry.utils.deepClone(recipe);
+    this.#variant = 0;
     this.dirty = false;
     this.render();
   }
@@ -463,13 +495,18 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onSave() {
     const draft = this.draft;
     if ( !draft.result ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoResult"));
-    if ( !draft.variants.every(v => v.cells.some(Boolean)) ) {
-      return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoIngredients"));
+    // Each refusal shows the variant it is about.
+    const empty = draft.variants.findIndex(v => !v.cells.some(Boolean));
+    if ( empty >= 0 ) {
+      if ( draft.variants.length === 1 ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NoIngredients"));
+      this.#showVariant(empty);
+      return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.VariantEmpty", { n: empty + 1 }));
     }
     // One grid, one recipe: whatever the results, a layout another recipe makes would have two answers.
     const overlap = findOverlap(draft, getAllRecipes());
     if ( overlap ) {
-      const { other } = overlap;
+      const { variant, other } = overlap;
+      this.#showVariant(variant);
       return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.GridTaken", { name: other.name || other.result.name }));
     }
     draft.name = draft.name.trim() || draft.result.name;
@@ -496,6 +533,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       await deleteRecipe(draft.id);
     }
     this.draft = null;
+    this.#variant = 0;
     this.dirty = false;
     this.render();
   }
@@ -519,6 +557,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( !ok ) return;
     await restoreRecipe(id);
     this.draft = foundry.utils.deepClone(getRecipe(id));
+    this.#variant = 0;
     this.dirty = false;
     this.render();
   }
@@ -694,7 +733,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** @this {RecipeEditorApp} */
   static #onClearCell(event, target) {
-    this.draft.variants[0].cells[Number(target.closest("[data-index]").dataset.index)] = null;
+    this.#board.cells[Number(target.closest("[data-index]").dataset.index)] = null;
     this.dirty = true;
     this.render();
   }
@@ -708,8 +747,49 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** @this {RecipeEditorApp} */
   static #onClearRequires() {
-    this.draft.variants[0].requires = null;
+    this.#board.requires = null;
     this.dirty = true;
+    this.render();
+  }
+
+  /**
+   * Put a variant on the board.
+   * @param {number} index
+   */
+  #showVariant(index) {
+    if ( index === this.#variant ) return;
+    this.#variant = index;
+    this.#switched = true;
+    this.render();
+  }
+
+  /** @this {RecipeEditorApp} */
+  static #onSelectVariant(event, target) {
+    this.#showVariant(Number(target.dataset.index));
+  }
+
+  /**
+   * A new variant starts empty, and on the board. Nothing is saved until Save.
+   * @this {RecipeEditorApp}
+   */
+  static #onAddVariant() {
+    if ( this.draft.variants.length >= VARIANT_MAX ) return;
+    this.draft.variants.push(blankVariant());
+    this.dirty = true;
+    this.#showVariant(this.draft.variants.length - 1);
+  }
+
+  /**
+   * Remove the variant on the board and show the one before it. No confirmation: nothing is saved
+   * until Save, and the draft can be discarded.
+   * @this {RecipeEditorApp}
+   */
+  static #onRemoveVariant() {
+    if ( this.draft.variants.length < 2 ) return;
+    this.draft.variants.splice(this.#variant, 1);
+    this.dirty = true;
+    this.#variant = Math.max(0, this.#variant - 1);
+    this.#switched = true;
     this.render();
   }
 }
