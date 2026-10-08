@@ -122,6 +122,7 @@
       "NoActor": "You need a character assigned to your user to craft.",
       "NoActorGM": "Select a token, or assign a character to your user, to craft.",
       "EmptyGrid": "Place some materials on the grid first.",
+      "Vetoed": "The craft was stopped.",
       "ItemGone": "{name} is no longer available.",
       "NotEnough": "There is not enough {name} for that.",
       "ResultGone": "The item this recipe makes ({name}) no longer exists. Ask the GM to fix the recipe.",

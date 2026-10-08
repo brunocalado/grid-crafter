@@ -74,22 +74,29 @@ hooks are where you add them.
 
 | Hook | Args | Notes |
 |---|---|---|
-| `grid-crafter.preCraft` | `actor`, `recipe` (a copy, or `null` when the layout matches no recipe the actor can make), `items` (`Item[]` on the grid, one entry per filled cell) | Return `false` to cancel. Synchronous: an awaited roll inside it does not delay the craft. |
-| `grid-crafter.craft` | `actor`, `result` `{ state, recipe, item, lost, ingredients }` | `state` is `"success"`, `"failure"`, `"refused"` or `"incomplete"`. `item` is the forged Item on success, else `null`. `ingredients` are `{ uuid, name, img, type, sources }`, one per filled cell. Not fired for a cancelled craft. |
+| `grid-crafter.preCraft` | `actor`, `recipe` (a copy, or `null` when the layout matches no recipe the actor can make), `items` (`Item[]` on the grid, one entry per filled cell), `veto` (`{ reason }`) | Return `false` to cancel, and set `veto.reason` to tell the player why. Synchronous: an awaited roll inside it does not delay the craft. |
+| `grid-crafter.craft` | `actor`, `result` `{ state, recipe, item, lost, ingredients }` | `state` is `"success"`, `"failure"`, `"refused"` or `"incomplete"`. `item` is the forged Item on success, else `null`. `ingredients` are `{ uuid, name, img, type, sources }`, one per filled cell. Not fired for a vetoed craft. |
 
 **`grid-crafter.preCraft`** fires after Grid Crafter has checked the grid and found the recipe (or
 not), and before anything is written: no item spent, no loss rolled, nothing learned, no chat card.
 When a listener returns `false`, the craft stops there and the grid stays as the player left it.
-Grid Crafter shows no message of its own, so tell the player why:
+
+The player who pressed Craft sees one warning: the text you put in `veto.reason`, or "The craft
+was stopped." when you leave it empty. Set the reason instead of calling `ui.notifications`
+yourself, or the player gets two messages for one event:
 
 ```js
-Hooks.on("grid-crafter.preCraft", (actor, recipe, items) => {
+Hooks.on("grid-crafter.preCraft", (actor, recipe, items, veto) => {
   if ( !recipe ) return;                       // a layout that matches nothing: let it fail
   if ( actor.system.downtime > 0 ) return;
-  ui.notifications.warn(`${actor.name} has no downtime left to forge ${recipe.name}.`);
+  veto.reason = `${actor.name} has no downtime left to forge ${recipe.name}.`;
   return false;
 });
 ```
+
+Set `veto.reason` only in the listener that returns `false`. Every listener gets the same `veto`
+object, and a reason left behind by one that let the craft through would be shown if a later one
+stops it.
 
 **`grid-crafter.craft`** fires once per craft, after the chat card is posted, whatever the outcome.
 `result.state` says which one, the same outcome the chat card shows:
@@ -101,8 +108,8 @@ Hooks.on("grid-crafter.preCraft", (actor, recipe, items) => {
 | `"refused"` | The recipe matched, but the character's sheet would not take the result. Nothing was spent. |
 | `"incomplete"` | The materials were spent, the result never arrived, and they could not be put back. |
 
-A craft stopped by `preCraft` fires nothing, so `state` is never `"cancelled"` here. The
-ingredients are passed as plain data, because the spent ones no longer exist.
+A craft stopped by `preCraft` fires nothing here. The ingredients are passed as plain data,
+because the spent ones no longer exist.
 
 ```js
 Hooks.on("grid-crafter.craft", (actor, result) => {

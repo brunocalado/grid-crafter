@@ -14,10 +14,10 @@ import { findNearRecipe, findRecipe, getAllRecipes, isDiscoverable } from "./rec
 
 /**
  * @typedef {object} CraftOutcome
- * @property {"success"|"failure"|"refused"|"incomplete"|"cancelled"} state
+ * @property {"success"|"failure"|"refused"|"incomplete"} state
  *   success: the result reached the actor; failure: no recipe matched; refused: the actor's sheet
  *   would not take the result, nothing spent; incomplete: spent, but the result never arrived and the
- *   materials could not be put back; cancelled: a preCraft listener stopped it, nothing happened
+ *   materials could not be put back
  * @property {import("./recipes.js").Recipe|null} recipe
  * @property {Item|null} item       the forged item on the actor, on success only
  * @property {boolean} lost         failure only: the materials were destroyed
@@ -104,9 +104,13 @@ export async function craft(slots) {
   if ( recipe && !source ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.ResultGone", { name: recipe.result.name }));
   // Refs now: the spend below may delete the documents they describe.
   const ingredients = used.map(toItemRef);
-  // Another package may veto the craft. Fired before any write, so a veto costs nothing.
-  if ( Hooks.call(`${MODULE_ID}.preCraft`, actor, recipe ? foundry.utils.deepClone(recipe) : null, used) === false ) {
-    return { state: "cancelled", recipe, item: null, lost: false };
+  // Another package may veto the craft. Fired before any write, so a veto costs nothing. The listener
+  // explains itself through veto.reason and the table shows it, so the player always gets exactly one
+  // message, never silence and never two.
+  const veto = { reason: "" };
+  if ( Hooks.call(`${MODULE_ID}.preCraft`, actor, recipe ? foundry.utils.deepClone(recipe) : null, used, veto) === false ) {
+    const reason = (typeof veto.reason === "string") && veto.reason.trim();
+    throw new CraftError(reason || game.i18n.localize("GRIDCRAFTER.Errors.Vetoed"));
   }
   if ( recipe ) {
     const { item, missing } = await forge(actor, usage, source, recipe.quantity);
