@@ -287,6 +287,10 @@ package registers.
 **Duplicate** makes a world recipe from one of yours. It belongs to the world and owes nothing to
 your package.
 
+The GM can also move any of your recipes to the Recipe Book's **Hidden** group, out of the way at
+the bottom of the list. That only affects the GM's list: the recipe still works in play, and
+`getRecipes()` still lists it. Restoring an edited recipe brings it back to its group.
+
 When your package is disabled, its recipes leave the world, the GM's edits of them included. The
 edits come back with your package; world duplicates never left.
 

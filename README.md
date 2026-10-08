@@ -47,7 +47,12 @@ lost in the attempt.
   and if the result still doesn't fit, nothing is spent.
 * 📖 **A recipe book for every character.** The first time a character forges something, its
   recipe is written into that character's recipe book, or when the GM teaches it. Next time, one
-  click lays the recipe out on the grid from their inventory.
+  click lays the recipe out on the grid from their inventory. Recipes are grouped by category,
+  and the book can be searched by name or ingredient, or narrowed to what the character can craft
+  right now. A recipe the GM makes public is in every character's book.
+* 🧪 **Discovery by experiment.** A character can make a recipe they don't know by laying out
+  its ingredients, and learns it by doing so. The GM can turn this off for the whole world or for
+  single recipes, and then only recipes a character already knows can be crafted.
 * 👁️ **Share a recipe with the table.** From the GM's Recipe Book, **Share** shows a
   recipe to the players you choose: its pattern lights up cell by cell, then what it makes appears.
   Each of them can **Learn** it into their own character's recipe book.
@@ -68,7 +73,8 @@ lost in the attempt.
 * 🧩 **Works with any system.** Choose which item types count as crafting materials (nobody forges
   a hammer out of a class), and tell the module where your system keeps an item's quantity.
 * 🔌 **Recipe packs from other modules.** Module and system developers can ship ready-made recipe
-  books through the [API](docs/API.md).
+  books through the [API](docs/API.md). The GM can change any recipe from a pack, and restore the
+  pack's version later.
 
 ## 🛠️ How to Use
 
@@ -79,11 +85,22 @@ lost in the attempt.
 2. Click **New Recipe**. Drag the ingredients from the Items directory or a compendium onto the
    grid, and the item it makes onto the circle on the right.
 3. Choose **Shaped** or **Shapeless**, how many items one craft **Makes**, and whether a failure
-   uses the world's chance to lose materials or a chance of its own. Hover the **?** icons for a
-   quick explanation.
-4. **Save.**
+   uses the world's chance to lose materials or a chance of its own. Switch on **Public** if every
+   character should know the recipe, and set **Discovery** if this recipe should not follow the
+   world setting. Hover the **?** icons for a quick explanation.
+4. Optionally, give it a **Category** to group it with similar recipes.
+5. **Save.**
 
 ![The GM's Recipe Book](docs/recipe-book.webp)
+
+The Recipe Book lists this world's recipes first, then one group for each module or system that
+ships recipes, each split by category. Search finds a recipe by its name, what it makes, its
+category or an ingredient. A recipe you don't need to see can be moved to the **Hidden** group
+at the bottom of the list; this changes nothing in play. **Duplicate** copies a recipe as a new
+world recipe.
+
+A recipe from a module or system can be edited in place, like your own. It then stops following
+that package's updates, and **Restore** brings back the package's version.
 
 To teach a recipe in play — the old smith shows the apprentice how it's done — open it, click
 **Share** and choose who sees it (the owners of the tokens you have selected start chosen).
@@ -95,6 +112,8 @@ their character's recipe book, with a whispered message in chat.
 **Teach** opens the list of characters, or of the tokens you have selected. Switch on who should
 learn the recipe and press **Teach**; those who learned get a whispered message in chat.
 **Forget** lists only those who learned it: switch on who should forget it and press **Forget**.
+To teach or forget several recipes at once, click **Select recipes** next to the search, pick the
+recipes (or whole groups), and press **Teach** or **Forget**.
 
 ### For the GM — set it up once
 
@@ -109,18 +128,23 @@ All settings are in **Game Settings → Configure Settings → Grid Crafter**:
 * **Quantity Path** — where your system keeps an item's quantity, such as `system.quantity`.
   Items without a number there are used up whole.
 * **Failure: Chance to Lose Materials** — the world-wide default; each recipe can override it.
+* **Discover Recipes by Experiment** — whether characters can make a recipe they don't know by
+  laying out its ingredients, and learn it. On by default; each recipe can override it.
 
 ### For the players — forge something
 
 1. Make sure your user has a character assigned (**User Configuration → Character**). Crafting
-   uses that character's inventory, and the forged item goes to their sheet.
+   uses that character's inventory, and the forged item goes to their sheet. A GM without a
+   character crafts for the token they have selected.
 2. Open the Items directory and click **Forge** (or run `GridCrafter.forge()` in a macro).
 3. Drag items from your character sheet onto the grid and arrange them. Only your character's
    items can be used. Right-click a cell, or use its small ✕, to empty it.
 4. Press **Craft**.
 
 Already know the recipe? Click it in your **Recipe Book** on the left, and the grid fills itself
-from your inventory. A greyed-out recipe means you're missing something.
+from your inventory. A greyed-out recipe means you're missing something. Type in the search box
+to find a recipe by name or ingredient, or click the button next to it to show only the recipes
+you can craft now.
 
 ## 🔌 For Developers
 
