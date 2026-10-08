@@ -103,6 +103,13 @@
       box-shadow: 0 0 10px rgba(var(--gc-glow-rgb), 0.5);
     }
 
+    /* Foundry's focus ring is a fixed orange; a dialog's default button gets focus on open. */
+    &:focus-visible {
+      outline: 1px solid var(--gc-trim-hi);
+      outline-offset: 1px;
+      box-shadow: 0 0 10px rgba(var(--gc-glow-rgb), 0.5);
+    }
+
     &:disabled {
       opacity: 0.45;
     }

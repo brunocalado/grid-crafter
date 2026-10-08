@@ -1,0 +1,45 @@
+/*!
+ * Grid Crafter
+ * 2026 https://github.com/brunocalado
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3.
+ */
+
+/* The module's DialogV2 windows: confirmations and the category prompt. */
+.grid-crafter.gc-dialog {
+  min-width: 320px;
+
+  /* `.gc-app .window-content` zeroes the padding the app frame doesn't need; a dialog does. */
+  .window-content {
+    padding: 14px 14px 6px;
+  }
+
+  .dialog-content p {
+    margin: 0 0 8px;
+    color: var(--gc-text);
+    font-size: var(--font-size-14);
+    line-height: 1.4;
+    text-align: center;
+  }
+
+  .form-footer {
+    justify-content: center;
+    gap: 10px;
+    padding: 6px 14px 14px;
+
+    .gc-button {
+      flex: 0 1 120px;
+      height: 32px;
+    }
+  }
+}
+
+.grid-crafter.gc-category-dialog {
+  .gc-field input[type="text"] {
+    flex: 1;
+    height: 32px;
+    font-family: var(--gc-font-title);
+    font-size: var(--font-size-18);
+  }
+}

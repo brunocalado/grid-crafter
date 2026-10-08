@@ -74,6 +74,23 @@ export function getTheme() {
 }
 
 /**
+ * A yes/no question in the module's themed chrome rather than Foundry's default dialog.
+ * @param {object} options
+ * @param {string} options.title    Window title, a localization key
+ * @param {string} options.content  HTML body
+ * @returns {Promise<boolean>}
+ */
+export function confirmDialog({ title, content }) {
+  return foundry.applications.api.DialogV2.confirm({
+    window: { title },
+    classes: [MODULE_ID, "gc-app", "gc-dialog", `gc-theme-${getTheme()}`],
+    content,
+    yes: { class: "gc-button" },
+    no: { class: "gc-button" }
+  });
+}
+
+/**
  * The actor a craft is for: the user's linked character. A GM without one crafts for the actor of the
  * token they control, so recipes can be tested without assigning a character.
  * @returns {Actor|null}

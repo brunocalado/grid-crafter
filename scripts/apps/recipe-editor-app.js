@@ -8,7 +8,7 @@
 
 import { CATEGORY_MAX, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH } from "../constants.js";
 import {
-  bindSearch, filterGroups, getCollapsed, getDropData, getTheme, groupByCategory, isTypeAllowed, itemOrigin, readCaret,
+  bindSearch, confirmDialog, filterGroups, getCollapsed, getDropData, getTheme, groupByCategory, isTypeAllowed, itemOrigin, readCaret,
   recipeSearchText, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
 import {
@@ -386,8 +386,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   async #confirmDiscard() {
     if ( !this.dirty ) return true;
-    return foundry.applications.api.DialogV2.confirm({
-      window: { title: "GRIDCRAFTER.Editor.Unsaved" },
+    return confirmDialog({
+      title: "GRIDCRAFTER.Editor.Unsaved",
       content: `<p>${game.i18n.localize("GRIDCRAFTER.Editor.DiscardChanges")}</p>`
     });
   }
@@ -472,8 +472,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onDelete() {
     const draft = this.draft;
     if ( getWorldRecipes().some(r => r.id === draft.id) ) {
-      const ok = await foundry.applications.api.DialogV2.confirm({
-        window: { title: "GRIDCRAFTER.Editor.Delete" },
+      const ok = await confirmDialog({
+        title: "GRIDCRAFTER.Editor.Delete",
         content: `<p>${game.i18n.localize("GRIDCRAFTER.Editor.DeleteConfirm", { name: foundry.utils.escapeHTML(draft.name) })}</p>`
       });
       if ( !ok ) return;
@@ -495,8 +495,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // Its package unregistered it meanwhile: the render drops the draft, or hides Restore if it is dirty.
     if ( !saved ) return this.render();
     const { id, name, source } = saved;
-    const ok = await foundry.applications.api.DialogV2.confirm({
-      window: { title: "GRIDCRAFTER.Editor.Restore" },
+    const ok = await confirmDialog({
+      title: "GRIDCRAFTER.Editor.Restore",
       content: `<p>${game.i18n.localize("GRIDCRAFTER.Editor.RestoreConfirm", {
         name: foundry.utils.escapeHTML(name), source: foundry.utils.escapeHTML(sourceLabel(source)) })}</p>`
     });
@@ -590,7 +590,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       { value: this.draft.category, max: CATEGORY_MAX, options });
     const data = await foundry.applications.api.DialogV2.input({
       window: { title: "GRIDCRAFTER.Recipe.Category" },
-      classes: [MODULE_ID, "gc-app", "gc-category-dialog", `gc-theme-${getTheme()}`],
+      classes: [MODULE_ID, "gc-app", "gc-dialog", "gc-category-dialog", `gc-theme-${getTheme()}`],
       content,
       ok: { class: "gc-button" }
     });
