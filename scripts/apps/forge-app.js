@@ -399,6 +399,7 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
           // falls through
         case "failure":
         case "incomplete":
+        case "missing":
           await this.#playFailure(outcome.lost);
           if ( outcome.lost ) this.slots = Array(CELL_COUNT).fill(null);
           break;

@@ -84,6 +84,34 @@
     }
   }
 
+  /* The item the recipe asks the crafter to carry: a quiet note on a success, the reason on "missing". */
+  .gc-chat-required {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: -2px 0 8px;
+    color: var(--gc-text-dim);
+    font-size: var(--font-size-12);
+
+    img {
+      flex: none;
+      width: 20px;
+      height: 20px;
+      border: 1px solid var(--gc-trim);
+      border-radius: 50%;
+      background: var(--gc-bg-0);
+    }
+
+    &.gc-chat-missing {
+      color: var(--gc-danger);
+      font-size: var(--font-size-13);
+
+      img {
+        border-color: var(--gc-danger);
+      }
+    }
+  }
+
   .gc-chat-message {
     margin: 8px 0;
     font-style: italic;

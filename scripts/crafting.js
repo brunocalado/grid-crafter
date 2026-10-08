@@ -14,10 +14,11 @@ import { findNearRecipe, findRecipe, getAllRecipes, isDiscoverable } from "./rec
 
 /**
  * @typedef {object} CraftOutcome
- * @property {"success"|"failure"|"refused"|"incomplete"} state
+ * @property {"success"|"failure"|"refused"|"incomplete"|"missing"} state
  *   success: the result reached the actor; failure: no recipe matched; refused: the actor's sheet
  *   would not take the result, nothing spent; incomplete: spent, but the result never arrived and the
- *   materials could not be put back
+ *   materials could not be put back; missing: the recipe matched, but the actor lacks the item it
+ *   requires, nothing spent
  * @property {import("./recipes.js").Recipe|null} recipe
  * @property {Item|null} item       the forged item on the actor, on success only
  * @property {boolean} lost         failure only: the materials were destroyed
@@ -48,6 +49,17 @@ export function getKnownRecipeIds(actor) {
   const ids = new Set(getLearnedRecipeIds(actor));
   for ( const r of getAllRecipes() ) if ( r.public ) ids.add(r.id);
   return [...ids];
+}
+
+/**
+ * Does the actor carry the item a recipe requires? Any type counts, a feature as much as a tool.
+ * @param {import("./recipes.js").Recipe} recipe
+ * @param {Actor} actor
+ * @returns {boolean}
+ */
+export function hasRequiredItem(recipe, actor) {
+  return !recipe.requires
+    || actor.items.some(i => ((getQuantity(i) ?? 1) > 0) && refMatches(recipe.requires, toItemRef(i)));
 }
 
 /**
@@ -104,6 +116,13 @@ export async function craft(slots) {
   if ( recipe && !source ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.ResultGone", { name: recipe.result.name }));
   // Refs now: the spend below may delete the documents they describe.
   const ingredients = used.map(toItemRef);
+  // Refused before anything is spent or learned, and before preCraft: only a craft that can really
+  // happen is offered for veto. Saying what is missing gives the recipe away, and that is meant: the
+  // character has found it and lacks the means.
+  if ( recipe && !hasRequiredItem(recipe, actor) ) {
+    return settle(actor, { state: "missing", recipe, item: null, lost: false },
+      { ingredients, used, item: source, quantity: recipe.quantity });
+  }
   // Another package may veto the craft. Fired before any write, so a veto costs nothing. The listener
   // explains itself through veto.reason and the table shows it, so the player always gets exactly one
   // message, never silence and never two.
@@ -335,7 +354,7 @@ export async function forgetRecipes(actor, recipeIds) {
 /**
  * Post the craft report to chat, once the craft has settled.
  * @param {object} data
- * @param {"success"|"failure"|"refused"|"incomplete"} data.state
+ * @param {"success"|"failure"|"refused"|"incomplete"|"missing"} data.state
  */
 async function report({ actor, state, recipe, used, item, quantity, lost, chance }) {
   // Group repeated items so "Iron Ingot x3" reads as one line.
@@ -357,6 +376,12 @@ async function report({ actor, state, recipe, used, item, quantity, lost, chance
     recipeName: recipe?.name,
     groups,
     result: item ? { name: item.name, img: item.img, quantity } : null,
+    // On a success it is a quiet note; on "missing" it is the reason for the card.
+    required: (recipe?.requires && ["success", "missing"].includes(state)) ? {
+      img: recipe.requires.img,
+      label: game.i18n.localize(`GRIDCRAFTER.Chat.${(state === "missing") ? "Requires" : "MadeWith"}`,
+        { name: recipe.requires.name })
+    } : null,
     lost,
     chance
   });

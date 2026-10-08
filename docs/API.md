@@ -75,11 +75,13 @@ hooks are where you add them.
 | Hook | Args | Notes |
 |---|---|---|
 | `grid-crafter.preCraft` | `actor`, `recipe` (a copy, or `null` when the layout matches no recipe the actor can make), `items` (`Item[]` on the grid, one entry per filled cell), `veto` (`{ reason }`) | Return `false` to cancel, and set `veto.reason` to tell the player why. Synchronous: an awaited roll inside it does not delay the craft. |
-| `grid-crafter.craft` | `actor`, `result` `{ state, recipe, item, lost, ingredients }` | `state` is `"success"`, `"failure"`, `"refused"` or `"incomplete"`. `item` is the forged Item on success, else `null`. `ingredients` are `{ uuid, name, img, type, sources }`, one per filled cell. Not fired for a vetoed craft. |
+| `grid-crafter.craft` | `actor`, `result` `{ state, recipe, item, lost, ingredients }` | `state` is `"success"`, `"failure"`, `"refused"`, `"incomplete"` or `"missing"`. `item` is the forged Item on success, else `null`. `ingredients` are `{ uuid, name, img, type, sources }`, one per filled cell. Not fired for a vetoed craft. |
 
 **`grid-crafter.preCraft`** fires after Grid Crafter has checked the grid and found the recipe (or
 not), and before anything is written: no item spent, no loss rolled, nothing learned, no chat card.
 When a listener returns `false`, the craft stops there and the grid stays as the player left it.
+A craft whose recipe `requires` an item the character doesn't carry never reaches `preCraft`: it
+settles as `"missing"` first.
 
 The player who pressed Craft sees one warning: the text you put in `veto.reason`, or "The craft
 was stopped." when you leave it empty. Set the reason instead of calling `ui.notifications`
@@ -107,6 +109,7 @@ stops it.
 | `"failure"` | The grid matched no recipe the character can make. `lost` is `true` when the materials were destroyed anyway. |
 | `"refused"` | The recipe matched, but the character's sheet would not take the result. Nothing was spent. |
 | `"incomplete"` | The materials were spent, the result never arrived, and they could not be put back. |
+| `"missing"` | The recipe matched, but the character doesn't carry the item it `requires`. Nothing was spent and nothing was learned. |
 
 A craft stopped by `preCraft` fires nothing here. The ingredients are passed as plain data,
 because the spent ones no longer exist.
@@ -137,6 +140,7 @@ update the actor directly.
 | `failLossChance` | no | Percent chance (0–100) that a failed attempt destroys the materials. Leave it out to use the GM's world setting. |
 | `public` | no | `true`: every character knows the recipe until the GM makes it private. Default `false`. |
 | `discoverable` | no | Whether a character who doesn't know the recipe can make it by laying out its ingredients. `true` or `false` overrides the GM's world setting; leave it out to follow that setting. |
+| `requires` | no | The uuid of one item the character must carry to make the recipe: a tool, a feature, a proficiency, any type. It is never placed on the grid and never spent. A copy on the sheet counts, matched by its source or by name and type. Without it the craft is refused with a chat card. An unresolvable uuid skips the recipe. |
 
 ### Shaped recipes
 
@@ -243,7 +247,7 @@ Removes every recipe your package registered, on this client.
 
 Every recipe on this client: the world's recipes first, then registered ones. Each has `id`,
 `name`, `category` (`""` when none), `shaped`, `cells` (9 entries, each `{ uuid, name, img, type, sources }` or `null`),
-`result`, `quantity`, `failLossChance` (`null` when it follows the world setting), `source`
+`result`, `requires` (the required item's `{ uuid, name, img, type, sources }`, or `null`), `quantity`, `failLossChance` (`null` when it follows the world setting), `source`
 (`"world"` or the package id), `public` (whether every character knows it) and `discoverable`
 (`null` when it follows the world setting). A package recipe
 the GM edited carries `edited: true`, and its fields are the GM's version. The objects are copies;

@@ -6,6 +6,9 @@
     {{else if (eq state "refused")}}
     <i class="fa-solid fa-box-open" inert></i>
     <h3>{{localize "GRIDCRAFTER.Chat.Refused" name=actorName}}</h3>
+    {{else if (eq state "missing")}}
+    <i class="fa-solid fa-lock" inert></i>
+    <h3>{{localize "GRIDCRAFTER.Chat.Missing" name=actorName}}</h3>
     {{else if (eq state "incomplete")}}
     <i class="fa-solid fa-triangle-exclamation" inert></i>
     <h3>{{localize "GRIDCRAFTER.Chat.Incomplete" name=actorName}}</h3>
@@ -23,6 +26,11 @@
       <small>{{recipeName}}</small>
     </div>
   </div>
+  {{/if}}
+  {{#if required}}
+  <p class="gc-chat-required {{#if (eq state "missing")}}gc-chat-missing{{/if}}">
+    <img src="{{required.img}}" alt=""> <span>{{required.label}}</span>
+  </p>
   {{/if}}
   {{#if (eq state "refused")}}
   <p class="gc-chat-message">{{localize "GRIDCRAFTER.Chat.RefusedMessage" name=actorName}}</p>

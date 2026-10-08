@@ -140,12 +140,13 @@ export function searchKey(text) {
 }
 
 /**
- * Everything a recipe search looks through: its name, what it makes, its category, its ingredients.
+ * Everything a recipe search looks through: its name, what it makes, its category, the item it requires,
+ * its ingredients.
  * @param {object} recipe
  * @returns {string}
  */
 export function recipeSearchText(recipe) {
-  return searchKey([recipe.name, recipe.result?.name, recipe.category, ...recipe.cells.map(c => c?.name)]
+  return searchKey([recipe.name, recipe.result?.name, recipe.category, recipe.requires?.name, ...recipe.cells.map(c => c?.name)]
     .filter(Boolean).join(" "));
 }
 

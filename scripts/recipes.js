@@ -20,6 +20,8 @@ import { refMatches, toItemRef } from "./helpers.js";
  * @property {boolean} shaped              false: only which items, not where, matters
  * @property {(import("./helpers.js").ItemRef|null)[]} cells   nine cells, row by row
  * @property {import("./helpers.js").ItemRef} result
+ * @property {import("./helpers.js").ItemRef|null} requires   an item the crafter must carry, of any type;
+ *   never placed on the grid and never spent
  * @property {number} quantity            how many results one craft makes
  * @property {number|null} failLossChance  percent; null inherits the world default
  * @property {boolean} public            every character knows it
@@ -127,6 +129,7 @@ export function blankRecipe() {
     public: false,
     cells: Array(CELL_COUNT).fill(null),
     result: null,
+    requires: null,
     quantity: 1,
     failLossChance: null,
     discoverable: null
@@ -183,8 +186,9 @@ export function registerRecipes(packageId, recipes) {
     const cells = flat.map(uuid => (uuid ? refFromUuid(uuid) : null));
     const missing = flat.filter((uuid, i) => uuid && !cells[i]);
     const result = refFromUuid(data.result);
-    if ( missing.length || !result || !cells.some(Boolean) ) {
-      console.warn(`${MODULE_ID} | Recipe ${label} skipped: unresolved items.`, missing, data.result);
+    const requires = data.requires ? refFromUuid(data.requires) : null;
+    if ( missing.length || !result || !cells.some(Boolean) || (data.requires && !requires) ) {
+      console.warn(`${MODULE_ID} | Recipe ${label} skipped: unresolved items.`, missing, data.result, data.requires);
       continue;
     }
     const chance = Number(data.failLossChance);
@@ -196,6 +200,7 @@ export function registerRecipes(packageId, recipes) {
       public: data.public === true,
       cells,
       result,
+      requires,
       quantity: Math.clamp(Math.floor(Number(data.quantity) || 1), 1, 10),
       failLossChance: Number.isFinite(chance) ? Math.clamp(chance, 0, 100) : null,
       discoverable: (typeof data.discoverable === "boolean") ? data.discoverable : null,
