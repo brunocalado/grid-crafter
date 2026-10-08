@@ -17,21 +17,33 @@
       </g>
     </svg>
     {{/if}}
-    {{#if shaped}}
-    <div class="gc-reveal-grid">
-      {{#each cells}}
-      <div class="gc-cell gc-reveal-cell" style="--gc-i: {{@index}}" {{#if this}}data-tooltip="{{name}}"{{/if}}>
-        {{#if this}}<img src="{{img}}" alt="{{name}}">{{/if}}
+    <div class="gc-reveal-grid-column">
+      {{#if shaped}}
+      <div class="gc-reveal-grid">
+        {{#each cells}}
+        <div class="gc-cell gc-reveal-cell" style="--gc-i: {{@index}}" {{#if this}}data-tooltip="{{name}}"{{/if}}>
+          {{#if this}}<img src="{{img}}" alt="{{name}}">{{/if}}
+        </div>
+        {{/each}}
       </div>
-      {{/each}}
+      {{else}}
+      <div class="gc-reveal-ring">
+        {{#each cells}}
+        <div class="gc-cell gc-reveal-cell" data-tooltip="{{name}}"><img src="{{img}}" alt="{{name}}"></div>
+        {{/each}}
+      </div>
+      {{/if}}
+      {{#if variants}}
+      <div class="gc-variants">
+        {{#each variants}}
+        <span class="gc-variant {{#if active}}gc-active{{/if}}">
+          <button type="button" class="gc-variant-dot" data-action="selectVariant" data-index="{{index}}"
+                  aria-pressed="{{active}}" aria-label="{{label}}"></button>
+        </span>
+        {{/each}}
+      </div>
+      {{/if}}
     </div>
-    {{else}}
-    <div class="gc-reveal-ring">
-      {{#each cells}}
-      <div class="gc-cell gc-reveal-cell" data-tooltip="{{name}}"><img src="{{img}}" alt="{{name}}"></div>
-      {{/each}}
-    </div>
-    {{/if}}
     <div class="gc-arrow" aria-hidden="true"><span></span><span></span><span></span></div>
     <div class="gc-reveal-result-column">
       <div class="gc-result-slot gc-reveal-result" data-tooltip="{{result.name}}{{#if many}} ×{{quantity}}{{/if}}">

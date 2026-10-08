@@ -95,8 +95,8 @@
     transform: translateX(2px);
   }
 
-  /* Fades with an entry the inventory can't make, since it sits outside it. */
-  .gc-book-list > li:has(.gc-missing) .gc-public-marker {
+  /* Fades with a recipe the inventory can't make in any way, since it sits outside its entries. */
+  .gc-book-list > li:not([data-ready]) .gc-public-marker {
     opacity: 0.55;
   }
 
@@ -107,6 +107,8 @@
     --gc-entry-h: 44px;
     display: grid;
     grid-template-columns: var(--gc-entry-h) var(--gc-entry-h) 1fr;
+    /* At least the icon's height, so a later variant's row, which has no icon, is as tall as the first. */
+    grid-template-rows: minmax(var(--gc-entry-h), auto);
     grid-template-areas: "icon ingredients name";
     gap: 2px 8px;
     align-items: center;
@@ -122,7 +124,7 @@
 
     /* Through the row as well, so pointing at the public marker doesn't drop the entry's hover. */
     &:hover,
-    li:hover > & {
+    li:not(.gc-book-many):hover > & {
       border-color: var(--gc-glow);
       box-shadow: 0 0 10px rgba(var(--gc-glow-rgb), 0.4);
       transform: translateX(2px);
@@ -140,6 +142,52 @@
       align-self: end;
       justify-self: end;
       margin: 0 -6px -6px 0;
+    }
+  }
+
+  /* A recipe made more than one way: one card, a row per variant, named once. The card carries the
+     background and moves as a whole on hover; only the row under the pointer lights, so it is clear
+     which variant a click lays out. */
+  .gc-book-list > li.gc-book-many {
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--gc-radius);
+    background: linear-gradient(180deg, var(--gc-bg-2), var(--gc-bg-1));
+    transition: transform 150ms;
+
+    &:hover {
+      transform: translateX(2px);
+
+      .gc-public-marker {
+        transform: none;
+      }
+    }
+
+    > .gc-book-entry {
+      border-radius: 0;
+      background: none;
+
+      &:first-child {
+        border-radius: var(--gc-radius) var(--gc-radius) 0 0;
+      }
+
+      &:nth-last-child(1 of .gc-book-entry) {
+        border-radius: 0 0 var(--gc-radius) var(--gc-radius);
+      }
+
+      /* One hairline between rows instead of two borders: each row lays its top border over the
+         bottom border of the row above. */
+      & + .gc-book-entry {
+        margin-top: -1px;
+        border-top-color: var(--gc-metal);
+      }
+
+      &:hover {
+        position: relative;
+        z-index: 1;
+        border-color: var(--gc-glow);
+        transform: none;
+      }
     }
   }
 

@@ -91,23 +91,28 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // A player with no character still sees the public recipes; crafting is what needs the character.
     const known = new Set(getKnownRecipeIds(actor));
     const learned = new Set(getLearnedRecipeIds(actor));
-    const makeable = v => !!(actor && fillFromInventory(v, actor) && hasRequiredItem(v, actor));
+    // One row per variant, in the recipe's order: the recipe moves as a whole, a row never jumps ahead
+    // of its siblings.
     const book = getAllRecipes().filter(r => known.has(r.id)).map(r => {
-      const index = Math.max(0, r.variants.findIndex(makeable));
-      const v = r.variants[index];
-      return {
-        id: r.id,
-        variant: index,
-        name: r.name || r.result?.name,
-        img: r.result?.img,
+      const rows = r.variants.map((v, index) => ({
+        index,
+        first: index === 0,
         shaped: r.shaped,
         cells: r.shaped ? v.cells : v.cells.filter(Boolean),
+        ready: !!(actor && fillFromInventory(v, actor) && hasRequiredItem(v, actor)),
+        requires: v.requires ? { name: v.requires.name, img: v.requires.img, has: !!actor && hasRequiredItem(v, actor) } : null
+      }));
+      return {
+        id: r.id,
+        name: r.name || r.result?.name,
+        img: r.result?.img,
         categories: r.categories,
         search: recipeSearchText(r),
-        ready: makeable(v),
-        requires: v.requires ? { name: v.requires.name, img: v.requires.img, has: !!actor && hasRequiredItem(v, actor) } : null,
+        // Any variant that can be made now: it sorts and filters the recipe.
+        ready: rows.some(row => row.ready),
         // Known only because it is public. Learned recipes carry no marker: no marker means "yours".
-        public: !learned.has(r.id)
+        public: !learned.has(r.id),
+        rows
       };
     });
     // Players don't care which package a recipe came from, so the book groups by category alone.

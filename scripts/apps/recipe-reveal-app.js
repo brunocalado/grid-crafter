@@ -19,8 +19,9 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
  * A recipe the GM shared: its pattern revealed cell by cell, then what it makes. A player with a
  * character can learn it from here.
  *
- * The reveal plays once, on the first render. A later render (a theme change) skips it and shows the
- * board as it ended; Learn still patches the DOM, so its own animation isn't cut short by a render.
+ * The reveal plays once, on the first render. A later render (a theme change, another variant) skips it
+ * and shows the board as it ended; Learn still patches the DOM, so its own animation isn't cut short by
+ * a render.
  */
 export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /**
@@ -41,7 +42,8 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
     },
     position: { width: 600, height: "auto" },
     actions: {
-      learn: RecipeRevealApp.#onLearn
+      learn: RecipeRevealApp.#onLearn,
+      selectVariant: RecipeRevealApp.#onSelectVariant
     }
   };
 
@@ -51,11 +53,19 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   fx = new CraftFX(getTheme());
 
+  /** Index of the variant the board shows. */
+  variant = 0;
+
+  /** The next render shows another variant: its items fade in. */
+  #switched = false;
+
   /** @override */
   async _prepareContext(options) {
     const theme = getTheme();
     const recipe = getRecipe(this.recipeId);
-    const variant = recipe.variants[0];
+    // The GM may have removed a variant since.
+    this.variant = Math.min(this.variant, recipe.variants.length - 1);
+    const variant = recipe.variants[this.variant];
     const actor = getCraftingActor();
     // A GM sees a preview, and a player without a character has nowhere to write it: neither gets a
     // button or a label.
@@ -69,6 +79,9 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
       cells: recipe.shaped ? variant.cells : variant.cells.filter(Boolean),
       result: recipe.result,
       requires: variant.requires,
+      // A recipe with one variant shows no dots.
+      variants: (recipe.variants.length > 1) ? recipe.variants.map((v, index) => ({ index, active: index === this.variant,
+        label: game.i18n.localize("GRIDCRAFTER.Editor.Variant", { n: index + 1 }) })) : null,
       quantity: recipe.quantity,
       many: recipe.quantity > 1,
       canLearn: learner && !known,
@@ -87,6 +100,12 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // The reveal plays once. A later render (a theme change) shows the board as it ended; the root
     // element survives renders, so the class stays.
     if ( !options.isFirstRender ) this.element.classList.add("gc-revealed");
+    if ( this.#switched ) {
+      this.#switched = false;
+      const items = this.element.querySelectorAll(".gc-reveal-cell > img, .gc-reveal-requires");
+      items.forEach((el, i) => el.animate([{ opacity: 0, transform: "translateY(3px)" }, { opacity: 1, transform: "none" }],
+        { duration: 180, delay: i * 30, easing: "ease-out", fill: "backwards" }));
+    }
   }
 
   /** @override */
@@ -109,7 +128,7 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const arrow = el.querySelector(".gc-arrow");
     const slot = el.querySelector(".gc-reveal-result");
     const requires = el.querySelector(".gc-reveal-requires");
-    const controls = el.querySelector(".gc-reveal-controls");
+    const outro = [el.querySelector(".gc-variants"), el.querySelector(".gc-reveal-controls")].filter(Boolean);
     await wait(350);
     for ( const cell of cells ) {
       cell.classList.add("gc-lit");
@@ -130,13 +149,25 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
     ], { duration: 900, easing: "cubic-bezier(.2,.9,.3,1.2)" });
     if ( requires ) await animate(requires, [{ opacity: 0, transform: "translateY(-6px)" }, { opacity: 1, transform: "none" }],
       { duration: 350, easing: "ease-out" });
-    if ( controls ) await animate(controls, [{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: "ease-out" });
+    await Promise.all(outro.map(node => animate(node, [{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: "ease-out" })));
   }
 
   /** @override */
   _onClose(options) {
     super._onClose(options);
     this.fx.stop();
+  }
+
+  /**
+   * Show another way to make the recipe. The board re-renders finished, without the reveal.
+   * @this {RecipeRevealApp}
+   */
+  static #onSelectVariant(event, target) {
+    const index = Number(target.dataset.index);
+    if ( index === this.variant ) return;
+    this.variant = index;
+    this.#switched = true;
+    this.render();
   }
 
   /**

@@ -101,8 +101,26 @@
     }
   }
 
+  /* The variant dots hang under the grid, out of the flow, so the board keeps its centre line; the
+     board's margin makes room for them. */
+  .gc-reveal-grid-column {
+    position: relative;
+
+    .gc-variants {
+      position: absolute;
+      top: calc(100% + 12px);
+      left: 0;
+      right: 0;
+    }
+  }
+
+  .gc-reveal-board:has(.gc-variants) {
+    margin-bottom: 30px;
+  }
+
   /* Hidden until the reveal reaches them; the sequence fades them in. */
   .gc-arrow,
+  .gc-variants,
   .gc-reveal-controls {
     opacity: 0;
   }
@@ -132,6 +150,7 @@
 
   &.gc-revealed {
     .gc-arrow,
+    .gc-variants,
     .gc-reveal-controls,
     .gc-reveal-result img,
     .gc-reveal-requires {
