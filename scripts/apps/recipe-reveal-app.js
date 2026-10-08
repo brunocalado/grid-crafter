@@ -19,8 +19,8 @@ const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
  * A recipe the GM shared: its pattern revealed cell by cell, then what it makes. A player with a
  * character can learn it from here.
  *
- * Never re-rendered after the first render: a render would put the lit cells back to dark, so Learn
- * patches the DOM instead.
+ * The reveal plays once, on the first render. A later render (a theme change) skips it and shows the
+ * board as it ended; Learn still patches the DOM, so its own animation isn't cut short by a render.
  */
 export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /**
@@ -82,6 +82,9 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const theme = getTheme();
     for ( const t of ["forge", "arcane"] ) this.element.classList.toggle(`gc-theme-${t}`, t === theme);
     this.fx.attach(this.element.querySelector(".gc-fx"), theme);
+    // The reveal plays once. A later render (a theme change) shows the board as it ended; the root
+    // element survives renders, so the class stays.
+    if ( !options.isFirstRender ) this.element.classList.add("gc-revealed");
   }
 
   /** @override */
@@ -97,9 +100,15 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
    * the recipe makes, born in its circle; then the way to learn it.
    */
   async #reveal() {
+    // Taken now, not as the sequence reaches them: the root element survives a re-render, so a later
+    // query would animate the new, already finished board. These stay with the old one, unseen.
     const el = this.element;
+    const cells = el.querySelectorAll(".gc-reveal-cell");
+    const arrow = el.querySelector(".gc-arrow");
+    const slot = el.querySelector(".gc-reveal-result");
+    const controls = el.querySelector(".gc-reveal-controls");
     await wait(350);
-    for ( const cell of el.querySelectorAll(".gc-reveal-cell") ) {
+    for ( const cell of cells ) {
       cell.classList.add("gc-lit");
       if ( cell.querySelector("img") ) {
         const { x, y } = this.fx.centerOf(cell);
@@ -108,8 +117,7 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
       }
     }
     await wait(150);
-    await animate(el.querySelector(".gc-arrow"), [{ opacity: 0 }, { opacity: 1 }], { duration: 350, easing: "ease-out" });
-    const slot = el.querySelector(".gc-reveal-result");
+    await animate(arrow, [{ opacity: 0 }, { opacity: 1 }], { duration: 350, easing: "ease-out" });
     const { x, y } = this.fx.centerOf(slot);
     this.fx.burst(x, y, { kind: getTheme() === "arcane" ? "spiral" : "sparks", count: 60, speed: 320 });
     await animate(slot.querySelector("img"), [
@@ -117,7 +125,6 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
       { transform: "scale(1.35) rotate(6deg)", opacity: 1, offset: 0.55 },
       { transform: "scale(1) rotate(0)", opacity: 1 }
     ], { duration: 900, easing: "cubic-bezier(.2,.9,.3,1.2)" });
-    const controls = el.querySelector(".gc-reveal-controls");
     if ( controls ) await animate(controls, [{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: "ease-out" });
   }
 

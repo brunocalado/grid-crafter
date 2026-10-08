@@ -74,8 +74,8 @@ export function registerSettings() {
   });
 
   // Players' forges list public recipes and match the GM's edits, so they follow a change at once.
-  // Not every module app: a revealed recipe's window must never re-render (it would put its lit
-  // cells back to dark).
+  // Not every module app: a revealed recipe's window shows the recipe as it was shared, and a recipe
+  // edit has no reason to touch it (a render would only skip it to its finished board).
   const rerenderRecipeViews = () => {
     for ( const id of [`${MODULE_ID}-forge`, `${MODULE_ID}-recipe-editor`, `${MODULE_ID}-teach`, `${MODULE_ID}-forget`] ) {
       foundry.applications.instances.get(id)?.render();

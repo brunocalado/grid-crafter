@@ -83,18 +83,21 @@
       transition: opacity 500ms;
     }
 
-    &.gc-lit {
+  }
+
+  /* Lit by the sequence, or all at once on a re-render, which shows the board as the sequence left it. */
+  .gc-reveal-cell.gc-lit,
+  &.gc-revealed .gc-reveal-cell {
+    opacity: 1;
+    transform: scale(1);
+
+    img {
       opacity: 1;
-      transform: scale(1);
+    }
 
-      img {
-        opacity: 1;
-      }
-
-      &:has(img) {
-        border-color: var(--gc-glow);
-        box-shadow: inset 0 3px 8px #000c, 0 0 16px rgba(var(--gc-glow-rgb), 0.75);
-      }
+    &:has(img) {
+      border-color: var(--gc-glow);
+      box-shadow: inset 0 3px 8px #000c, 0 0 16px rgba(var(--gc-glow-rgb), 0.75);
     }
   }
 
@@ -107,6 +110,14 @@
   .gc-reveal-result img {
     opacity: 0;
     will-change: transform, opacity;
+  }
+
+  &.gc-revealed {
+    .gc-arrow,
+    .gc-reveal-controls,
+    .gc-reveal-result img {
+      opacity: 1;
+    }
   }
 
   .gc-reveal-note {
