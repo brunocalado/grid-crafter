@@ -16,8 +16,9 @@ import { playCue } from "../sound.js";
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
 /**
- * A recipe the GM shared: its pattern revealed cell by cell, then what it makes. A player with a
- * character can learn it from here.
+ * A recipe the GM shared: its pattern revealed cell by cell, then what it makes. A dismantling recipe
+ * is shown the same way round as the table: the item in the circle first, then the parts it breaks
+ * into. A player with a character can learn it from here.
  *
  * The reveal plays once, on the first render. A later render (a theme change, another variant) skips it
  * and shows the board as it ended; Learn still patches the DOM, so its own animation isn't cut short by
@@ -63,9 +64,11 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
   async _prepareContext(options) {
     const theme = getTheme();
     const recipe = getRecipe(this.recipeId);
+    const dismantling = recipe.kind === "dismantle";
     // The GM may have removed a variant since.
-    this.variant = Math.min(this.variant, recipe.variants.length - 1);
-    const variant = recipe.variants[this.variant];
+    if ( !dismantling ) this.variant = Math.min(this.variant, recipe.variants.length - 1);
+    const variant = dismantling ? null : recipe.variants[this.variant];
+    const quantity = dismantling ? recipe.inputQuantity : recipe.quantity;
     const actor = getCraftingActor();
     // A GM sees a preview, and a player without a character has nowhere to write it: neither gets a
     // button or a label.
@@ -74,16 +77,19 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const known = learner && getLearnedRecipeIds(actor).includes(recipe.id);
     return {
       isArcane: theme === "arcane",
+      dismantling,
       name: recipeFace(recipe).name,
-      shaped: recipe.shaped,
-      cells: recipe.shaped ? variant.cells : variant.cells.filter(Boolean),
-      result: recipe.result,
-      requires: variant.requires,
+      // Where a part lands never matters: a dismantling recipe's parts are a ring, with no note saying so.
+      shaped: !dismantling && recipe.shaped,
+      cells: dismantling ? recipe.outputs.filter(Boolean) : recipe.shaped ? variant.cells : variant.cells.filter(Boolean),
+      // The circle holds what the recipe makes, or what it breaks.
+      result: dismantling ? recipe.input : recipe.result,
+      requires: dismantling ? recipe.requires : variant.requires,
       // A recipe with one variant shows no dots.
-      variants: (recipe.variants.length > 1) ? recipe.variants.map((v, index) => ({ index, active: index === this.variant,
+      variants: (recipe.variants?.length > 1) ? recipe.variants.map((v, index) => ({ index, active: index === this.variant,
         label: game.i18n.localize("GRIDCRAFTER.Editor.Variant", { n: index + 1 }) })) : null,
-      quantity: recipe.quantity,
-      many: recipe.quantity > 1,
+      quantity,
+      many: quantity > 1,
       canLearn: learner && !known,
       known,
       controls: learner,
@@ -118,37 +124,54 @@ export class RecipeRevealApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /**
    * Ingredients light up one after another, each with its own small burst; then the arrow, then what
-   * the recipe makes, born in its circle; then the way to learn it.
+   * the recipe makes, born in its circle; then the way to learn it. A dismantling recipe runs the
+   * other way: the item and its tool first, then the arrow, then the parts.
    */
   async #reveal() {
     // Taken now, not as the sequence reaches them: the root element survives a re-render, so a later
     // query would animate the new, already finished board. These stay with the old one, unseen.
     const el = this.element;
+    const dismantling = getRecipe(this.recipeId)?.kind === "dismantle";
     const cells = el.querySelectorAll(".gc-reveal-cell");
     const arrow = el.querySelector(".gc-arrow");
     const slot = el.querySelector(".gc-reveal-result");
     const requires = el.querySelector(".gc-reveal-requires");
     const outro = [el.querySelector(".gc-variants"), el.querySelector(".gc-reveal-controls")].filter(Boolean);
-    await wait(350);
-    for ( const cell of cells ) {
-      cell.classList.add("gc-lit");
-      if ( cell.querySelector("img") ) {
-        const { x, y } = this.fx.centerOf(cell);
-        this.fx.burst(x, y, { count: 24, speed: 160 });
-        await wait(140);
+    const lightCells = async () => {
+      for ( const cell of cells ) {
+        cell.classList.add("gc-lit");
+        if ( cell.querySelector("img") ) {
+          const { x, y } = this.fx.centerOf(cell);
+          this.fx.burst(x, y, { count: 24, speed: 160 });
+          await wait(140);
+        }
       }
+    };
+    const showArrow = () => animate(arrow, [{ opacity: 0 }, { opacity: 1 }], { duration: 350, easing: "ease-out" });
+    const showItem = async () => {
+      const { x, y } = this.fx.centerOf(slot);
+      this.fx.burst(x, y, { kind: getTheme() === "arcane" ? "spiral" : "sparks", count: 60, speed: 320 });
+      await animate(slot.querySelector("img"), [
+        { transform: "scale(0) rotate(-30deg)", opacity: 0 },
+        { transform: "scale(1.35) rotate(6deg)", opacity: 1, offset: 0.55 },
+        { transform: "scale(1) rotate(0)", opacity: 1 }
+      ], { duration: 900, easing: "cubic-bezier(.2,.9,.3,1.2)" });
+      if ( requires ) await animate(requires, [{ opacity: 0, transform: "translateY(-6px)" }, { opacity: 1, transform: "none" }],
+        { duration: 350, easing: "ease-out" });
+    };
+    await wait(350);
+    if ( dismantling ) {
+      await showItem();
+      await wait(150);
+      await showArrow();
+      await lightCells();
     }
-    await wait(150);
-    await animate(arrow, [{ opacity: 0 }, { opacity: 1 }], { duration: 350, easing: "ease-out" });
-    const { x, y } = this.fx.centerOf(slot);
-    this.fx.burst(x, y, { kind: getTheme() === "arcane" ? "spiral" : "sparks", count: 60, speed: 320 });
-    await animate(slot.querySelector("img"), [
-      { transform: "scale(0) rotate(-30deg)", opacity: 0 },
-      { transform: "scale(1.35) rotate(6deg)", opacity: 1, offset: 0.55 },
-      { transform: "scale(1) rotate(0)", opacity: 1 }
-    ], { duration: 900, easing: "cubic-bezier(.2,.9,.3,1.2)" });
-    if ( requires ) await animate(requires, [{ opacity: 0, transform: "translateY(-6px)" }, { opacity: 1, transform: "none" }],
-      { duration: 350, easing: "ease-out" });
+    else {
+      await lightCells();
+      await wait(150);
+      await showArrow();
+      await showItem();
+    }
     await Promise.all(outro.map(node => animate(node, [{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: "ease-out" })));
   }
 

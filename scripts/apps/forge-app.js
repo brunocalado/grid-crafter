@@ -9,12 +9,12 @@
 import { CELL_COUNT, MODULE_ID, TEMPLATE_PATH } from "../constants.js";
 import {
   bindSearch, filterGroups, getCollapsed, getCraftingActor, getDropData, getQuantity, getTheme, groupByCategory,
-  isTypeAllowed, itemDragData, itemOrigin, readCaret, recipeSearchText, restoreCaret, setCollapsed, toItemRef
+  isTypeAllowed, itemDragData, itemOrigin, readCaret, recipeSearchText, refMatches, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
 import {
-  CraftError, craft, fillFromInventory, getKnownRecipeIds, getLearnedRecipeIds, hasRequiredItem
+  CraftError, craft, dismantle, fillFromInventory, getKnownRecipeIds, getLearnedRecipeIds, hasRequiredItem
 } from "../crafting.js";
-import { getAllRecipes, recipeFace } from "../recipes.js";
+import { getAllRecipes, isDiscoverable, recipeFace } from "../recipes.js";
 import { BELLOWS_PERIOD, CraftFX, animate, runeGlyphs, wait } from "../effects.js";
 import { playCue } from "../sound.js";
 
@@ -26,9 +26,13 @@ const CELL_DRAG = `${MODULE_ID}.cell`;
 /** Where this browser remembers the book's "only what you can craft now" filter. */
 const READY_ONLY_KEY = `${MODULE_ID}.forge.readyOnly`;
 
+/** Where this browser remembers whether the table crafts or dismantles. */
+const MODE_KEY = `${MODULE_ID}.forge.mode`;
+
 /**
  * The crafting table: a 3x3 grid players fill with items, a result slot, and the recipe book of what
- * they already know how to make.
+ * they already know how to make. Turned around, it dismantles: the item goes in the circle and its
+ * parts come out onto the grid.
  */
 export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   static DEFAULT_OPTIONS = {
@@ -42,8 +46,12 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     position: { width: 900, height: "auto" },
     actions: {
       craft: ForgeApp.#onCraft,
+      dismantle: ForgeApp.#onDismantle,
       fillRecipe: ForgeApp.#onFillRecipe,
+      fillInput: ForgeApp.#onFillInput,
       clearCell: ForgeApp.#onClearCell,
+      clearInput: ForgeApp.#onClearInput,
+      setMode: ForgeApp.#onSetMode,
       toggleReady: ForgeApp.#onToggleReady
     }
   };
@@ -57,6 +65,9 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** The forged item waiting in the result slot, on the crafting actor. */
   resultUuid = null;
+
+  /** The item waiting in the circle to be broken: an ItemRef of the crafting actor's. */
+  inputRef = null;
 
   /** A craft animation is running; input is ignored until it ends. */
   busy = false;
@@ -84,6 +95,30 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** Categories the user closed in the recipe book. */
   #collapsed = getCollapsed("forge");
 
+  /** "craft" or "dismantle", as the user last chose it. */
+  #mode = (() => {
+    try {
+      return (localStorage.getItem(MODE_KEY) === "dismantle") ? "dismantle" : "craft";
+    } catch {
+      return "craft";
+    }
+  })();
+
+  /** Whether the crafting actor knows or could discover a dismantling recipe, as of the last render. */
+  #canDismantle = false;
+
+  /** The next render turns the table around: the arrow swings to the other side. */
+  #turned = false;
+
+  /**
+   * The table dismantles only while the mode switch is offered: without a dismantling recipe in reach
+   * it is the crafting table it always was.
+   * @returns {boolean}
+   */
+  get #dismantling() {
+    return this.#canDismantle && (this.#mode === "dismantle");
+  }
+
   /** @override */
   async _prepareContext(options) {
     const actor = getCraftingActor();
@@ -91,21 +126,35 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // A player with no character still sees the public recipes; crafting is what needs the character.
     const known = new Set(getKnownRecipeIds(actor));
     const learned = new Set(getLearnedRecipeIds(actor));
-    // One row per variant, in the recipe's order: the recipe moves as a whole, a row never jumps ahead
-    // of its siblings.
-    // FIXME: interim, until the table can show a dismantling recipe.
-    const book = getAllRecipes().filter(r => known.has(r.id) && (r.kind !== "dismantle")).map(r => {
-      const rows = r.variants.map((v, index) => ({
+    const all = getAllRecipes();
+    this.#canDismantle = all.some(r => (r.kind === "dismantle") && (known.has(r.id) || isDiscoverable(r)));
+    const dismantling = this.#dismantling;
+    const requires = holder => (holder.requires
+      ? { name: holder.requires.name, img: holder.requires.img, has: !!actor && hasRequiredItem(holder, actor) } : null);
+    // The book lists the recipes of the table's mode. One row per variant, in the recipe's order: the
+    // recipe moves as a whole, a row never jumps ahead of its siblings. A dismantling recipe is one row:
+    // its parts, as a shapeless list since where they land never matters.
+    const book = all.filter(r => known.has(r.id) && ((r.kind === "dismantle") === dismantling)).map(r => {
+      const rows = dismantling ? [{
+        index: 0,
+        first: true,
+        shaped: false,
+        cells: r.outputs.filter(Boolean),
+        ready: !!actor && (carried(r.input, actor) >= r.inputQuantity) && hasRequiredItem(r, actor),
+        requires: requires(r)
+      }] : r.variants.map((v, index) => ({
         index,
         first: index === 0,
         shaped: r.shaped,
         cells: r.shaped ? v.cells : v.cells.filter(Boolean),
         ready: !!(actor && fillFromInventory(v, actor) && hasRequiredItem(v, actor)),
-        requires: v.requires ? { name: v.requires.name, img: v.requires.img, has: !!actor && hasRequiredItem(v, actor) } : null
+        requires: requires(v)
       }));
       return {
         id: r.id,
         ...recipeFace(r),
+        // How many of the item one dismantling breaks, when it is more than one.
+        count: (dismantling && (r.inputQuantity > 1)) ? r.inputQuantity : null,
         categories: r.categories,
         search: recipeSearchText(r),
         // Any variant that can be made now: it sorts and filters the recipe.
@@ -130,13 +179,23 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     })) : null;
     const result = this.resultUuid ? foundry.utils.fromUuidSync(this.resultUuid) : null;
     const glyphs = ForgeApp.#glyphs.map((d, i) => ({ d, angle: (360 / ForgeApp.#glyphs.length) * i }));
+    const isArcane = theme === "arcane";
+    const icons = { craft: isArcane ? "fa-wand-sparkles" : "fa-hammer", dismantle: isArcane ? "fa-burst" : "fa-pickaxe" };
+    // What the item in the circle breaks into, faint on the empty grid, when the actor knows how. A
+    // recipe it could only discover shows nothing: that would give it away.
+    const ghost = (dismantling && this.inputRef && actor) ? all.find(r => (r.kind === "dismantle") && known.has(r.id)
+      && refMatches(r.input, this.inputRef))?.outputs : null;
     return {
       theme,
-      isArcane: theme === "arcane",
+      isArcane,
+      icons,
+      canDismantle: this.#canDismantle,
+      dismantling,
       actor: actor ? { name: actor.name, img: actor.img } : null,
       // A GM can also craft for a selected token, so their message says so.
       noActorKey: game.user.isGM ? "GRIDCRAFTER.Errors.NoActorGM" : "GRIDCRAFTER.Errors.NoActor",
-      slots: this.slots.map((s, index) => ({ index, item: s })),
+      slots: this.slots.map((s, index) => ({ index, item: s, ghost: (!s && ghost?.[index]) || null })),
+      input: dismantling ? this.inputRef : null,
       book: [...byCategory.values()].flat(),
       groups,
       query: this.#query,
@@ -184,8 +243,28 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       }
     });
     const result = this.element.querySelector(".gc-result-slot");
-    result.addEventListener("dragstart", this.#onDragResult.bind(this));
-    result.addEventListener("dblclick", () => this.#openSheet(this.resultUuid));
+    if ( context.dismantling ) {
+      result.addEventListener("dragover", this.#onDragOver.bind(this));
+      result.addEventListener("dragleave", ev => ev.currentTarget.classList.remove("gc-drop-target"));
+      result.addEventListener("drop", this.#onDropInput.bind(this));
+      result.addEventListener("contextmenu", ev => {
+        ev.preventDefault();
+        this.#setInput(null);
+      });
+      result.addEventListener("dblclick", () => this.#openSheet(this.inputRef?.uuid));
+    }
+    else {
+      result.addEventListener("dragstart", this.#onDragResult.bind(this));
+      result.addEventListener("dblclick", () => this.#openSheet(this.resultUuid));
+    }
+    // The table was turned: the arrow swings round from where it pointed. Its new direction is already
+    // in the markup, so this only animates the way there.
+    if ( this.#turned ) {
+      this.#turned = false;
+      const arrow = this.element.querySelector(".gc-arrow");
+      const [from, to] = context.dismantling ? [1, -1] : [-1, 1];
+      arrow.animate([{ transform: `scaleX(${from})` }, { transform: `scaleX(${to})` }], { duration: 300, easing: "ease" });
+    }
   }
 
   /**
@@ -245,9 +324,10 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // deleted. The slot then empties instead of pointing at nothing. Any item leaving the inventory also
     // changes which recipes the book can make now.
     this.#hooks.push(["deleteItem", Hooks.on("deleteItem", item => {
-      const shown = (item.uuid === this.resultUuid) || this.slots.some(s => s?.uuid === item.uuid);
+      const shown = [this.resultUuid, this.inputRef?.uuid].includes(item.uuid) || this.slots.some(s => s?.uuid === item.uuid);
       this.slots = this.slots.map(s => (s?.uuid === item.uuid ? null : s));
       if ( item.uuid === this.resultUuid ) this.resultUuid = null;
+      if ( item.uuid === this.inputRef?.uuid ) this.inputRef = null;
       if ( (shown || relevant(item)) && !this.busy ) this.render();
     })]);
     this.#hooks.push(["updateItem", Hooks.on("updateItem", item => relevant(item) && !this.busy && this.render())]);
@@ -316,6 +396,8 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /** @param {DragEvent} event */
   async #onDropBench(event) {
     event.preventDefault();
+    // Dismantling, the grid only shows what comes out: whatever is dropped on the bench is for the circle.
+    if ( this.#dismantling ) return this.#onDropInput(event);
     const index = this.slots.findIndex(s => !s);
     if ( index < 0 ) return;
     await this.#handleDrop(getDropData(event), index);
@@ -327,6 +409,7 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   async #handleDrop(data, index) {
     if ( this.busy ) return;
+    if ( this.#dismantling && (data.type !== CELL_DRAG) ) return this.#handleInputDrop(data);
     if ( data.type === CELL_DRAG ) {
       const from = Number(data.index);
       if ( from === index ) return;
@@ -355,6 +438,49 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#setSlot(index, toItemRef(item));
   }
 
+  /**
+   * @param {import("../helpers.js").ItemRef|null} ref
+   */
+  #setInput(ref) {
+    if ( this.busy ) return;
+    this.inputRef = ref;
+    // The grid shows what this item breaks into, not the parts of the last one.
+    if ( ref ) this.slots = Array(CELL_COUNT).fill(null);
+    this.render();
+  }
+
+  /** @param {DragEvent} event */
+  async #onDropInput(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.classList.remove("gc-drop-target");
+    await this.#handleInputDrop(getDropData(event));
+  }
+
+  /**
+   * Put a dropped item in the circle: an item of the crafting actor's, or a part already on the grid.
+   * The same origin and owner checks as the grid, for a GM too: only the actor's own items can be broken.
+   * No item-type check: what may be dismantled is for the recipes to say.
+   * @param {object} data
+   */
+  async #handleInputDrop(data) {
+    if ( this.busy ) return;
+    let item;
+    try {
+      item = (data.type === CELL_DRAG) ? await fromUuid(this.slots[Number(data.index)]?.uuid ?? "")
+        : (data.type === "Item") ? await Item.implementation.fromDropData(data) : null;
+    } catch {
+      return;
+    }
+    if ( !item ) return;
+    const warn = key => ui.notifications.warn(game.i18n.localize(`GRIDCRAFTER.Errors.${key}`, { name: item.name }));
+    const origin = itemOrigin(item);
+    if ( origin !== "actor" ) return warn("NotFromInventory");
+    if ( item.parent.uuid !== getCraftingActor()?.uuid ) return warn("NotYourCharacter");
+    if ( !item.isOwner ) return warn("NotOwner");
+    this.#setInput(toItemRef(item));
+  }
+
   /* -------------------------------------------- */
   /*  Actions                                     */
   /* -------------------------------------------- */
@@ -375,6 +501,48 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.MissingIngredients", { name: recipe?.name ?? "" }));
     }
     this.slots = filled;
+    this.render();
+  }
+
+  /**
+   * Put the item a dismantling recipe breaks in the circle, from the actor's inventory.
+   * @this {ForgeApp}
+   */
+  static #onFillInput(event, target) {
+    if ( this.busy ) return;
+    const recipe = getAllRecipes().find(r => r.id === target.dataset.recipeId);
+    const actor = getCraftingActor();
+    if ( !recipe || !actor ) return;
+    const item = actor.items.find(i => ((getQuantity(i) ?? 1) > 0) && refMatches(recipe.input, toItemRef(i)));
+    if ( !item ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NotCarried", { name: recipe.input.name }));
+    this.#setInput(toItemRef(item));
+  }
+
+  /** @this {ForgeApp} */
+  static #onClearInput() {
+    this.#setInput(null);
+  }
+
+  /**
+   * Turn the table to crafting or to dismantling. Entering Dismantle clears the table; back to Craft,
+   * the grid keeps what it holds, so the parts just broken off become ingredients. Only references
+   * are dropped: nothing leaves the sheet.
+   * @this {ForgeApp}
+   */
+  static #onSetMode(event, target) {
+    if ( this.busy ) return;
+    const mode = target.dataset.mode;
+    if ( mode === this.#mode ) return;
+    this.#mode = mode;
+    try {
+      localStorage.setItem(MODE_KEY, mode);
+    } catch {
+      // Storage is blocked: the mode lasts as long as the window.
+    }
+    if ( mode === "dismantle" ) this.slots = Array(CELL_COUNT).fill(null);
+    this.inputRef = null;
+    this.resultUuid = null;
+    this.#turned = true;
     this.render();
   }
 
@@ -440,15 +608,60 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
   }
 
+  /**
+   * Break the item in the circle. The blows land on the circle; the parts fly out into the grid, where
+   * they stay as the actor's own items, ready to craft with.
+   * @this {ForgeApp}
+   */
+  static async #onDismantle() {
+    if ( this.busy ) return;
+    if ( !this.inputRef ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.EmptyCircle"));
+    this.busy = true;
+    this.element.classList.add("gc-busy");
+    try {
+      const circle = this.element.querySelector(".gc-result-slot");
+      const strike = this.#playStrike(circle);
+      const input = this.inputRef;
+      let outcome;
+      try {
+        outcome = await dismantle(input);
+      } catch(err) {
+        await strike;
+        if ( !(err instanceof CraftError) ) throw err;
+        ui.notifications.warn(err.message);
+        return;
+      }
+      await strike;
+      if ( outcome.state === "success" ) {
+        await this.#playBreak(outcome.recipe);
+        this.inputRef = null;
+        // Each part on the cell it was drawn in, as the actor's real item.
+        this.slots = fillFromInventory({ cells: outcome.recipe.outputs }, getCraftingActor()) ?? Array(CELL_COUNT).fill(null);
+      }
+      else {
+        // A refused dismantle puts the item back under its own id, but the deleteItem hook has emptied
+        // the circle by then. Ready to try again, as long as it exists.
+        if ( foundry.utils.fromUuidSync(input.uuid) ) this.inputRef = input;
+        await this.#playFailure(false, circle);
+      }
+    } finally {
+      this.busy = false;
+      this.element?.classList.remove("gc-busy");
+      if ( this.rendered ) this.render();
+    }
+  }
+
   /* -------------------------------------------- */
   /*  Animation                                   */
   /* -------------------------------------------- */
 
-  /** The hammer blows (or the surge of the circle): shake, flashes and sparks, timed with the sound. */
-  async #playStrike() {
+  /**
+   * The hammer blows (or the surge of the circle): shake, flashes and sparks, timed with the sound.
+   * @param {HTMLElement} [target]   where the blows land: the grid when crafting, the circle when dismantling
+   */
+  async #playStrike(target = this.element.querySelector(".gc-grid")) {
     playCue("craft");
-    const grid = this.element.querySelector(".gc-grid");
-    const { x, y } = this.fx.centerOf(grid);
+    const { x, y } = this.fx.centerOf(target);
     const arcane = getTheme() === "arcane";
     this.element.classList.add("gc-charging");
     animate(this.element, [
@@ -535,6 +748,60 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /**
+   * The craft turned around: the item in the circle shudders, flares and bursts, then each part flies
+   * out of it along a short arc into its cell, which lights as the part lands.
+   * @param {import("../recipes.js").Recipe} recipe
+   */
+  async #playBreak(recipe) {
+    const overlay = this.element.querySelector(".gc-overlay");
+    const circle = this.element.querySelector(".gc-result-slot");
+    const icon = circle.querySelector("img");
+    const cells = this.element.querySelectorAll(".gc-grid .gc-cell");
+    const from = this.fx.centerOf(circle);
+    const arcane = getTheme() === "arcane";
+
+    await animate(icon, [
+      { transform: "translate(0, 0) rotate(0)" }, { transform: "translate(-5px, 1px) rotate(-4deg)" },
+      { transform: "translate(5px, -2px) rotate(4deg)" }, { transform: "translate(-4px, 1px) rotate(-3deg)" },
+      { transform: "translate(3px, 0) rotate(2deg)" }, { transform: "translate(0, 0) rotate(0)" }
+    ], { duration: 420, easing: "ease-out", fill: "none" });
+    this.#flash(overlay, from, "gc-flash-core");
+    this.fx.burst(from.x, from.y, arcane ? { kind: "spiral", count: 70 } : { kind: "sparks", count: 60, speed: 420 });
+    animate(icon, [{ transform: "scale(1)", opacity: 1 }, { transform: "scale(1.3)", opacity: 0 }], { duration: 220, easing: "ease-in" });
+
+    // The craft's flight reversed: born small at the circle's heart, rising, and settling into the cell.
+    const flights = [];
+    recipe.outputs.forEach((part, index) => {
+      if ( !part ) return;
+      const cell = cells[index];
+      const to = this.fx.centerOf(cell);
+      const size = cell.getBoundingClientRect().width * 0.78;
+      const flyer = document.createElement("img");
+      flyer.src = part.img;
+      flyer.className = "gc-flyer";
+      Object.assign(flyer.style, { left: `${to.x - (size / 2)}px`, top: `${to.y - (size / 2)}px`, width: `${size}px`, height: `${size}px` });
+      overlay.append(flyer);
+      const dx = from.x - to.x;
+      const dy = from.y - to.y;
+      const delay = flights.length * 60;
+      const first = !flights.length;
+      flights.push(animate(flyer, [
+        { transform: `translate(${dx}px, ${dy}px) scale(0.15) rotate(-200deg)`, opacity: 0 },
+        { transform: `translate(${dx * 0.15}px, ${(dy * 0.15) - 18}px) scale(1.12) rotate(8deg)`, opacity: 1, offset: 0.75 },
+        { transform: "translate(0, 0) scale(1) rotate(0)", opacity: 1 }
+      ], { duration: 760, delay, easing: "cubic-bezier(.25,.65,.45,1)" }).then(() => {
+        if ( first ) playCue("success");
+        cell.classList.add("gc-landed");
+        this.fx.burst(to.x, to.y, { count: 24, speed: 160 });
+      }));
+      this.#trailFollow(flyer, 760 + delay);
+    });
+    await Promise.all(flights);
+    // The flyers stay where they landed until the render puts the real items under them.
+    await wait(450);
+  }
+
+  /**
    * Keep emitting trail particles behind a moving element until it lands.
    * @param {HTMLElement} el
    * @param {number} duration
@@ -594,21 +861,22 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /**
    * The materials refuse to combine: the grid flares red and shudders; lost materials crumble to ash.
+   * A refused dismantle does the same to the circle, and nothing crumbles.
    * @param {boolean} lost
+   * @param {HTMLElement} [target]
    */
-  async #playFailure(lost) {
+  async #playFailure(lost, target = this.element.querySelector(".gc-grid")) {
     playCue("failure");
-    const grid = this.element.querySelector(".gc-grid");
-    const { x, y } = this.fx.centerOf(grid);
-    grid.classList.add("gc-failed");
+    const { x, y } = this.fx.centerOf(target);
+    target.classList.add("gc-failed");
     this.fx.burst(x, y, { kind: "smoke", count: 26 });
-    await animate(grid, [
+    await animate(target, [
       { transform: "translateX(0)" }, { transform: "translateX(-10px)" }, { transform: "translateX(9px)" },
       { transform: "translateX(-6px)" }, { transform: "translateX(4px)" }, { transform: "translateX(0)" }
     ], { duration: 480, easing: "ease-out", fill: "none" });
     if ( lost ) {
       const crumbles = [];
-      for ( const img of grid.querySelectorAll(".gc-cell img") ) {
+      for ( const img of target.querySelectorAll(".gc-cell img") ) {
         const c = this.fx.centerOf(img);
         this.fx.burst(c.x, c.y, { kind: "smoke", count: 6 });
         img.classList.add("gc-ash");
@@ -620,6 +888,16 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       await Promise.all(crumbles);
     }
     await wait(400);
-    grid.classList.remove("gc-failed");
+    target.classList.remove("gc-failed");
   }
+}
+
+/**
+ * How many units of an item the actor carries, across every copy of it.
+ * @param {import("../helpers.js").ItemRef} ref
+ * @param {Actor} actor
+ * @returns {number}
+ */
+function carried(ref, actor) {
+  return actor.items.reduce((n, i) => n + (refMatches(ref, toItemRef(i)) ? Math.max(getQuantity(i) ?? 1, 0) : 0), 0);
 }

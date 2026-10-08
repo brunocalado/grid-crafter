@@ -11,7 +11,14 @@
       "ReadyOnly": "Only what you can craft now",
       "Remove": "Remove",
       "DragResult": "Already in your inventory. Drag it to the map or another sheet.",
-      "Craft": "Craft"
+      "Craft": "Craft",
+      "Dismantle": "Dismantle",
+      "ModeCraft": "Craft",
+      "ModeDismantle": "Dismantle",
+      "BookEmptyDismantle": "Dismantle something to record its recipe here.",
+      "FillInputHint": "Put this item in the circle",
+      "MissingInputHint": "You lack the item or what dismantling it needs",
+      "ReadyOnlyDismantle": "Only what you can dismantle now"
     },
     "Recipe": {
       "Name": "Recipe name",
@@ -156,6 +163,8 @@
       "NotYourCharacter": "{name} belongs to another actor. Only items from your character can be used.",
       "NotFromInventory": "{name} is not in your inventory. Use items from your character.",
       "MissingIngredients": "You are missing ingredients for {name}.",
+      "NotCarried": "You don't carry {name}.",
+      "EmptyCircle": "Put the item to dismantle in the circle first.",
       "FromActor": "{name} exists only on a character's sheet. Use the item from the Items directory or a compendium.",
       "NoResult": "Drop the item this recipe makes in the result slot.",
       "NoIngredients": "Place at least one ingredient on the grid.",

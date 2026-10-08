@@ -19,9 +19,7 @@ export function registerRevealQuery() {
   CONFIG.queries[REVEAL_QUERY] = async (data, { user }) => {
     if ( !user?.isGM || (typeof data?.id !== "string") ) return false;
     // A package recipe the GM's client registered may be missing here.
-    const recipe = getRecipe(data.id);
-    // FIXME: interim, until the reveal can show a dismantling recipe.
-    if ( !recipe || (recipe.kind === "dismantle") ) return false;
+    if ( !getRecipe(data.id) ) return false;
     new RecipeRevealApp({ recipeId: data.id }).render({ force: true });
     return true;   // answer at once; the GM doesn't wait for the window
   };
@@ -35,8 +33,6 @@ export function registerRevealQuery() {
  * @param {string[]} userIds
  */
 export async function shareRecipe(recipe, userIds) {
-  // FIXME: interim, until the reveal can show a dismantling recipe.
-  if ( recipe.kind === "dismantle" ) return;
   const users = userIds.map(id => game.users.get(id)).filter(u => u?.active && !u.isGM);
   new RecipeRevealApp({ recipeId: recipe.id }).render({ force: true });
   const answers = await foundry.documents.User.queryMany(users, REVEAL_QUERY, { id: recipe.id }, { timeout: 10 * 1000 });

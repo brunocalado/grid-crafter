@@ -29,6 +29,50 @@
     max-height: 560px;
   }
 
+  /* The title shares its line with the Craft / Dismantle switch, offered only once a dismantling
+     recipe is in reach. The switch's icons stand in for the scroll, which leaves the arcane title room. */
+  .gc-book-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .gc-book-title {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+  }
+
+  /* Two icon buttons joined into one control; the lit one is the table's mode. */
+  .gc-mode-switch {
+    display: flex;
+    flex: none;
+
+    .gc-icon-button {
+      height: 30px;
+
+      &:first-child {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+
+      & + .gc-icon-button {
+        margin-left: -1px;
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+      }
+
+      /* Over its neighbour, so its whole border lights. */
+      &.gc-active,
+      &:hover {
+        position: relative;
+        z-index: 1;
+      }
+    }
+  }
+
   .gc-book-tools {
     display: flex;
     align-items: center;
@@ -211,6 +255,12 @@
     line-height: 1.1;
   }
 
+  /* How many of the item one dismantling breaks. */
+  .gc-book-count {
+    color: var(--gc-trim-hi);
+    font-weight: normal;
+  }
+
   /* A long name wraps before it runs under the marker. */
   .gc-book-list > li:has(.gc-public-marker) .gc-book-name {
     padding-right: 14px;
@@ -375,6 +425,69 @@
 
     &:hover .gc-cell-clear {
       display: block;
+    }
+  }
+
+  /* Dismantling: what the item in the circle breaks into, faint, before it does. Not a real item: it
+     can't be dragged and has no tooltip. */
+  .gc-cell.gc-ghost > img {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  /* A part that just landed in its cell. Static: the flyer over it is what moves. */
+  .gc-cell.gc-landed {
+    border-color: var(--gc-glow);
+    box-shadow: inset 0 3px 8px #000c, inset 0 0 18px rgba(var(--gc-glow-rgb), 0.55), 0 0 14px rgba(var(--gc-glow-rgb), 0.6);
+  }
+
+  /* Dismantling, the circle takes the item to break. Empty, a faint glyph says what goes there. */
+  .gc-input-slot {
+    &.gc-filled {
+      cursor: default;
+    }
+
+    .gc-input-glyph {
+      color: var(--gc-text-dim);
+      font-size: 46px;
+      opacity: 0.3;
+    }
+
+    &.gc-drop-target,
+    &:hover {
+      box-shadow: inset 0 4px 14px #000, 0 0 36px rgba(var(--gc-glow-rgb), 0.6);
+    }
+
+    /* The grid's remove button, on the circle's upper right. */
+    .gc-cell-clear {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 1;
+      display: none;
+      width: 18px;
+      height: 18px;
+      min-height: 0;
+      padding: 0;
+      line-height: 16px;
+      font-size: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid var(--gc-metal-hi);
+      border-radius: 50%;
+      color: var(--gc-text);
+    }
+
+    &:hover .gc-cell-clear {
+      display: block;
+    }
+  }
+
+  /* A refused dismantle flares the circle as a failed craft flares the grid. */
+  .gc-result-slot.gc-failed {
+    box-shadow: inset 0 4px 14px #000, 0 0 30px var(--gc-danger);
+
+    &::before {
+      background: conic-gradient(from 0deg, var(--gc-danger), transparent 25%, var(--gc-danger) 50%, transparent 75%, var(--gc-danger));
     }
   }
 

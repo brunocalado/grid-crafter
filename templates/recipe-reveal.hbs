@@ -44,7 +44,7 @@
       </div>
       {{/if}}
     </div>
-    <div class="gc-arrow" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="gc-arrow{{#if dismantling}} gc-turned{{/if}}" aria-hidden="true"><span></span><span></span><span></span></div>
     <div class="gc-reveal-result-column">
       <div class="gc-result-slot gc-reveal-result" data-tooltip="{{result.name}}{{#if many}} ×{{quantity}}{{/if}}">
         <img src="{{result.img}}" alt="{{result.name}}">
@@ -56,7 +56,7 @@
       {{/if}}
     </div>
   </div>
-  {{#unless shaped}}<p class="gc-reveal-note">{{localize "GRIDCRAFTER.Reveal.Shapeless"}}</p>{{/unless}}
+  {{#unless (or shaped dismantling)}}<p class="gc-reveal-note">{{localize "GRIDCRAFTER.Reveal.Shapeless"}}</p>{{/unless}}
   {{#if controls}}
   <footer class="gc-reveal-controls">
     {{#if canLearn}}

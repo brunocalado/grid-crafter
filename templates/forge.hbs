@@ -4,15 +4,24 @@
     {{#each recipes}}
     <li class="{{#if rows.[1]}}gc-book-many{{/if}}" data-search="{{search}}" {{#if ready}}data-ready{{/if}}>
       {{#each rows}}
+      {{#if @root.dismantling}}
+      <button type="button" class="gc-book-entry {{#unless ready}}gc-missing{{/unless}}" data-action="fillInput"
+              data-recipe-id="{{../id}}" data-tooltip="{{#if ready}}{{localize "GRIDCRAFTER.Forge.FillInputHint"}}{{else}}{{localize "GRIDCRAFTER.Forge.MissingInputHint"}}{{/if}}">
+      {{else}}
       <button type="button" class="gc-book-entry {{#unless ready}}gc-missing{{/unless}}" data-action="fillRecipe"
               data-recipe-id="{{../id}}" data-variant="{{index}}" data-tooltip="{{#if ready}}{{localize "GRIDCRAFTER.Forge.FillHint"}}{{else}}{{localize "GRIDCRAFTER.Forge.MissingHint"}}{{/if}}">
+      {{/if}}
         {{#if first}}
         <img class="gc-book-result" src="{{../img}}" alt="">
-        <span class="gc-book-name">{{../name}}</span>
+        <span class="gc-book-name">{{../name}}{{#if ../count}} <span class="gc-book-count">×{{../count}}</span>{{/if}}</span>
         {{/if}}
         {{#if shaped}}
         <span class="gc-mini-grid">
           {{#each cells}}<span class="gc-mini-cell">{{#if this}}<img src="{{img}}" alt="">{{/if}}</span>{{/each}}
+        </span>
+        {{else if @root.dismantling}}
+        <span class="gc-mini-list">
+          {{#each cells}}<img src="{{img}}" alt="">{{/each}}
         </span>
         {{else}}
         <span class="gc-mini-list" data-tooltip="{{localize "GRIDCRAFTER.Recipe.Shapeless"}}">
@@ -29,7 +38,21 @@
   </ol>
   {{/inline}}
   <aside class="gc-book">
+    {{#if canDismantle}}
+    <div class="gc-book-head">
+      <h2 class="gc-book-title">{{localize "GRIDCRAFTER.Forge.Book"}}</h2>
+      <div class="gc-mode-switch" role="group">
+        <button type="button" class="gc-icon-button {{#unless dismantling}}gc-active{{/unless}}" data-action="setMode" data-mode="craft"
+                aria-pressed="{{#if dismantling}}false{{else}}true{{/if}}" aria-label="{{localize "GRIDCRAFTER.Forge.ModeCraft"}}"
+                data-tooltip="GRIDCRAFTER.Forge.ModeCraft"><i class="fa-solid {{icons.craft}}" inert></i></button>
+        <button type="button" class="gc-icon-button {{#if dismantling}}gc-active{{/if}}" data-action="setMode" data-mode="dismantle"
+                aria-pressed="{{dismantling}}" aria-label="{{localize "GRIDCRAFTER.Forge.ModeDismantle"}}"
+                data-tooltip="GRIDCRAFTER.Forge.ModeDismantle"><i class="fa-solid {{icons.dismantle}}" inert></i></button>
+      </div>
+    </div>
+    {{else}}
     <h2 class="gc-book-title"><i class="fa-solid fa-scroll-old" inert></i> {{localize "GRIDCRAFTER.Forge.Book"}}</h2>
+    {{/if}}
     {{#if book.length}}
     <div class="gc-book-tools">
       <div class="gc-search">
@@ -38,8 +61,9 @@
                placeholder="{{localize "GRIDCRAFTER.Search.Placeholder"}}" aria-label="{{localize "GRIDCRAFTER.Search.Label"}}">
       </div>
       <button type="button" class="gc-icon-button gc-ready-filter {{#if readyOnly}}gc-active{{/if}}"
-              data-action="toggleReady" aria-pressed="{{readyOnly}}" data-tooltip="GRIDCRAFTER.Forge.ReadyOnly">
-        <i class="fa-solid {{#if isArcane}}fa-wand-sparkles{{else}}fa-hammer{{/if}}" inert></i>
+              data-action="toggleReady" aria-pressed="{{readyOnly}}"
+              data-tooltip="{{#if dismantling}}GRIDCRAFTER.Forge.ReadyOnlyDismantle{{else}}GRIDCRAFTER.Forge.ReadyOnly{{/if}}">
+        <i class="fa-solid {{#if dismantling}}{{icons.dismantle}}{{else}}{{icons.craft}}{{/if}}" inert></i>
       </button>
     </div>
     <div class="gc-book-scroll">
@@ -60,7 +84,7 @@
       <p class="gc-book-empty gc-no-match" hidden>{{localize "GRIDCRAFTER.Search.NoMatch"}}</p>
     </div>
     {{else}}
-    <p class="gc-book-empty">{{localize "GRIDCRAFTER.Forge.BookEmpty"}}</p>
+    <p class="gc-book-empty">{{#if dismantling}}{{localize "GRIDCRAFTER.Forge.BookEmptyDismantle"}}{{else}}{{localize "GRIDCRAFTER.Forge.BookEmpty"}}{{/if}}</p>
     {{/if}}
   </aside>
 
@@ -98,29 +122,49 @@
     <div class="gc-workspace">
       <div class="gc-grid">
         {{#each slots}}
-        <div class="gc-cell {{#if item}}gc-filled{{/if}}" data-index="{{index}}" {{#if item}}draggable="true" data-tooltip="{{item.name}}"{{/if}}>
+        <div class="gc-cell {{#if item}}gc-filled{{/if}}{{#if ghost}}gc-ghost{{/if}}" data-index="{{index}}" {{#if item}}draggable="true" data-tooltip="{{item.name}}"{{/if}}>
           {{#if item}}
           <img src="{{item.img}}" alt="{{item.name}}" draggable="false">
           <button type="button" class="gc-cell-clear" data-action="clearCell" aria-label="{{localize "GRIDCRAFTER.Forge.Remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
+          {{else if ghost}}
+          <img src="{{ghost.img}}" alt="" draggable="false">
           {{/if}}
         </div>
         {{/each}}
       </div>
 
-      <div class="gc-arrow" aria-hidden="true">
+      <div class="gc-arrow{{#if dismantling}} gc-turned{{/if}}" aria-hidden="true">
         <span></span><span></span><span></span>
       </div>
 
+      {{#if dismantling}}
+      <div class="gc-result-slot gc-input-slot {{#if input}}gc-filled{{/if}}" {{#if input}}data-tooltip="{{input.name}}"{{/if}}>
+        {{#if input}}
+        <img src="{{input.img}}" alt="{{input.name}}" draggable="false">
+        <button type="button" class="gc-cell-clear" data-action="clearInput" aria-label="{{localize "GRIDCRAFTER.Forge.Remove"}}"><i class="fa-solid fa-xmark" inert></i></button>
+        {{else}}
+        <i class="fa-solid {{icons.dismantle}} gc-input-glyph" inert></i>
+        {{/if}}
+      </div>
+      {{else}}
       <div class="gc-result-slot {{#if result}}gc-filled{{/if}}" {{#if result}}draggable="true" data-tooltip="{{result.name}}{{#if result.quantity}} ×{{result.quantity}}{{/if}}<br>{{localize "GRIDCRAFTER.Forge.DragResult"}}"{{/if}}>
         {{#if result}}<img src="{{result.img}}" alt="{{result.name}}" draggable="false">{{/if}}
       </div>
+      {{/if}}
     </div>
 
     <footer class="gc-controls">
+      {{#if dismantling}}
+      <button type="button" class="gc-primary gc-craft" data-action="dismantle" {{#unless actor}}disabled{{/unless}}>
+        <i class="fa-solid {{icons.dismantle}}" inert></i>
+        <span>{{localize "GRIDCRAFTER.Forge.Dismantle"}}</span>
+      </button>
+      {{else}}
       <button type="button" class="gc-primary gc-craft" data-action="craft" {{#unless actor}}disabled{{/unless}}>
-        <i class="fa-solid {{#if isArcane}}fa-wand-sparkles{{else}}fa-hammer{{/if}}" inert></i>
+        <i class="fa-solid {{icons.craft}}" inert></i>
         <span>{{localize "GRIDCRAFTER.Forge.Craft"}}</span>
       </button>
+      {{/if}}
     </footer>
 
     <div class="gc-overlay" aria-hidden="true"></div>
