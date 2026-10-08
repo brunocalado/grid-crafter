@@ -12,8 +12,8 @@ import {
   recipeSearchText, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
 import {
-  blankRecipe, deleteRecipe, getAllRecipes, getHiddenIds, getRecipe, getWorldRecipes, isDiscoverable, restoreRecipe,
-  saveRecipe, setRecipeHidden
+  blankRecipe, deleteRecipe, getAllRecipes, getCategories, getHiddenIds, getRecipe, getWorldRecipes, isDiscoverable,
+  normalizeCategories, restoreRecipe, saveRecipe, setRecipeHidden
 } from "../recipes.js";
 import { ShareRecipeApp } from "./share-recipe-app.js";
 import { ForgetRecipeApp, TeachRecipeApp } from "./teach-recipe-app.js";
@@ -122,11 +122,13 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
         collapsed: this.#collapsed.has(source)
       };
       // A source that never uses categories stays one flat list, with no "Other" heading.
-      if ( !recipes.some(r => r.category) ) {
+      if ( !recipes.some(r => r.categories.length) ) {
         group.recipes = recipes.map(toEntry);
         return group;
       }
-      group.categories = [...groupByCategory(recipes)].map(([category, list]) => {
+      // Each row once, under its first category: here a row is something to click and edit, and a
+      // twin of it in another group would read as a second recipe.
+      group.categories = [...groupByCategory(recipes, { firstOnly: true })].map(([category, list]) => {
         const key = `${source}::${category}`;
         return { key, label: category || game.i18n.localize("GRIDCRAFTER.Recipe.CategoryNone"), count: list.length,
           collapsed: this.#collapsed.has(key), recipes: list.map(toEntry) };
@@ -155,6 +157,10 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       // As saved, so Restore is offered only for an edit that still exists.
       edited: !!all.find(r => r.id === draft.id)?.edited,
       isPublic: draft.public,
+      // The footer button names the first category and counts the rest; its tooltip lists them all.
+      categories: draft.categories.length ? {
+        first: draft.categories[0], more: draft.categories.length - 1, all: draft.categories.join(", ")
+      } : null,
       dirty: this.dirty,
       selecting: !!selected,
       picked: selected?.size ?? 0,
@@ -419,12 +425,12 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /**
-   * The keys of the groups a visible recipe sits in: its source, and its category within it.
+   * The keys of the groups a visible recipe sits in: its source, and its first category within it.
    * @param {Recipe} recipe
    * @returns {string[]}
    */
   #groupKeys(recipe) {
-    return [recipe.source, `${recipe.source}::${recipe.category}`];
+    return [recipe.source, `${recipe.source}::${recipe.categories[0] ?? ""}`];
   }
 
   /**
@@ -581,26 +587,99 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   /**
-   * Ask for the draft's category. Like every other field it waits for Save.
+   * Pick the draft's categories from every one in use, or coin a new one. Like every other field it
+   * waits for Save.
    * @this {RecipeEditorApp}
    */
   static async #onSetCategory() {
-    const options = [...new Set(getAllRecipes().map(r => r.category).filter(Boolean))];
-    const content = await foundry.applications.handlebars.renderTemplate(`${TEMPLATE_PATH}/category-dialog.hbs`,
-      { value: this.draft.category, max: CATEGORY_MAX, options });
-    const data = await foundry.applications.api.DialogV2.input({
-      window: { title: "GRIDCRAFTER.Recipe.Category" },
-      classes: [MODULE_ID, "gc-app", "gc-dialog", "gc-category-dialog", `gc-theme-${getTheme()}`],
-      content,
-      ok: { class: "gc-button" }
+    // Saved recipes only: the counts say where a recipe is listed now, not in this unsaved draft.
+    const recipes = getAllRecipes();
+    const names = [...new Set([...getCategories(), ...this.draft.categories])].sort((a, b) => a.localeCompare(b));
+    // In the order they were turned on: the first one is the row's group in this list.
+    const picked = [...this.draft.categories];
+    const content = await foundry.applications.handlebars.renderTemplate(`${TEMPLATE_PATH}/category-dialog.hbs`, {
+      max: CATEGORY_MAX,
+      categories: names.map(name => ({
+        name, active: picked.includes(name), count: recipes.filter(r => r.categories.includes(name)).length
+      }))
     });
-    if ( !data ) return;
-    let value = String(data.category ?? "").trim().slice(0, CATEGORY_MAX);
-    // "armas" typed where "Armas" exists joins the existing category rather than starting a twin.
-    value = options.find(o => o.localeCompare(value, undefined, { sensitivity: "base" }) === 0) ?? value;
-    if ( value === (this.draft.category ?? "") ) return;
-    this.draft.category = value;
+    const result = await foundry.applications.api.DialogV2.prompt({
+      window: { title: "GRIDCRAFTER.Recipe.Categories" },
+      classes: [MODULE_ID, "gc-app", "gc-dialog", "gc-category-dialog", `gc-theme-${getTheme()}`],
+      position: { width: 420 },
+      content,
+      ok: { class: "gc-button", callback: () => [...picked] },
+      render: (_event, dialog) => RecipeEditorApp.#bindCategoryCloud(dialog.element, picked)
+    });
+    if ( !result ) return;
+    const categories = normalizeCategories(result);
+    if ( foundry.utils.equals(categories, this.draft.categories) ) return;
+    this.draft.categories = categories;
     this.#markDirty(true);
+  }
+
+  /**
+   * Chips toggle in and out of `picked`; New turns into a field, and Enter there adds a lit chip, or
+   * lights the one already spelled that way.
+   * @param {HTMLElement} root     the dialog
+   * @param {string[]} picked      the chosen names, kept in the order they were turned on
+   */
+  static #bindCategoryCloud(root, picked) {
+    const cloud = root.querySelector(".gc-chip-cloud");
+    const add = cloud.querySelector("[data-new-category]");
+    const field = cloud.querySelector(".gc-chip-input");
+    const toggle = chip => {
+      const name = chip.dataset.category;
+      const on = !picked.includes(name);
+      if ( on ) picked.push(name);
+      else picked.splice(picked.indexOf(name), 1);
+      chip.classList.toggle("gc-active", on);
+      chip.setAttribute("aria-pressed", String(on));
+    };
+    const closeField = () => {
+      field.value = "";
+      field.hidden = true;
+      add.hidden = false;
+      add.focus();
+    };
+    const commit = () => {
+      const name = field.value.trim().slice(0, CATEGORY_MAX);
+      if ( !name ) return closeField();
+      const chips = [...cloud.querySelectorAll("[data-category]")];
+      let chip = chips.find(c => c.dataset.category.localeCompare(name, undefined, { sensitivity: "base" }) === 0);
+      if ( !chip ) {
+        chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "gc-chip";
+        chip.dataset.category = name;
+        chip.textContent = name;
+        add.before(chip);
+      }
+      if ( !chip.classList.contains("gc-active") ) toggle(chip);
+      closeField();
+    };
+    cloud.addEventListener("click", event => {
+      const chip = event.target.closest("[data-category]");
+      if ( chip ) return toggle(chip);
+      if ( !event.target.closest("[data-new-category]") ) return;
+      add.hidden = true;
+      field.hidden = false;
+      field.focus();
+    });
+    field.addEventListener("keydown", event => {
+      // Kept inside the field: Enter would submit the dialog and Escape would close it.
+      if ( event.key === "Enter" ) {
+        event.preventDefault();
+        commit();
+      } else if ( event.key === "Escape" ) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeField();
+      }
+    });
+    field.addEventListener("blur", () => {
+      if ( !field.hidden ) commit();
+    });
   }
 
   /** @this {RecipeEditorApp} */

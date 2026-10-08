@@ -35,11 +35,90 @@
   }
 }
 
+/* Every category in use as a chip; a lit chip is one this recipe is listed under. */
 .grid-crafter.gc-category-dialog {
-  .gc-field input[type="text"] {
-    flex: 1;
-    height: 32px;
-    font-family: var(--gc-font-title);
-    font-size: var(--font-size-18);
+  .gc-chip-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+    /* Room for the lit chips' glow, which the scroll box would otherwise clip square. */
+    margin: -6px;
+    padding: 6px;
+  }
+
+  .gc-chip {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    width: auto;
+    height: 28px;
+    margin: 0;
+    padding: 0 11px;
+    /* Off reads as a quiet outline, so the lit ones are what the eye finds. */
+    background: transparent;
+    border: 1px solid var(--gc-metal-hi);
+    border-radius: 999px;
+    color: var(--gc-text-dim);
+    font-size: var(--font-size-13);
+    line-height: 1;
+    transition: border-color 150ms, box-shadow 150ms, color 150ms;
+
+    /* New hides while its field is open; the display above would otherwise beat [hidden]. */
+    &[hidden] {
+      display: none;
+    }
+
+    &:hover,
+    &:focus-visible {
+      color: var(--gc-text);
+      border-color: var(--gc-glow);
+      box-shadow: 0 0 8px rgba(var(--gc-glow-rgb), 0.4);
+      outline: none;
+    }
+
+    &.gc-active {
+      background: linear-gradient(180deg, var(--gc-metal-hi), var(--gc-metal));
+      border-color: var(--gc-trim-hi);
+      color: var(--gc-trim-hi);
+      font-weight: bold;
+      box-shadow: 0 0 10px rgba(var(--gc-glow-rgb), 0.55);
+    }
+  }
+
+  .gc-chip-count {
+    color: var(--gc-text-dim);
+    font-size: var(--font-size-11);
+    font-weight: normal;
+  }
+
+  .gc-chip.gc-active .gc-chip-count {
+    color: var(--gc-glow-2);
+  }
+
+  .gc-chip-add {
+    background: transparent;
+    border-style: dashed;
+    color: var(--gc-text-dim);
+
+    &:hover {
+      color: var(--gc-trim-hi);
+    }
+  }
+
+  /* Where New was, the same pill shape, so the cloud doesn't jump while a name is typed. */
+  .gc-chip-input {
+    flex: none;
+    width: 140px;
+    height: 28px;
+    padding: 0 11px;
+    background: var(--gc-bg-0);
+    border: 1px solid var(--gc-glow);
+    border-radius: 999px;
+    color: var(--gc-text);
+    font-size: var(--font-size-13);
+    box-shadow: 0 0 8px rgba(var(--gc-glow-rgb), 0.4);
   }
 }

@@ -97,7 +97,7 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       img: r.result?.img,
       shaped: r.shaped,
       cells: r.shaped ? r.cells : r.cells.filter(Boolean),
-      category: r.category,
+      categories: r.categories,
       search: recipeSearchText(r),
       ready: !!(actor && fillFromInventory(r, actor) && hasRequiredItem(r, actor)),
       requires: r.requires ? { name: r.requires.name, img: r.requires.img, has: !!actor && hasRequiredItem(r, actor) } : null,
@@ -105,6 +105,7 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       public: !learned.has(r.id)
     }));
     // Players don't care which package a recipe came from, so the book groups by category alone.
+    // A recipe with several categories is listed in each.
     // Craftable recipes lead each group.
     const byCategory = groupByCategory(book);
     for ( const recipes of byCategory.values() ) recipes.sort((a, b) => b.ready - a.ready);

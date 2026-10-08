@@ -88,14 +88,15 @@ lost in the attempt.
    uses the world's chance to lose materials or a chance of its own. Switch on **Public** if every
    character should know the recipe, and set **Discovery** if this recipe should not follow the
    world setting. Hover the **?** icons for a quick explanation.
-4. Optionally, give it a **Category** to group it with similar recipes.
+4. Optionally, give it one or more **Categories** to group it with similar recipes. A recipe
+   with two categories shows up in both groups of the character's book.
 5. **Save.**
 
 ![The GM's Recipe Book](docs/recipe-book.webp)
 
 The Recipe Book lists this world's recipes first, then one group for each module or system that
-ships recipes, each split by category. Search finds a recipe by its name, what it makes, its
-category or an ingredient. A recipe you don't need to see can be moved to the **Hidden** group
+ships recipes, each split by its first category. Search finds a recipe by its name, what it makes,
+its categories or an ingredient. A recipe you don't need to see can be moved to the **Hidden** group
 at the bottom of the list; this changes nothing in play. **Duplicate** copies a recipe as a new
 world recipe.
 

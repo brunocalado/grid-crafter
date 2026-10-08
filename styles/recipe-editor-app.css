@@ -355,6 +355,12 @@
       &.gc-unset span {
         color: var(--gc-text-dim);
       }
+
+      .gc-category-more {
+        flex: none;
+        color: var(--gc-trim-hi);
+        font-size: var(--font-size-12);
+      }
     }
 
     /* Duplicate, then Share, Teach and Forget: actions on the recipe rather than edits to it, so

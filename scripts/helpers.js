@@ -157,23 +157,33 @@ export function searchKey(text) {
 }
 
 /**
- * Everything a recipe search looks through: its name, what it makes, its category, the item it requires,
- * its ingredients.
+ * Everything a recipe search looks through: its name, what it makes, its categories, the item it
+ * requires, its ingredients.
  * @param {object} recipe
  * @returns {string}
  */
 export function recipeSearchText(recipe) {
-  return searchKey([recipe.name, recipe.result?.name, recipe.category, recipe.requires?.name, ...recipe.cells.map(c => c?.name)]
-    .filter(Boolean).join(" "));
+  return searchKey([recipe.name, recipe.result?.name, ...recipe.categories, recipe.requires?.name,
+    ...recipe.cells.map(c => c?.name)].filter(Boolean).join(" "));
 }
 
 /**
- * Recipes by category, in order of first appearance, uncategorised last.
- * @param {object[]} recipes
+ * Recipes by category, in order of first appearance, uncategorised ("" key) last. A recipe with
+ * several categories sits in each of them, unless `firstOnly` keeps it to its first.
+ * @param {object[]} recipes   each with a `categories` list
+ * @param {object} [options]
+ * @param {boolean} [options.firstOnly=false]
  * @returns {Map<string, object[]>}
  */
-export function groupByCategory(recipes) {
-  const groups = Map.groupBy(recipes, r => r.category);
+export function groupByCategory(recipes, { firstOnly = false } = {}) {
+  const groups = new Map();
+  for ( const recipe of recipes ) {
+    const names = recipe.categories.length ? recipe.categories : [""];
+    for ( const name of (firstOnly ? names.slice(0, 1) : names) ) {
+      if ( !groups.has(name) ) groups.set(name, []);
+      groups.get(name).push(recipe);
+    }
+  }
   const other = groups.get("");
   groups.delete("");
   if ( other ) groups.set("", other);

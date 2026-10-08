@@ -134,7 +134,7 @@ update the actor directly.
 | `cells` | yes | The 3×3 grid: either a flat list of 9 entries (row by row) or 3 rows of 3. Each entry is an item uuid or `null` for an empty cell. At least one cell must hold an item. |
 | `result` | yes | The uuid of the item the recipe makes: a world item or a compendium item. A copy of it goes to the crafter's character sheet. |
 | `name` | no | Name shown in the recipe books. Defaults to the result item's name. |
-| `category` | no | A short group name for the recipe, at most 24 characters; longer text is cut. Default none. |
+| `categories` | no | A list of group names, each at most 24 characters (longer text is cut). The recipe books list the recipe under each one. A name no recipe uses yet starts a new category; one that matches an existing category apart from case or accents takes that category's spelling. Default none. |
 | `shaped` | no | `true` (default): items must keep their positions. `false`: only which items, not where. |
 | `quantity` | no | How many of the result one craft makes, 1 to 10. Default `1`. |
 | `failLossChance` | no | Percent chance (0–100) that a failed attempt destroys the materials. Leave it out to use the GM's world setting. |
@@ -246,7 +246,7 @@ Removes every recipe your package registered, on this client.
 ### `getRecipes()` → `object[]`
 
 Every recipe on this client: the world's recipes first, then registered ones. Each has `id`,
-`name`, `category` (`""` when none), `shaped`, `cells` (9 entries, each `{ uuid, name, img, type, sources }` or `null`),
+`name`, `categories` (a list, empty when none), `shaped`, `cells` (9 entries, each `{ uuid, name, img, type, sources }` or `null`),
 `result`, `requires` (the required item's `{ uuid, name, img, type, sources }`, or `null`), `quantity`, `failLossChance` (`null` when it follows the world setting), `source`
 (`"world"` or the package id), `public` (whether every character knows it) and `discoverable`
 (`null` when it follows the world setting). A package recipe
@@ -277,6 +277,24 @@ rest of it. Resolves `true` once it is saved, `false` when the call was refused.
 ### `isRecipePublic(id)` → `boolean`
 
 Whether every character knows the recipe right now. `false` for an unknown id.
+
+### `getCategories()` → `string[]`
+
+Every category some recipe uses, world and package recipes alike, alphabetically. Use it to file
+your recipes under a category the GM already has instead of starting a twin.
+
+### `setRecipeCategories(id, categories)` → `Promise<boolean>` *(GM only)*
+
+Replaces the categories a recipe is listed under.
+
+- `id` *(string)*: the recipe's id, as `getRecipes()` lists it. An unknown id is refused with a
+  warning.
+- `categories` *(string[])*: the new list, tidied like the [recipe field](#recipe-format). A name
+  not in use yet starts a new category; `[]` leaves the recipe uncategorised. Anything but a list
+  of strings is refused with a warning.
+
+On a package recipe this is an edit like any other, as with `setRecipePublic`. Resolves `true`
+once it is saved, `false` when the call was refused.
 
 ### `teachRecipe(target, id)` → `Promise<boolean>`
 
@@ -338,7 +356,7 @@ Opens the GM's Recipe Book.
 ## What the GM can do with your recipes
 
 Your recipes show in the GM's Recipe Book under your package's title. The GM can edit any of them
-in place, `public` and `discoverable` included, and the recipe keeps its id, so characters who
+in place, `public`, `discoverable` and `categories` included, and the recipe keeps its id, so characters who
 learned it keep it.
 
 Because your recipes are registered fresh each session, updating your module updates them

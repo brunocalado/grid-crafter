@@ -159,11 +159,12 @@
         <i class="fa-solid fa-eraser" inert></i> {{localize "GRIDCRAFTER.Editor.Forget"}} <span class="gc-picked-count">{{picked}}</span>
       </button>
       {{else}}
-      <button type="button" class="gc-button gc-category {{#unless draft.category}}gc-unset{{/unless}}"
+      <button type="button" class="gc-button gc-category {{#unless categories}}gc-unset{{/unless}}"
               data-action="setCategory"
-              data-tooltip="{{#if draft.category}}{{draft.category}}{{else}}{{localize "GRIDCRAFTER.Editor.CategoryHint"}}{{/if}}">
+              data-tooltip="{{#if categories}}{{categories.all}}{{else}}{{localize "GRIDCRAFTER.Editor.CategoryHint"}}{{/if}}">
         <i class="fa-solid fa-tag" inert></i>
-        <span>{{#if draft.category}}{{draft.category}}{{else}}{{localize "GRIDCRAFTER.Recipe.Category"}}{{/if}}</span>
+        <span>{{#if categories}}{{categories.first}}{{else}}{{localize "GRIDCRAFTER.Recipe.Categories"}}{{/if}}</span>
+        {{#if categories.more}}<span class="gc-category-more">+{{categories.more}}</span>{{/if}}
       </button>
       {{#if isPackage}}
       {{#if edited}}

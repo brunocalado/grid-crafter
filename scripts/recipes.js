@@ -16,7 +16,7 @@ import { refMatches, toItemRef } from "./helpers.js";
  * @typedef {object} Recipe
  * @property {string} id
  * @property {string} name
- * @property {string} category            "" when the recipe has none
+ * @property {string[]} categories        groups it is listed under in the books; empty when none
  * @property {boolean} shaped              false: only which items, not where, matters
  * @property {(import("./helpers.js").ItemRef|null)[]} cells   nine cells, row by row
  * @property {import("./helpers.js").ItemRef} result
@@ -37,7 +37,7 @@ const registered = new Map();
 /** @returns {Recipe[]} the recipes the GM made in this world */
 export function getWorldRecipes() {
   return game.settings.get(MODULE_ID, SETTING_RECIPES)
-    .map(r => ({ category: "", public: false, discoverable: null, ...r, source: "world" }));
+    .map(r => ({ categories: [], public: false, discoverable: null, ...r, source: "world" }));
 }
 
 /**
@@ -48,7 +48,7 @@ export function getWorldRecipes() {
 export function getAllRecipes() {
   const edits = game.settings.get(MODULE_ID, SETTING_RECIPE_EDITS);
   const fromPackages = [...registered.values()].map(r => (edits[r.id]
-    ? { ...edits[r.id], id: r.id, source: r.source, edited: true } : r));
+    ? { categories: [], ...edits[r.id], id: r.id, source: r.source, edited: true } : r));
   return [...getWorldRecipes(), ...fromPackages];
 }
 
@@ -119,12 +119,39 @@ export async function setRecipeHidden(id, hidden) {
   return game.settings.set(MODULE_ID, SETTING_HIDDEN_RECIPES, [...ids]);
 }
 
+/**
+ * Category names as a recipe keeps them: trimmed, cut to length, no blanks, no repeats. A name that
+ * differs only in case or accents from one already in use anywhere takes that one's spelling, so
+ * "armas" joins "Armas" rather than starting a twin.
+ * @param {unknown} value   anything; only a list of strings yields names
+ * @returns {string[]}
+ */
+export function normalizeCategories(value) {
+  if ( !Array.isArray(value) ) return [];
+  const known = getCategories();
+  const names = [];
+  for ( const raw of value ) {
+    if ( typeof raw !== "string" ) continue;
+    const name = raw.trim().slice(0, CATEGORY_MAX);
+    if ( !name ) continue;
+    const spelled = known.find(k => k.localeCompare(name, undefined, { sensitivity: "base" }) === 0) ?? name;
+    if ( !names.some(n => n.localeCompare(spelled, undefined, { sensitivity: "base" }) === 0) ) names.push(spelled);
+  }
+  return names;
+}
+
+/** @returns {string[]} every category some recipe uses, alphabetically */
+export function getCategories() {
+  const names = new Set(getAllRecipes().flatMap(r => r.categories));
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
 /** @returns {Recipe} an empty recipe ready for the editor */
 export function blankRecipe() {
   return {
     id: foundry.utils.randomID(),
     name: "",
-    category: "",
+    categories: [],
     shaped: true,
     public: false,
     cells: Array(CELL_COUNT).fill(null),
@@ -195,7 +222,7 @@ export function registerRecipes(packageId, recipes) {
     registered.set(label, {
       id: label,
       name: String(data.name ?? result.name),
-      category: String(data.category ?? "").trim().slice(0, CATEGORY_MAX),
+      categories: normalizeCategories(data.categories),
       shaped: data.shaped !== false,
       public: data.public === true,
       cells,

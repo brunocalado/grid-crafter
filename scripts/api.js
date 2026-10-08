@@ -11,7 +11,7 @@ import { RecipeEditorApp } from "./apps/recipe-editor-app.js";
 import { forgetRecipes, getKnownRecipeIds, learnRecipes } from "./crafting.js";
 import { getCraftingActor, toActor } from "./helpers.js";
 import {
-  getAllRecipes, getRecipe, registerRecipes, saveRecipe, unregisterRecipes
+  getAllRecipes, getCategories, getRecipe, normalizeCategories, registerRecipes, saveRecipe, unregisterRecipes
 } from "./recipes.js";
 import { shareRecipe } from "./share.js";
 
@@ -58,6 +58,7 @@ function openApp(AppClass) {
  *       null, "Compendium.my-module.items.Item.stick0000000000", null
  *     ],
  *     result: "Compendium.my-module.items.Item.sword0000000000",
+ *     categories: ["Smithing", "Weapons"],
  *     quantity: 1,
  *     failLossChance: 25
  *   }]);
@@ -99,6 +100,26 @@ export const api = {
    * @returns {boolean} whether every character knows the recipe; false for an unknown id
    */
   isRecipePublic: id => !!getRecipe(id)?.public,
+
+  /** @returns {string[]} every category some recipe uses, alphabetically */
+  getCategories,
+
+  /**
+   * Replace the categories a recipe is listed under. A name not in use yet starts a new category;
+   * an empty list leaves the recipe uncategorised. GM only. On a package recipe this is an edit like
+   * any other, as with setRecipePublic.
+   * @param {string} id
+   * @param {string[]} categories
+   * @returns {Promise<boolean>} false when the call was refused (with a warning)
+   */
+  setRecipeCategories: async (id, categories) => {
+    if ( !game.user.isGM ) return warn("GMOnly");
+    const recipe = getRecipe(id);
+    if ( !recipe ) return warn("UnknownRecipe", { id });
+    if ( !Array.isArray(categories) || !categories.every(c => typeof c === "string") ) return warn("CategoriesNotList");
+    await saveRecipe({ ...recipe, categories: normalizeCategories(categories) });
+    return true;
+  },
 
   /**
    * @param {Actor|TokenDocument|Token|string} [target]   defaults to the current user's crafting actor

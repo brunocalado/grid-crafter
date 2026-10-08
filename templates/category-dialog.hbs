@@ -1,7 +1,15 @@
 <fieldset class="gc-field">
-  <legend>{{localize "GRIDCRAFTER.Recipe.Category"}}</legend>
-  <input type="text" name="category" value="{{value}}" maxlength="{{max}}" list="gc-category-options" autofocus>
+  <legend>{{localize "GRIDCRAFTER.Recipe.Categories"}}</legend>
+  <div class="gc-chip-cloud">
+    {{#each categories}}
+    <button type="button" class="gc-chip {{#if active}}gc-active{{/if}}" data-category="{{name}}" aria-pressed="{{active}}">
+      {{name}}{{#if count}}<span class="gc-chip-count">{{count}}</span>{{/if}}
+    </button>
+    {{/each}}
+    <button type="button" class="gc-chip gc-chip-add" data-new-category>
+      <i class="fa-solid fa-plus" inert></i> {{localize "GRIDCRAFTER.Editor.NewCategory"}}
+    </button>
+    <input type="text" class="gc-chip-input" maxlength="{{max}}" autocomplete="off" hidden
+           aria-label="{{localize "GRIDCRAFTER.Editor.NewCategoryLabel"}}">
+  </div>
 </fieldset>
-<datalist id="gc-category-options">
-  {{#each options}}<option value="{{this}}"></option>{{/each}}
-</datalist>

@@ -15,7 +15,7 @@
     },
     "Recipe": {
       "Name": "Recipe name",
-      "Category": "Category",
+      "Categories": "Categories",
       "CategoryNone": "Other",
       "Shape": "Shape",
       "Shaped": "Shaped",
@@ -34,7 +34,9 @@
       "Open": "Recipes",
       "New": "New Recipe",
       "Empty": "No recipes yet.",
-      "CategoryHint": "Group this recipe under a category",
+      "CategoryHint": "Group this recipe under one or more categories. It is listed in each.",
+      "NewCategory": "New",
+      "NewCategoryLabel": "New category name",
       "WorldRecipes": "This World",
       "DropResult": "Drop the item this recipe makes",
       "DropRequires": "Drop an item the character must carry. It is never spent; any type counts.",
@@ -145,7 +147,8 @@
       "NoPlayersOnline": "No player is online.",
       "SaveBeforeSharing": "Save the recipe before sharing it.",
       "ShareMissed": "The recipe could not be shown to {names}.",
-      "UserIdsNotList": "Pass the players as a list of user ids."
+      "UserIdsNotList": "Pass the players as a list of user ids.",
+      "CategoriesNotList": "Pass the categories as a list of names."
     },
     "Settings": {
       "RecipeEditor": {
