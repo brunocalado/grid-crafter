@@ -388,6 +388,8 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         return;
       }
       await strike;
+      // A listener on the preCraft hook stopped it and owns the explanation; nothing was spent.
+      if ( outcome.cancelled ) return;
       if ( outcome.success ) {
         await this.#playSuccess(outcome.item);
         this.slots = Array(CELL_COUNT).fill(null);

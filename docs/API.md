@@ -8,6 +8,7 @@ The API is available as `GridCrafter` and as `game.modules.get("grid-crafter").a
 
 - [Quick start](#quick-start)
 - [When to register](#when-to-register)
+- [Hooks](#hooks)
 - [Recipe format](#recipe-format)
 - [How items are matched](#how-items-are-matched)
 - [Reference](#reference)
@@ -62,6 +63,47 @@ Hooks.once("grid-crafter.ready", api => {
 ```
 
 Either way works. The hook only fires when Grid Crafter is active, so you don't need to check.
+
+---
+
+## Hooks
+
+Two hooks let your module, system or macro act on crafting: stop a craft before it happens, or
+react once it has settled. Grid Crafter knows nothing about XP, downtime or skill checks; these
+hooks are where you add them.
+
+| Hook | Args | Notes |
+|---|---|---|
+| `grid-crafter.preCraft` | `actor`, `recipe` (a copy, or `null` when the layout matches no recipe the actor can make), `items` (`Item[]` on the grid, one entry per filled cell) | Return `false` to cancel. Synchronous: an awaited roll inside it does not delay the craft. |
+| `grid-crafter.craft` | `actor`, `result` `{ success, recipe, item, lost, refused, incomplete, cancelled: false, ingredients }` | `item` is the forged Item on success, else `null`. `ingredients` are `{ uuid, name, img, type, sources }`. Not fired for a cancelled craft. |
+
+**`grid-crafter.preCraft`** fires after Grid Crafter has checked the grid and found the recipe (or
+not), and before anything is written: no item spent, no loss rolled, nothing learned, no chat card.
+When a listener returns `false`, the craft stops there and the grid stays as the player left it.
+Grid Crafter shows no message of its own, so tell the player why:
+
+```js
+Hooks.on("grid-crafter.preCraft", (actor, recipe, items) => {
+  if ( !recipe ) return;                       // a layout that matches nothing: let it fail
+  if ( actor.system.downtime > 0 ) return;
+  ui.notifications.warn(`${actor.name} has no downtime left to forge ${recipe.name}.`);
+  return false;
+});
+```
+
+**`grid-crafter.craft`** fires once per craft, after the chat card is posted, whatever the outcome:
+success, failure (with or without the materials lost), a result the actor refused, or an
+incomplete craft. The ingredients are passed as plain data, because the spent ones no longer exist.
+
+```js
+Hooks.on("grid-crafter.craft", (actor, result) => {
+  if ( result.success ) actor.update({ "system.xp": actor.system.xp + 10 });
+});
+```
+
+Both hooks fire **only on the client of the user who pressed Craft**, not on the GM's or anyone
+else's. That user owns the actor (Grid Crafter refuses items they don't own), so a listener can
+update the actor directly.
 
 ---
 

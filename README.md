@@ -166,6 +166,8 @@ Hooks.once("grid-crafter.ready", api => {
 });
 ```
 
+Other packages can also stop a craft or react to it through [two hooks](docs/API.md#hooks).
+
 👉 **[Read the full API documentation](docs/API.md)**
 
 ## 🚀 Installation
