@@ -95,6 +95,20 @@
           {{/unless}}
           <output class="gc-loss-value">{{lossChance}}%</output>
         </fieldset>
+        <fieldset class="gc-field gc-discovery">
+          <legend>{{localize "GRIDCRAFTER.Recipe.Discovery"}}</legend>
+          <label class="gc-inherit">
+            <input type="checkbox" class="gc-toggle" name="discoverInherit" {{#if discoverInherit}}checked{{/if}}>
+            <span>{{localize "GRIDCRAFTER.Recipe.Inherit"}}</span>
+          </label>
+          {{#unless discoverInherit}}
+          <input type="checkbox" class="gc-toggle" name="discoverable" {{#if discoverable}}checked{{/if}}
+                 aria-label="{{localize "GRIDCRAFTER.Recipe.Discovery"}}">
+          {{/unless}}
+          <output class="gc-discovery-value">{{#if discoverable}}{{localize "GRIDCRAFTER.Recipe.Yes"}}{{else}}{{localize "GRIDCRAFTER.Recipe.No"}}{{/if}}</output>
+          <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{discoveryHelp}}"
+             data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="UP"></i>
+        </fieldset>
         <fieldset class="gc-field gc-quantity">
           <legend>{{localize "GRIDCRAFTER.Recipe.Quantity"}}</legend>
           <input type="range" name="quantity" min="1" max="10" step="1" value="{{draft.quantity}}">

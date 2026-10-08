@@ -7,7 +7,8 @@
  */
 
 import {
-  CATEGORY_MAX, CELL_COUNT, GRID_SIZE, MODULE_ID, SETTING_HIDDEN_RECIPES, SETTING_RECIPE_EDITS, SETTING_RECIPES
+  CATEGORY_MAX, CELL_COUNT, GRID_SIZE, MODULE_ID, SETTING_DISCOVERY, SETTING_HIDDEN_RECIPES, SETTING_RECIPE_EDITS,
+  SETTING_RECIPES
 } from "./constants.js";
 import { refMatches, toItemRef } from "./helpers.js";
 
@@ -22,6 +23,8 @@ import { refMatches, toItemRef } from "./helpers.js";
  * @property {number} quantity            how many results one craft makes
  * @property {number|null} failLossChance  percent; null inherits the world default
  * @property {boolean} public            every character knows it
+ * @property {boolean|null} discoverable  whether an actor that doesn't know it can make it; null
+ *   inherits the world setting
  * @property {string} [source]            "world", or the id of the package that registered it
  * @property {boolean} [edited]          a package recipe the GM changed; Restore brings back the package's
  */
@@ -32,7 +35,7 @@ const registered = new Map();
 /** @returns {Recipe[]} the recipes the GM made in this world */
 export function getWorldRecipes() {
   return game.settings.get(MODULE_ID, SETTING_RECIPES)
-    .map(r => ({ category: "", public: false, ...r, source: "world" }));
+    .map(r => ({ category: "", public: false, discoverable: null, ...r, source: "world" }));
 }
 
 /**
@@ -125,8 +128,18 @@ export function blankRecipe() {
     cells: Array(CELL_COUNT).fill(null),
     result: null,
     quantity: 1,
-    failLossChance: null
+    failLossChance: null,
+    discoverable: null
   };
+}
+
+/**
+ * Can an actor that doesn't know the recipe make it by laying out its ingredients?
+ * @param {Recipe} recipe
+ * @returns {boolean}
+ */
+export function isDiscoverable(recipe) {
+  return recipe.discoverable ?? game.settings.get(MODULE_ID, SETTING_DISCOVERY);
 }
 
 /* -------------------------------------------- */
@@ -185,6 +198,7 @@ export function registerRecipes(packageId, recipes) {
       result,
       quantity: Math.clamp(Math.floor(Number(data.quantity) || 1), 1, 10),
       failLossChance: Number.isFinite(chance) ? Math.clamp(chance, 0, 100) : null,
+      discoverable: (typeof data.discoverable === "boolean") ? data.discoverable : null,
       source: packageId
     });
     count++;
@@ -279,18 +293,20 @@ export function recipeMatches(recipe, cells) {
 /**
  * The first recipe a grid satisfies.
  * @param {(object|null)[]} cells
+ * @param {Recipe[]} recipes   the ones the crafter may make
  * @returns {Recipe|null}
  */
-export function findRecipe(cells) {
-  return getAllRecipes().find(r => r.result && recipeMatches(r, cells)) ?? null;
+export function findRecipe(cells, recipes) {
+  return recipes.find(r => r.result && recipeMatches(r, cells)) ?? null;
 }
 
 /**
  * The recipe a failed grid was closest to: right items, wrong shape. It decides what a failure costs.
  * @param {(object|null)[]} cells
+ * @param {Recipe[]} recipes   the ones the crafter may make
  * @returns {Recipe|null}
  */
-export function findNearRecipe(cells) {
+export function findNearRecipe(cells, recipes) {
   const items = cells.filter(Boolean);
-  return getAllRecipes().find(r => sameItems(r.cells.filter(Boolean), items)) ?? null;
+  return recipes.find(r => sameItems(r.cells.filter(Boolean), items)) ?? null;
 }

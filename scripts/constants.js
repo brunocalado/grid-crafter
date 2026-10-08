@@ -18,6 +18,7 @@ export const SETTING_HIDDEN_RECIPES = "hiddenRecipes";
 export const SETTING_ALLOWED_TYPES = "allowedTypes";
 export const SETTING_QUANTITY_PATH = "quantityPath";
 export const SETTING_FAIL_LOSS_CHANCE = "failLossChance";
+export const SETTING_DISCOVERY = "discovery";
 export const SETTING_THEME = "theme";
 export const SETTING_SOUND_VOLUME = "soundVolume";
 export const SETTING_SOUND_CRAFT = "soundCraft";

@@ -78,6 +78,7 @@ Either way works. The hook only fires when Grid Crafter is active, so you don't 
 | `quantity` | no | How many of the result one craft makes, 1 to 10. Default `1`. |
 | `failLossChance` | no | Percent chance (0–100) that a failed attempt destroys the materials. Leave it out to use the GM's world setting. |
 | `public` | no | `true`: every character knows the recipe until the GM makes it private. Default `false`. |
+| `discoverable` | no | Whether a character who doesn't know the recipe can make it by laying out its ingredients. `true` or `false` overrides the GM's world setting; leave it out to follow that setting. |
 
 ### Shaped recipes
 
@@ -136,7 +137,9 @@ the write is enough.
 ### Failure
 
 A failed craft counts against your recipe when the grid holds **your recipe's items in the wrong
-shape**. Then your `failLossChance` applies. Any other failure uses the GM's world setting.
+shape**. Then your `failLossChance` applies. Any other failure uses the GM's world setting, and so
+does a layout of a recipe the character doesn't know and can't discover: that fails like any wrong
+layout and gives nothing away.
 
 ---
 
@@ -183,7 +186,8 @@ Removes every recipe your package registered, on this client.
 Every recipe on this client: the world's recipes first, then registered ones. Each has `id`,
 `name`, `category` (`""` when none), `shaped`, `cells` (9 entries, each `{ uuid, name, img, type, sources }` or `null`),
 `result`, `quantity`, `failLossChance` (`null` when it follows the world setting), `source`
-(`"world"` or the package id) and `public` (whether every character knows it). A package recipe
+(`"world"` or the package id), `public` (whether every character knows it) and `discoverable`
+(`null` when it follows the world setting). A package recipe
 the GM edited carries `edited: true`, and its fields are the GM's version. The objects are copies;
 changing them changes nothing.
 
@@ -272,7 +276,8 @@ Opens the GM's Recipe Book.
 ## What the GM can do with your recipes
 
 Your recipes show in the GM's Recipe Book under your package's title. The GM can edit any of them
-in place, `public` included, and the recipe keeps its id, so characters who learned it keep it.
+in place, `public` and `discoverable` included, and the recipe keeps its id, so characters who
+learned it keep it.
 
 Because your recipes are registered fresh each session, updating your module updates them
 everywhere, except the ones the GM edited: an edited recipe stays as the GM left it and stops

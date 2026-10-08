@@ -7,7 +7,7 @@
  */
 
 import {
-  MODULE_ID, SETTING_ALLOWED_TYPES, SETTING_FAIL_LOSS_CHANCE, SETTING_HIDDEN_RECIPES, SETTING_QUANTITY_PATH,
+  MODULE_ID, SETTING_ALLOWED_TYPES, SETTING_DISCOVERY, SETTING_FAIL_LOSS_CHANCE, SETTING_HIDDEN_RECIPES, SETTING_QUANTITY_PATH,
   SETTING_RECIPE_EDITS, SETTING_RECIPES,
   SETTING_SOUND_CRAFT, SETTING_SOUND_FAILURE, SETTING_SOUND_SHARE, SETTING_SOUND_SUCCESS, SETTING_SOUND_VOLUME,
   SETTING_THEME
@@ -150,6 +150,15 @@ export function registerSettings() {
     config: true,
     type: new foundry.data.fields.NumberField({ min: 0, max: 100, step: 5, integer: true, nullable: false, initial: 0 }),
     default: 0
+  });
+
+  game.settings.register(MODULE_ID, SETTING_DISCOVERY, {
+    name: "GRIDCRAFTER.Settings.Discovery.Name",
+    hint: "GRIDCRAFTER.Settings.Discovery.Hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
   });
 
   // The base loudness of the cues for the whole table. Each user still scales it with their own

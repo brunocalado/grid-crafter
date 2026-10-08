@@ -12,8 +12,8 @@ import {
   toItemRef
 } from "../helpers.js";
 import {
-  blankRecipe, deleteRecipe, getAllRecipes, getHiddenIds, getRecipe, getWorldRecipes, restoreRecipe, saveRecipe,
-  setRecipeHidden
+  blankRecipe, deleteRecipe, getAllRecipes, getHiddenIds, getRecipe, getWorldRecipes, isDiscoverable, restoreRecipe,
+  saveRecipe, setRecipeHidden
 } from "../recipes.js";
 import { ShareRecipeApp } from "./share-recipe-app.js";
 import { ForgetRecipeApp, TeachRecipeApp } from "./teach-recipe-app.js";
@@ -45,7 +45,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       icon: "fa-solid fa-scroll-old",
       resizable: false
     },
-    position: { width: 900, height: "auto" },
+    // Wide enough for Failure, Discovery and Makes side by side with a usable loss slider.
+    position: { width: 1120, height: "auto" },
     actions: {
       newRecipe: RecipeEditorApp.#onNew,
       selectRecipe: RecipeEditorApp.#onSelect,
@@ -155,12 +156,16 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       cells: draft.cells.map((item, index) => ({ index, item })),
       inherit: draft.failLossChance === null,
       lossChance: draft.failLossChance ?? game.settings.get(MODULE_ID, SETTING_FAIL_LOSS_CHANCE),
+      discoverInherit: draft.discoverable === null,
+      discoverable: isDiscoverable(draft),
       shapeHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Shaped")}</strong><br>`
         + `${game.i18n.localize("GRIDCRAFTER.Editor.ShapedHint")}</p>`
         + `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Shapeless")}</strong><br>`
         + `${game.i18n.localize("GRIDCRAFTER.Editor.ShapelessHint")}</p>`,
       publicHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Public")}</strong><br>`
         + `${game.i18n.localize("GRIDCRAFTER.Editor.PublicHint")}</p>`,
+      discoveryHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Discovery")}</strong><br>`
+        + `${game.i18n.localize("GRIDCRAFTER.Editor.DiscoveryHint")}</p>`,
       quantityHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Quantity")}</strong><br>`
         + `${game.i18n.localize("GRIDCRAFTER.Editor.QuantityHint")}</p>`
     };
@@ -291,6 +296,14 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
         return this.#markDirty(true);
       case "public":
         draft.public = input.checked;
+        break;
+      case "discoverInherit":
+        draft.discoverable = input.checked ? null : isDiscoverable(draft);
+        return this.#markDirty(true);
+      case "discoverable":
+        draft.discoverable = input.checked;
+        this.element.querySelector(".gc-discovery-value").textContent =
+          game.i18n.localize(input.checked ? "GRIDCRAFTER.Recipe.Yes" : "GRIDCRAFTER.Recipe.No");
         break;
     }
     this.#markDirty(false);

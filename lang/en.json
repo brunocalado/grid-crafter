@@ -23,7 +23,10 @@
       "Public": "Public",
       "Quantity": "Makes",
       "FailLoss": "Failure: chance to lose materials",
-      "Inherit": "World default"
+      "Inherit": "World default",
+      "Discovery": "Discovery",
+      "Yes": "Yes",
+      "No": "No"
     },
     "Editor": {
       "Title": "Recipe Book (GM)",
@@ -36,6 +39,7 @@
       "ShapedHint": "Items must keep these positions. The pattern may sit anywhere on the grid, or mirrored.",
       "ShapelessHint": "Only the items count, not where they are placed.",
       "PublicHint": "Every character knows a public recipe. Characters who learned it keep it if it stops being public.",
+      "DiscoveryHint": "Can a character who doesn't know this recipe make it by laying out its ingredients? Making it teaches it. World default follows the module setting.",
       "PublicMarker": "Public",
       "EditedMarker": "Edited",
       "Restore": "Restore",
@@ -159,6 +163,10 @@
       "FailLossChance": {
         "Name": "Failure: Chance to Lose Materials",
         "Hint": "Percent chance that a failed craft destroys the materials. 0 means failure has no consequences. Each recipe can override it."
+      },
+      "Discovery": {
+        "Name": "Discover Recipes by Experiment",
+        "Hint": "Characters can make a recipe they don't know by laying out its ingredients (in its shape, if it has one), and learn it. Each recipe can override this."
       },
       "SoundVolume": {
         "Name": "Base volume"

@@ -10,7 +10,7 @@ import {
   FLAG_KNOWN_RECIPES, MODULE_ID, SETTING_FAIL_LOSS_CHANCE, SETTING_QUANTITY_PATH, TEMPLATE_PATH
 } from "./constants.js";
 import { getCraftingActor, getQuantity, getTheme, itemOrigin, refMatches, toItemRef } from "./helpers.js";
-import { findNearRecipe, findRecipe, getAllRecipes } from "./recipes.js";
+import { findNearRecipe, findRecipe, getAllRecipes, isDiscoverable } from "./recipes.js";
 
 /**
  * @typedef {object} CraftOutcome
@@ -93,7 +93,11 @@ export async function craft(slots) {
     }
   }
 
-  const recipe = findRecipe(cells);
+  // A recipe the actor doesn't know is out of reach unless it can be discovered: the grid then fails
+  // like any wrong layout, so it gives away nothing.
+  const known = new Set(getKnownRecipeIds(actor));
+  const usable = getAllRecipes().filter(r => known.has(r.id) || isDiscoverable(r));
+  const recipe = findRecipe(cells, usable);
   const used = docs.filter(Boolean);
   if ( recipe ) {
     const source = await fromUuid(recipe.result.uuid);
@@ -110,7 +114,7 @@ export async function craft(slots) {
     return { success: true, recipe, item, lost: false, refused: false, incomplete: false };
   }
 
-  const near = findNearRecipe(cells);
+  const near = findNearRecipe(cells, usable);
   const chance = near?.failLossChance ?? game.settings.get(MODULE_ID, SETTING_FAIL_LOSS_CHANCE);
   const lost = (chance > 0) && usage.size && ((Math.random() * 100) < chance);
   if ( lost ) await foundry.documents.modifyBatch(consumeOperations(actor, usage));

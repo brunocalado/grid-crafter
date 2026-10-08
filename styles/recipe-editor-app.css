@@ -201,7 +201,9 @@
   }
 
   /* Two rows of the same width, so their right edges line up. The top one gives the name whatever
-     Public and Shape leave; the bottom one keeps two equal columns. */
+     Public and Shape leave. The bottom one has fixed shares, not "auto": an inherit toggle that
+     reveals a control would otherwise resize its neighbours. Failure's share keeps its slider at
+     least 120px wide with both inherit toggles off. */
   .gc-recipe-fields {
     display: flex;
     flex-direction: column;
@@ -209,7 +211,7 @@
 
     .gc-fields-row {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 4fr) minmax(0, 3.3fr) minmax(0, 2.2fr);
       gap: 10px 12px;
     }
 
@@ -225,7 +227,8 @@
     }
 
     .gc-shape label,
-    .gc-loss label {
+    .gc-loss label,
+    .gc-discovery label {
       display: flex;
       align-items: center;
       gap: 6px;
@@ -235,7 +238,8 @@
     }
 
     .gc-loss-value,
-    .gc-quantity-value {
+    .gc-quantity-value,
+    .gc-discovery-value {
       margin-left: auto;
       min-width: 2.4em;
       color: var(--gc-trim-hi);
@@ -244,7 +248,8 @@
       text-align: right;
     }
 
-    .gc-quantity .gc-help {
+    .gc-quantity .gc-help,
+    .gc-discovery .gc-help {
       margin-left: 0;
     }
   }
