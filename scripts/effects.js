@@ -53,6 +53,26 @@ function sprite(color) {
   return s;
 }
 
+/** Seconds between two pumps of the forge's bellows. */
+export const BELLOWS_PERIOD = 7;
+
+const smooth = t => t * t * (3 - (2 * t));
+
+/**
+ * How hard the bellows are blowing, 0 to 1, at a moment on the page clock. The forge's CSS glow runs
+ * the same curve (gc-bellows: rise from 15% to 45% of the period, fall by 80%), phased from the same
+ * clock, so the embers surge exactly when the hearth swells.
+ * @param {number} now   milliseconds, as performance.now() or a frame timestamp gives them
+ * @returns {number}
+ */
+export function bellows(now) {
+  const p = ((now / 1000) % BELLOWS_PERIOD) / BELLOWS_PERIOD;
+  if ( p < 0.15 ) return 0;
+  if ( p < 0.45 ) return smooth((p - 0.15) / 0.3);
+  if ( p < 0.8 ) return 1 - smooth((p - 0.45) / 0.35);
+  return 0;
+}
+
 const rand = (a, b) => a + (Math.random() * (b - a));
 const pick = list => list[Math.floor(Math.random() * list.length)];
 
@@ -175,9 +195,13 @@ export class CraftFX {
     }
   }
 
-  /** Ambient particles: embers rising from the forge, or motes drifting around the circle. */
-  #ambient(dt) {
-    const rate = 14 * this.ambientRate;
+  /**
+   * Ambient particles: embers rising from the forge, or motes drifting around the circle. A pump of
+   * the bellows throws more embers, and faster.
+   */
+  #ambient(dt, now) {
+    const surge = (this.theme === "arcane") ? 0 : bellows(now);
+    const rate = 14 * this.ambientRate * (1 + (2.5 * surge));
     const n = Math.random() < ((rate * dt) % 1) ? Math.ceil(rate * dt) : Math.floor(rate * dt);
     const pal = this.palette;
     for ( let i = 0; i < n; i++ ) {
@@ -187,7 +211,7 @@ export class CraftFX {
       }
       else {
         this.spawn({ x: rand(this.width * 0.1, this.width * 0.9), y: this.height + 4, vx: rand(-12, 12),
-          vy: rand(-80, -35), size: rand(2, 5), life: rand(2.2, 4), color: pick(pal.ember),
+          vy: rand(-80, -35) * (1 + (0.7 * surge)), size: rand(2, 5), life: rand(2.2, 4), color: pick(pal.ember),
           wobble: rand(1, 3), twinkle: rand(6, 12), drag: 1, alpha: 0.9 });
       }
     }
@@ -201,7 +225,7 @@ export class CraftFX {
     if ( (this.canvas.clientWidth !== Math.round(this.width)) || (this.canvas.clientHeight !== Math.round(this.height)) ) {
       this.resize();
     }
-    this.#ambient(dt);
+    this.#ambient(dt, now);
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.width, this.height);
     const alive = [];

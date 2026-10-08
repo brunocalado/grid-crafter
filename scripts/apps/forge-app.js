@@ -15,7 +15,7 @@ import {
   CraftError, craft, fillFromInventory, getKnownRecipeIds, getLearnedRecipeIds, hasRequiredItem
 } from "../crafting.js";
 import { getAllRecipes } from "../recipes.js";
-import { CraftFX, animate, runeGlyphs, wait } from "../effects.js";
+import { BELLOWS_PERIOD, CraftFX, animate, runeGlyphs, wait } from "../effects.js";
 import { playCue } from "../sound.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -159,6 +159,19 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const bench = this.element.querySelector(".gc-bench");
     bench.addEventListener("dragover", ev => ev.preventDefault());
     bench.addEventListener("drop", this.#onDropBench.bind(this));
+    // The forge's bellows animations (gc-bellows*: the hearth's swell, the glowing seams) would restart
+    // from rest on every render, and the seams again after a craft's flare. Anchored at the start of
+    // the document timeline, the clock performance.now() reads, they carry on where they were and
+    // stay in step with the ember surge, however late the style is applied.
+    bench.style.setProperty("--gc-bellows-period", `${BELLOWS_PERIOD}s`);
+    const isBellows = anim => anim.animationName?.startsWith("gc-bellows");
+    for ( const anim of bench.getAnimations({ subtree: true }).filter(isBellows) ) anim.startTime = 0;
+    bench.addEventListener("animationstart", ev => {
+      if ( !ev.animationName.startsWith("gc-bellows") ) return;
+      for ( const anim of ev.target.getAnimations({ subtree: true }) ) {
+        if ( anim.animationName === ev.animationName ) anim.startTime = 0;
+      }
+    });
     const result = this.element.querySelector(".gc-result-slot");
     result.addEventListener("dragstart", this.#onDragResult.bind(this));
     result.addEventListener("dblclick", () => this.#openSheet(this.resultUuid));
