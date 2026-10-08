@@ -144,8 +144,8 @@ update the actor directly.
 
 ### Shaped recipes
 
-A shaped pattern matches **wherever it sits on the grid** and also **mirrored left to right**. Only
-the cells that hold something count, so this sword:
+A shaped pattern matches **wherever it sits on the grid**, exactly as drawn: it is never mirrored.
+Only the cells that hold something count, so this sword:
 
 ```js
 cells: [

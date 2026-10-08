@@ -40,7 +40,7 @@
       "WorldRecipes": "This World",
       "DropResult": "Drop the item this recipe makes",
       "DropRequires": "Drop an item the character must carry. It is never spent; any type counts.",
-      "ShapedHint": "Items must keep these positions. The pattern may sit anywhere on the grid, or mirrored.",
+      "ShapedHint": "Items must keep these positions. The pattern may sit anywhere on the grid.",
       "ShapelessHint": "Only the items count, not where they are placed.",
       "PublicHint": "Every character knows a public recipe. Characters who learned it keep it if it stops being public.",
       "DiscoveryHint": "Can a character who doesn't know this recipe make it by laying out its ingredients? Making it teaches it. World default follows the module setting.",

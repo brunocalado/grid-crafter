@@ -309,7 +309,7 @@ function sameItems(ingredients, items) {
 }
 
 /**
- * Does a grid satisfy a recipe? Shaped recipes match anywhere in the grid and mirrored left to right.
+ * Does a grid satisfy a recipe? Shaped recipes match anywhere in the grid, exactly as drawn.
  * @param {Recipe} recipe
  * @param {(object|null)[]} cells
  * @returns {boolean}
@@ -319,7 +319,7 @@ export function recipeMatches(recipe, cells) {
   const grid = crop(cells);
   const pattern = crop(recipe.cells);
   if ( !grid.length || !pattern.length ) return false;
-  return samePattern(pattern, grid) || samePattern(pattern.map(row => [...row].reverse()), grid);
+  return samePattern(pattern, grid);
 }
 
 /**

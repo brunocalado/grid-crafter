@@ -40,7 +40,7 @@ lost in the attempt.
   ![The crafting table, arcane theme](docs/arcane-table.webp)
 
 * 📐 **Shaped and shapeless recipes.** A shaped recipe cares where each item sits — and still
-  works anywhere on the grid, or mirrored. A shapeless recipe only cares which items are there.
+  works anywhere on the grid. A shapeless recipe only cares which items are there.
 * 🎒 **Uses the real inventory.** Crafting spends one unit per grid cell from the character's own
   sheet, and the new item lands right on that sheet, stacking with any copies already there.
   Systems with slots or weight limits are respected: the materials make room for what they become,
