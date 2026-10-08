@@ -68,14 +68,17 @@ Either way works. The hook only fires when Grid Crafter is active, so you don't 
 
 ## Hooks
 
-Two hooks let your module, system or macro act on crafting: stop a craft before it happens, or
-react once it has settled. Grid Crafter knows nothing about XP, downtime or skill checks; these
-hooks are where you add them.
+Four hooks let your module, system or macro act on crafting and dismantling: stop one before it
+happens, or react once it has settled. Grid Crafter knows nothing about XP, downtime or skill
+checks; these hooks are where you add them. A dismantle fires only the dismantling hooks and a craft
+only the crafting ones, so a listener that rewards crafting never rewards breaking things.
 
 | Hook | Args | Notes |
 |---|---|---|
 | `grid-crafter.preCraft` | `actor`, `recipe` (a copy, or `null` when the layout matches no recipe the actor can make), `items` (`Item[]` on the grid, one entry per filled cell), `veto` (`{ reason }`), `variant` (the index in `recipe.variants` of the variant the craft uses, or `null`) | Return `false` to cancel, and set `veto.reason` to tell the player why. Synchronous: an awaited roll inside it does not delay the craft. |
 | `grid-crafter.craft` | `actor`, `result` `{ state, recipe, variant, item, lost, ingredients }` | `state` is `"success"`, `"failure"`, `"refused"`, `"incomplete"` or `"missing"`. `variant` is the index in `recipe.variants` of the variant the grid made, `null` on a failure. `item` is the forged Item on success, else `null`. `ingredients` are `{ uuid, name, img, type, sources }`, one per filled cell. Not fired for a vetoed craft. |
+| `grid-crafter.preDismantle` | `actor`, `recipe` (a copy of the [dismantling recipe](#dismantling-recipes)), `item` (the `Item` in the table's circle), `veto` (`{ reason }`) | Return `false` to cancel, and set `veto.reason` to tell the player why, as with `preCraft`. |
+| `grid-crafter.dismantle` | `actor`, `result` `{ state, recipe, item, items }` | `state` is `"success"`, `"refused"`, `"incomplete"` or `"missing"`. `item` is the item that was in the circle, as `{ uuid, name, img, type, sources }`. `items` is, on success only, the Items that received each part, one per distinct part in the order `outputs` first names them; `null` otherwise. Not fired for a vetoed dismantle. |
 
 **`grid-crafter.preCraft`** fires after Grid Crafter has checked the grid and found the recipe (or
 not), and before anything is written: no item spent, no loss rolled, nothing learned, no chat card.
@@ -120,17 +123,45 @@ Hooks.on("grid-crafter.craft", (actor, result) => {
 });
 ```
 
-Both hooks fire **only on the client of the user who pressed Craft**, not on the GM's or anyone
-else's. That user owns the actor (Grid Crafter refuses items they don't own), so a listener can
-update the actor directly.
+**`grid-crafter.preDismantle`** fires once Grid Crafter has found the dismantling recipe, checked
+that the character carries enough of the item and the required item, and before anything is
+written. A character who lacks the required item never reaches it: the dismantle settles as
+`"missing"` first. An item that no recipe the character may use covers never reaches it either:
+the player is told it "can't be dismantled", and nothing is spent, posted or fired.
+
+```js
+Hooks.on("grid-crafter.preDismantle", (actor, recipe, item, veto) => {
+  if ( !item.system.magic ) return;
+  veto.reason = `${item.name} resists being taken apart.`;
+  return false;
+});
+```
+
+**`grid-crafter.dismantle`** fires once per dismantle, after the chat card is posted:
+
+| `state` | What happened |
+|---|---|
+| `"success"` | Every part reached the character. `items` are the Items that received them. |
+| `"refused"` | The character's sheet would not take all the parts. Nothing was spent. |
+| `"incomplete"` | The item was spent, the parts never arrived, and it could not be put back. |
+| `"missing"` | The character doesn't carry the item the recipe `requires`. Nothing was spent and nothing was learned. |
+
+All four hooks fire **only on the client of the user who pressed Craft or Dismantle**, not on the
+GM's or anyone else's. That user owns the actor (Grid Crafter refuses items they don't own), so a
+listener can update the actor directly.
 
 ---
 
 ## Recipe format
 
+A recipe is a crafting recipe, which makes one item from a grid, unless it says
+`kind: "dismantle"`: a [dismantling recipe](#dismantling-recipes) breaks one item into parts. The
+table below is the crafting recipe.
+
 | Field | Required | Description |
 |---|---|---|
 | `id` | yes | Your id for the recipe, unique within your package. Grid Crafter stores it as `"<packageId>.<id>"`. **Keep it stable**: players' recipe books remember recipes by this id. |
+| `kind` | no | `"craft"` (default) or `"dismantle"`. Any other value skips the recipe. |
 | `cells` | yes, or `variants` | The 3×3 grid: either a flat list of 9 entries (row by row) or 3 rows of 3. Each entry is an item uuid or `null` for an empty cell. At least one cell must hold an item. With `requires`, the shorthand for a recipe with one variant. |
 | `variants` | yes, or `cells` | 1 to 4 ways to make the recipe, each `{ cells, requires }` with the meaning of those two fields. See [Variants](#variants). Give either `variants` or `cells` and `requires`, never both. |
 | `result` | yes | The uuid of the item the recipe makes: a world item or a compendium item. A copy of it goes to the crafter's character sheet. |
@@ -258,12 +289,70 @@ the write is enough.
   three ingots in a full pack can become a sword.
 - Deleted ingredients come back with their own ids, so your create workflow runs for them again.
 
+Dismantling works the same way. The item is spent first, then every part is given at once: one
+update for the stacks the character already carries and one create for the rest. If the sheet
+refuses or trims any of it, everything that arrived is removed again and the item comes back with
+its own id. A full inventory never loses the item, and breaking a sword makes room for its parts.
+
 ### Failure
 
 A failed craft counts against your recipe when the grid holds **the items of one of your recipe's
 variants in the wrong shape**. Then your `failLossChance` applies. Any other failure uses the GM's world setting, and so
 does a layout of a recipe the character doesn't know and can't discover: that fails like any wrong
 layout and gives nothing away.
+
+### Dismantling recipes
+
+A dismantling recipe breaks one item into the parts it names. The character puts the item in the
+crafting table's circle, presses **Dismantle**, and the parts land on the grid as items on their
+sheet. It has no variants, no shape, no quantity made and no chance of loss.
+
+| Field | Required | Description |
+|---|---|---|
+| `id` | yes | As for a crafting recipe. |
+| `kind` | yes | `"dismantle"`. |
+| `input` | yes | The uuid of the item that is broken. The character's copy is matched as [ingredients are](#how-items-are-matched). |
+| `outputs` | yes | 1 to 9 item uuids, one per unit of a part: repeat a uuid for more than one. The table lays them out in this order, left to right and top to bottom, though where a part lands never matters. |
+| `inputQuantity` | no | How many units of `input` one dismantling spends, 1 to 10. Default `1`. |
+| `requires` | no | As for a crafting recipe: an item the character must carry, never spent. Without it the dismantle is refused with a chat card. |
+| `name` | no | Defaults to the input item's name. |
+| `categories`, `public`, `discoverable` | no | As for a crafting recipe. |
+
+The fields of a crafting recipe (`cells`, `variants`, `result`, `shaped`, `quantity`,
+`failLossChance`) are ignored on a dismantling recipe.
+
+```js
+{
+  id: "salvage-iron-sword",
+  kind: "dismantle",
+  input: SWORD,
+  outputs: [INGOT, INGOT, STICK],
+  requires: SMITHING_TOOLS
+}
+```
+
+Breaking the sword spends it and gives two ingots and a stick. Each distinct part is given once:
+where the part has a quantity the character receives one stack (added to a stack they carry), and
+otherwise that many separate copies.
+
+The units come from the item in the circle first, then from other copies of it the character
+carries, so a system without quantities can spend `inputQuantity` copies. Only the crafting
+character's own items can be dismantled, for a GM too: an item from the Items directory or a
+compendium would make parts out of nothing.
+
+A character knows a dismantling recipe as it knows a crafting one: by learning it, because it is
+public, or by discovering it. Dismantling an item whose recipe the character doesn't know but can
+discover teaches it.
+
+### One item, one dismantling recipe
+
+An item has one dismantling recipe at most. Two dismantling recipes clash when their `input` items
+match each other as [items are matched](#how-items-are-matched). Hidden recipes count.
+
+`registerRecipes` skips a dismantling recipe whose item already has one, with a warning in the
+console naming the recipe that keeps it. As with grids, the world's recipes are there before any
+package registers; between packages, the first to register keeps the item. The GM's Recipe Book
+refuses to save a second dismantling recipe for an item.
 
 ---
 
@@ -283,7 +372,8 @@ your recipes at the same compendium items you hand out to players, and matching 
 
 The GM's **Craftable Item Types** setting still applies: an item whose type the GM has not
 allowed can't be dragged onto the grid, even when your recipe uses it. Pick ingredient types a
-GM would allow (materials, loot, consumables), not classes or features.
+GM would allow (materials, loot, consumables), not classes or features. The setting doesn't apply
+to an item put in the circle to be dismantled, nor to the parts it gives.
 
 ---
 
@@ -305,6 +395,10 @@ Each problem is reported with a warning in the console, and the rest are registe
   found in `cells` or `requires`, or its grid already belongs to another recipe (see
   [One grid, one recipe](#one-grid-one-recipe)). A recipe left with no variant is skipped.
 - A recipe given with `cells` has one variant, so any of those problems skips it.
+- A recipe with a `kind` other than `"craft"` or `"dismantle"` is skipped.
+- A dismantling recipe is skipped when its `input` can't be found, it has no output or more than 9,
+  an output or its `requires` can't be found, or its item already has a dismantling recipe (see
+  [One item, one dismantling recipe](#one-item-one-dismantling-recipe)).
 
 Registering an `id` you already registered replaces that recipe.
 
@@ -314,15 +408,23 @@ Removes every recipe your package registered, on this client.
 
 ### `getRecipes()` → `object[]`
 
-Every recipe on this client: the world's recipes first, then registered ones. Each has `id`,
+Every recipe on this client: the world's recipes first, then registered ones. Tell the two shapes
+apart by `kind`: `"dismantle"` for a dismantling recipe, `"craft"` for a crafting one.
+
+A crafting recipe has `id`, `kind`,
 `name`, `categories` (a list, empty when none), `shaped`, `variants` (1 to 4, each with `cells`, 9
 entries that are `{ uuid, name, img, type, sources }` or `null`, and `requires`, the required item
 as the same object or `null`), `result`, `quantity`, `failLossChance` (`null` when it follows the
 world setting), `source`
 (`"world"` or the package id), `public` (whether every character knows it) and `discoverable`
-(`null` when it follows the world setting). A package recipe
-the GM edited carries `edited: true`, and its fields are the GM's version. The objects are copies;
-changing them changes nothing.
+(`null` when it follows the world setting).
+
+A dismantling recipe has `id`, `kind`, `name`, `categories`, `input` (the item it breaks, as
+`{ uuid, name, img, type, sources }`), `inputQuantity`, `requires` (the same object or `null`),
+`outputs` (9 entries, a part as that object or `null`), `source`, `public` and `discoverable`.
+
+A package recipe the GM edited carries `edited: true`, and its fields are the GM's version. The
+objects are copies; changing them changes nothing.
 
 ### `getKnownRecipes(target)` → `string[]`
 

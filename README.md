@@ -53,6 +53,12 @@ lost in the attempt.
   click lays the recipe out on the grid from their inventory. Recipes are grouped by category,
   and the book can be searched by name or ingredient, or narrowed to what the character can craft
   right now. A recipe the GM makes public is in every character's book.
+* Dismantling recipes break an item back into parts: one item in, up to nine parts out, and an
+  optional tool the character must carry. Turn the crafting table around, put the sword in the
+  circle, press **Dismantle**, and the ingots and the stick fly out onto the grid as items on the
+  sheet, ready to craft with. Characters know, learn and discover dismantling recipes the same way
+  as any other, and every dismantle is reported in chat. If the parts don't fit on the sheet,
+  nothing is spent.
 * 🧪 **Discovery by experiment.** A character can make a recipe they don't know by laying out
   its ingredients, and learns it by doing so. The GM can turn this off for the whole world or for
   single recipes, and then only recipes a character already knows can be crafted.
@@ -85,7 +91,7 @@ lost in the attempt.
 
 1. Open the **Items** directory and click **Recipes** at the top (or run `GridCrafter.recipes()`
    in a macro).
-2. Click **New Recipe**. Drag the ingredients from the Items directory or a compendium onto the
+2. Click **Craft** at the top of the list. Drag the ingredients from the Items directory or a compendium onto the
    grid, and the item it makes onto the circle on the right. If the character must carry a tool to
    make it, drop that item on the small circle under the result.
 3. If there is another way to make the same item, click the **+** under the grid to add a variant:
@@ -101,12 +107,23 @@ lost in the attempt.
 6. **Save.** It refuses a variant with no ingredients, and a layout that another recipe already
    makes, and shows you the variant it means.
 
+To write a dismantling recipe, click **Dismantle** instead of **Craft**. The board turns around:
+drop the item to break on the circle and its parts on the grid, one cell for each unit, in any
+cell. The small circle under the item takes the tool, as for crafting. **Consumes** sets how many
+of the item one dismantling breaks. **Save** refuses a recipe with no item or no part, and a second
+dismantling recipe for an item that already has one.
+
+A crafting recipe can start its own dismantling recipe. Open it, show the variant you want, and
+click the pickaxe after **Duplicate** (a starburst in the Arcane theme). The new recipe breaks what
+the crafting recipe makes, as many as one craft makes, back into that variant's ingredients, with
+the same tool. If the item already has a dismantling recipe, the button opens that one instead.
+
 ![The GM's Recipe Book](docs/recipe-book.webp)
 
 The Recipe Book lists this world's recipes first, then one group for each module or system that
 ships recipes, each split by its first category. Search finds a recipe by its name, what it makes,
 its categories or an ingredient. A recipe with more than one variant has a small stack icon in the
-list. A recipe you don't need to see can be moved to the **Hidden** group at the bottom of the
+list, and a dismantling recipe has a pickaxe. A recipe you don't need to see can be moved to the **Hidden** group at the bottom of the
 list; this changes nothing in play. **Duplicate** copies a recipe as a new world recipe.
 
 A recipe from a module or system can be edited in place, like your own. It then stops following
@@ -157,6 +174,16 @@ under its name: click the one you want laid out. A greyed-out row means you're m
 Type in the search box to find a recipe by name or ingredient, or click the button next to it to
 show only the recipes you can craft now.
 
+Some recipes break an item instead of making one. Once your character knows a dismantling recipe,
+or could discover one, two buttons appear next to **Recipe Book**: the hammer crafts and the
+pickaxe dismantles (a wand and a starburst in the Arcane theme). In dismantle mode the arrow turns
+toward the grid and the book lists your dismantling recipes. Drag the item from your sheet onto the
+circle, or click its recipe in the book. If you know the recipe, the grid shows faintly what the
+item breaks into. Press **Dismantle**, and the parts land on
+the grid as items on your sheet. Switch back to crafting and they are still on the grid, ready to
+use as ingredients. If your sheet has no room for all the parts, nothing is spent and the item
+stays in the circle.
+
 ## 🔌 For Developers
 
 Ship recipes with your module or system so they're ready the moment the GM enables it:
@@ -177,7 +204,9 @@ Hooks.once("grid-crafter.ready", api => {
 });
 ```
 
-Other packages can also stop a craft or react to it through [two hooks](docs/API.md#hooks).
+Other packages can also stop a craft or a dismantle, or react to one, through
+[hooks](docs/API.md#hooks). Dismantling recipes are registered the same way, with
+`kind: "dismantle"`.
 
 👉 **[Read the full API documentation](docs/API.md)**
 
