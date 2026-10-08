@@ -74,14 +74,14 @@ hooks are where you add them.
 
 | Hook | Args | Notes |
 |---|---|---|
-| `grid-crafter.preCraft` | `actor`, `recipe` (a copy, or `null` when the layout matches no recipe the actor can make), `items` (`Item[]` on the grid, one entry per filled cell), `veto` (`{ reason }`) | Return `false` to cancel, and set `veto.reason` to tell the player why. Synchronous: an awaited roll inside it does not delay the craft. |
-| `grid-crafter.craft` | `actor`, `result` `{ state, recipe, item, lost, ingredients }` | `state` is `"success"`, `"failure"`, `"refused"`, `"incomplete"` or `"missing"`. `item` is the forged Item on success, else `null`. `ingredients` are `{ uuid, name, img, type, sources }`, one per filled cell. Not fired for a vetoed craft. |
+| `grid-crafter.preCraft` | `actor`, `recipe` (a copy, or `null` when the layout matches no recipe the actor can make), `items` (`Item[]` on the grid, one entry per filled cell), `veto` (`{ reason }`), `variant` (the index in `recipe.variants` of the variant the craft uses, or `null`) | Return `false` to cancel, and set `veto.reason` to tell the player why. Synchronous: an awaited roll inside it does not delay the craft. |
+| `grid-crafter.craft` | `actor`, `result` `{ state, recipe, variant, item, lost, ingredients }` | `state` is `"success"`, `"failure"`, `"refused"`, `"incomplete"` or `"missing"`. `variant` is the index in `recipe.variants` of the variant the grid made, `null` on a failure. `item` is the forged Item on success, else `null`. `ingredients` are `{ uuid, name, img, type, sources }`, one per filled cell. Not fired for a vetoed craft. |
 
 **`grid-crafter.preCraft`** fires after Grid Crafter has checked the grid and found the recipe (or
 not), and before anything is written: no item spent, no loss rolled, nothing learned, no chat card.
 When a listener returns `false`, the craft stops there and the grid stays as the player left it.
-A craft whose recipe `requires` an item the character doesn't carry never reaches `preCraft`: it
-settles as `"missing"` first.
+A craft where the character carries the required item of none of the [variants](#variants) that
+fit the grid never reaches `preCraft`: it settles as `"missing"` first.
 
 The player who pressed Craft sees one warning: the text you put in `veto.reason`, or "The craft
 was stopped." when you leave it empty. Set the reason instead of calling `ui.notifications`
@@ -109,7 +109,7 @@ stops it.
 | `"failure"` | The grid matched no recipe the character can make. `lost` is `true` when the materials were destroyed anyway. |
 | `"refused"` | The recipe matched, but the character's sheet would not take the result. Nothing was spent. |
 | `"incomplete"` | The materials were spent, the result never arrived, and they could not be put back. |
-| `"missing"` | The recipe matched, but the character doesn't carry the item it `requires`. Nothing was spent and nothing was learned. |
+| `"missing"` | The grid fits the recipe, but the character doesn't carry the item `requires` names for any variant that fits. Nothing was spent and nothing was learned. |
 
 A craft stopped by `preCraft` fires nothing here. The ingredients are passed as plain data,
 because the spent ones no longer exist.
@@ -131,16 +131,17 @@ update the actor directly.
 | Field | Required | Description |
 |---|---|---|
 | `id` | yes | Your id for the recipe, unique within your package. Grid Crafter stores it as `"<packageId>.<id>"`. **Keep it stable**: players' recipe books remember recipes by this id. |
-| `cells` | yes | The 3×3 grid: either a flat list of 9 entries (row by row) or 3 rows of 3. Each entry is an item uuid or `null` for an empty cell. At least one cell must hold an item. |
+| `cells` | yes, or `variants` | The 3×3 grid: either a flat list of 9 entries (row by row) or 3 rows of 3. Each entry is an item uuid or `null` for an empty cell. At least one cell must hold an item. With `requires`, the shorthand for a recipe with one variant. |
+| `variants` | yes, or `cells` | 1 to 4 ways to make the recipe, each `{ cells, requires }` with the meaning of those two fields. See [Variants](#variants). Give either `variants` or `cells` and `requires`, never both. |
 | `result` | yes | The uuid of the item the recipe makes: a world item or a compendium item. A copy of it goes to the crafter's character sheet. |
 | `name` | no | Name shown in the recipe books. Defaults to the result item's name. |
 | `categories` | no | A list of group names, each at most 24 characters (longer text is cut). The recipe books list the recipe under each one. A name no recipe uses yet starts a new category; one that matches an existing category apart from case or accents takes that category's spelling. Default none. |
-| `shaped` | no | `true` (default): items must keep their positions. `false`: only which items, not where. |
+| `shaped` | no | `true` (default): items must keep their positions. `false`: only which items, not where. Holds for every variant. |
 | `quantity` | no | How many of the result one craft makes, 1 to 10. Default `1`. |
 | `failLossChance` | no | Percent chance (0–100) that a failed attempt destroys the materials. Leave it out to use the GM's world setting. |
 | `public` | no | `true`: every character knows the recipe until the GM makes it private. Default `false`. |
 | `discoverable` | no | Whether a character who doesn't know the recipe can make it by laying out its ingredients. `true` or `false` overrides the GM's world setting; leave it out to follow that setting. |
-| `requires` | no | The uuid of one item the character must carry to make the recipe: a tool, a feature, a proficiency, any type. It is never placed on the grid and never spent. A copy on the sheet counts, matched by its source or by name and type. Without it the craft is refused with a chat card. An unresolvable uuid skips the recipe. |
+| `requires` | no | The uuid of one item the character must carry to make the recipe: a tool, a feature, a proficiency, any type. It is never placed on the grid and never spent. A copy on the sheet counts, matched by its source or by name and type. Without it the craft is refused with a chat card. An unresolvable uuid drops the variant it belongs to. |
 
 ### Shaped recipes
 
@@ -173,6 +174,67 @@ the four corners.
 For a shapeless recipe, the positions in `cells` don't matter. Two herbs and a flask of water
 anywhere on the grid make two draughts.
 
+### Variants
+
+An item can often be made more than one way. An axe forged from iron and an axe knapped from stone
+are the same axe, and only the iron one needs Smithing Tools. Give them as two variants of one
+recipe instead of two recipes:
+
+```js
+{
+  id: "axe",
+  result: AXE,
+  variants: [
+    {
+      cells: [
+        [IRON, IRON, null],
+        [null, STICK, null],
+        [null, STICK, null]
+      ],
+      requires: SMITHING_TOOLS
+    },
+    {
+      cells: [
+        [STONE, STONE, null],
+        [null, LEATHER_STRIP, null],
+        [null, STICK, null]
+      ]
+    }
+  ]
+}
+```
+
+A recipe has 1 to 4 variants. Each brings its own `cells` and its own `requires`; everything else
+(the name, the result, `quantity`, `categories`, `shaped`, `failLossChance`, `public`,
+`discoverable`) belongs to the recipe and holds for every variant.
+
+Knowing the recipe is knowing all its variants. Forging any of them, being taught or Learn adds the
+whole recipe to a character's book, and the book shows each variant as a row under the recipe's
+name. When the grid fits more than one variant, the craft uses the first one whose required item
+the character carries, and settles as `"missing"` when the character carries none of them.
+
+`cells` and `requires` at the top level are a recipe with one variant. `getRecipes()` always
+returns `variants`.
+
+### One grid, one recipe
+
+A layout on the grid makes one recipe at most, whatever the results. Two variants of different
+recipes overlap when one grid could fill both:
+
+- both are shaped and have the same pattern, wherever it sits (a mirrored pattern is a different
+  one);
+- either is shapeless and they hold the same items, because a shapeless variant takes any layout.
+
+The required item never counts: a character may carry both tools. Hidden recipes count too.
+
+`registerRecipes` drops a variant whose grid a recipe already present makes, with a warning in the
+console naming that recipe. The world's recipes are there before any package registers, so they
+always keep their grids; between packages, the first to register keeps it. The GM's Recipe Book
+refuses to save a recipe whose grid another one already makes.
+
+Variants of the same recipe may overlap each other, for instance the same layout with two
+different tools.
+
 ### Quantity
 
 Each grid cell spends one unit of the item placed in it. With `quantity`:
@@ -198,8 +260,8 @@ the write is enough.
 
 ### Failure
 
-A failed craft counts against your recipe when the grid holds **your recipe's items in the wrong
-shape**. Then your `failLossChance` applies. Any other failure uses the GM's world setting, and so
+A failed craft counts against your recipe when the grid holds **the items of one of your recipe's
+variants in the wrong shape**. Then your `failLossChance` applies. Any other failure uses the GM's world setting, and so
 does a layout of a recipe the character doesn't know and can't discover: that fails like any wrong
 layout and gives nothing away.
 
@@ -235,9 +297,16 @@ Registers recipes for your package and returns how many were accepted.
   Recipe Book and prefixes their ids.
 - `recipes` *(object[])*: recipes in the [format above](#recipe-format).
 
-A recipe that is missing its `id`, doesn't have 9 cells, or names an item that can't be found is
-skipped with a warning in the console; the rest are registered. Registering an `id` you already
-registered replaces that recipe.
+Each problem is reported with a warning in the console, and the rest are registered:
+
+- A recipe is skipped when it has no `id`, gives both `variants` and `cells` or `requires`, has no
+  variant or more than 4, or its `result` can't be found.
+- A variant is dropped when it doesn't have 9 cells, holds no item, names an item that can't be
+  found in `cells` or `requires`, or its grid already belongs to another recipe (see
+  [One grid, one recipe](#one-grid-one-recipe)). A recipe left with no variant is skipped.
+- A recipe given with `cells` has one variant, so any of those problems skips it.
+
+Registering an `id` you already registered replaces that recipe.
 
 ### `unregisterRecipes(packageId)`
 
@@ -246,8 +315,10 @@ Removes every recipe your package registered, on this client.
 ### `getRecipes()` → `object[]`
 
 Every recipe on this client: the world's recipes first, then registered ones. Each has `id`,
-`name`, `categories` (a list, empty when none), `shaped`, `cells` (9 entries, each `{ uuid, name, img, type, sources }` or `null`),
-`result`, `requires` (the required item's `{ uuid, name, img, type, sources }`, or `null`), `quantity`, `failLossChance` (`null` when it follows the world setting), `source`
+`name`, `categories` (a list, empty when none), `shaped`, `variants` (1 to 4, each with `cells`, 9
+entries that are `{ uuid, name, img, type, sources }` or `null`, and `requires`, the required item
+as the same object or `null`), `result`, `quantity`, `failLossChance` (`null` when it follows the
+world setting), `source`
 (`"world"` or the package id), `public` (whether every character knows it) and `discoverable`
 (`null` when it follows the world setting). A package recipe
 the GM edited carries `edited: true`, and its fields are the GM's version. The objects are copies;

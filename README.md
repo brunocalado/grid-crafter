@@ -41,6 +41,9 @@ lost in the attempt.
 
 * 📐 **Shaped and shapeless recipes.** A shaped recipe cares where each item sits — and still
   works anywhere on the grid. A shapeless recipe only cares which items are there.
+  A recipe can have up to four variants, each a different way to make it with its own layout and
+  its own required tool, so the stone axe and the iron axe are one recipe, and a character who
+  learns it learns every variant. One layout never makes two different recipes.
 * 🎒 **Uses the real inventory.** Crafting spends one unit per grid cell from the character's own
   sheet, and the new item lands right on that sheet, stacking with any copies already there.
   Systems with slots or weight limits are respected: the materials make room for what they become,
@@ -83,22 +86,28 @@ lost in the attempt.
 1. Open the **Items** directory and click **Recipes** at the top (or run `GridCrafter.recipes()`
    in a macro).
 2. Click **New Recipe**. Drag the ingredients from the Items directory or a compendium onto the
-   grid, and the item it makes onto the circle on the right.
-3. Choose **Shaped** or **Shapeless**, how many items one craft **Makes**, and whether a failure
-   uses the world's chance to lose materials or a chance of its own. Switch on **Public** if every
-   character should know the recipe, and set **Discovery** if this recipe should not follow the
-   world setting. Hover the **?** icons for a quick explanation.
-4. Optionally, give it one or more **Categories** to group it with similar recipes. A recipe
+   grid, and the item it makes onto the circle on the right. If the character must carry a tool to
+   make it, drop that item on the small circle under the result.
+3. If there is another way to make the same item, click the **+** under the grid to add a variant:
+   an empty grid with its own required tool. A row of dots under the grid switches between the
+   variants. Hover the dot you are on and click its ✕ to remove that variant. A recipe can have
+   four.
+4. Choose **Shaped** or **Shapeless** (it applies to every variant), how many items one craft
+   **Makes**, and whether a failure uses the world's chance to lose materials or a chance of its
+   own. Switch on **Public** if every character should know the recipe, and set **Discovery** if
+   this recipe should not follow the world setting. Hover the **?** icons for a quick explanation.
+5. Optionally, give it one or more **Categories** to group it with similar recipes. A recipe
    with two categories shows up in both groups of the character's book.
-5. **Save.**
+6. **Save.** It refuses a variant with no ingredients, and a layout that another recipe already
+   makes, and shows you the variant it means.
 
 ![The GM's Recipe Book](docs/recipe-book.webp)
 
 The Recipe Book lists this world's recipes first, then one group for each module or system that
 ships recipes, each split by its first category. Search finds a recipe by its name, what it makes,
-its categories or an ingredient. A recipe you don't need to see can be moved to the **Hidden** group
-at the bottom of the list; this changes nothing in play. **Duplicate** copies a recipe as a new
-world recipe.
+its categories or an ingredient. A recipe with more than one variant has a small stack icon in the
+list. A recipe you don't need to see can be moved to the **Hidden** group at the bottom of the
+list; this changes nothing in play. **Duplicate** copies a recipe as a new world recipe.
 
 A recipe from a module or system can be edited in place, like your own. It then stops following
 that package's updates, and **Restore** brings back the package's version.
@@ -143,9 +152,10 @@ All settings are in **Game Settings → Configure Settings → Grid Crafter**:
 4. Press **Craft**.
 
 Already know the recipe? Click it in your **Recipe Book** on the left, and the grid fills itself
-from your inventory. A greyed-out recipe means you're missing something. Type in the search box
-to find a recipe by name or ingredient, or click the button next to it to show only the recipes
-you can craft now.
+from your inventory. A recipe that can be made more than one way shows a row for each variant
+under its name: click the one you want laid out. A greyed-out row means you're missing something.
+Type in the search box to find a recipe by name or ingredient, or click the button next to it to
+show only the recipes you can craft now.
 
 ## 🔌 For Developers
 
