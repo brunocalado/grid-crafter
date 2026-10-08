@@ -92,6 +92,14 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       parts[hiddenIds.has(r.id) ? 0 : 1].push(r);
       return parts;
     }, [[], []]);
+    const saved = this.draft ? all.find(r => r.id === this.draft.id) : undefined;
+    // With no unsaved edits the draft is the saved recipe, whoever saved it: an API call, another GM.
+    // Saving a stale copy would quietly undo their change.
+    if ( this.draft && !this.dirty ) {
+      if ( saved ) this.draft = foundry.utils.deepClone(saved);
+      // Deleted or unregistered elsewhere. A blank new recipe has no source yet and stays.
+      else if ( this.draft.source ) this.draft = null;
+    }
     if ( !this.draft ) {
       const first = shown[0] ?? all[0];
       this.draft = first ? foundry.utils.deepClone(first) : blankRecipe();
@@ -148,7 +156,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       hidden: hiddenIds.has(draft.id),
       // A blank recipe has no source until it is saved into the world.
       isPackage: !!draft.source && (draft.source !== "world"),
-      edited: !!draft.edited,
+      // As saved, so Restore is offered only for an edit that still exists.
+      edited: !!all.find(r => r.id === draft.id)?.edited,
       isPublic: draft.public,
       dirty: this.dirty,
       selecting: !!selected,
@@ -466,7 +475,10 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   static async #onRestore() {
     // Named as saved: the draft may hold an unsaved name.
-    const { id, name, source } = getRecipe(this.draft.id);
+    const saved = getRecipe(this.draft.id);
+    // Its package unregistered it meanwhile: the render drops the draft, or hides Restore if it is dirty.
+    if ( !saved ) return this.render();
+    const { id, name, source } = saved;
     const ok = await foundry.applications.api.DialogV2.confirm({
       window: { title: "GRIDCRAFTER.Editor.Restore" },
       content: `<p>${game.i18n.localize("GRIDCRAFTER.Editor.RestoreConfirm", {
