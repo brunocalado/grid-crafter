@@ -111,6 +111,8 @@ unit, in any cell. The small circle under the item takes the tool, as for crafti
 how many of the item one dismantling breaks. **Save** refuses a recipe with no item or no part, and a
 second dismantling recipe for an item that already has one.
 
+![A dismantling recipe in the Recipe Book](docs/dismantle-recipe.webp)
+
 A crafting recipe can start its own dismantling recipe. Open it, show the variant you want, and
 click the pickaxe after **Duplicate** (a starburst in the Arcane theme). The new recipe breaks what
 the crafting recipe makes, as many as one craft makes, back into that variant's ingredients, with
@@ -198,6 +200,8 @@ breaks back into what you spent on it, and the faint parts show that before you 
 **Dismantle**. Press **Dismantle**, and the parts land on the grid as items on your sheet. Switch
 back to crafting and they are still on the grid, ready to use as ingredients. If your sheet has no
 room for all the parts, nothing is spent and the item stays in the circle.
+
+![A sword in the circle, ready to be dismantled](docs/dismantle-table.webp)
 
 ## For developers
 
