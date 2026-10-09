@@ -86,8 +86,9 @@ When a listener returns `false`, the craft stops there and the grid stays as the
 A craft where the character carries the required item of none of the [variants](#variants) that
 fit the grid never reaches `preCraft`: it settles as `"missing"` first.
 
-The player who pressed Craft sees one warning: the text you put in `veto.reason`, or "The craft
-was stopped." when you leave it empty. Set the reason instead of calling `ui.notifications`
+The player who pressed Craft sees one warning: the text you put in `veto.reason`, or, when you leave
+it empty, that another module or the game system stopped the craft without giving a reason. Set the
+reason instead of calling `ui.notifications`
 yourself, or the player gets two messages for one event:
 
 ```js
@@ -127,7 +128,9 @@ Hooks.on("grid-crafter.craft", (actor, result) => {
 that the character carries enough of the item and the required item, and before anything is
 written. A character who lacks the required item never reaches it: the dismantle settles as
 `"missing"` first. An item that no recipe the character may use covers never reaches it either:
-the player is told it "can't be dismantled", and nothing is spent, posted or fired.
+the table refuses it as soon as it is dropped in the circle, telling the player it "can't be
+dismantled", and nothing is spent, posted or fired. A vetoed dismantle with no `veto.reason` tells
+the player that another module or the game system stopped it.
 
 ```js
 Hooks.on("grid-crafter.preDismantle", (actor, recipe, item, veto) => {
@@ -189,7 +192,7 @@ table below is the crafting recipe.
 | `cells` | yes, or `variants` | The 3×3 grid: either a flat list of 9 entries (row by row) or 3 rows of 3. Each entry is an item uuid or `null` for an empty cell. At least one cell must hold an item. With `requires`, the shorthand for a recipe with one variant. |
 | `variants` | yes, or `cells` | 1 to 4 ways to make the recipe, each `{ cells, requires }` with the meaning of those two fields. See [Variants](#variants). Give either `variants` or `cells` and `requires`, never both. |
 | `result` | yes | The uuid of the item the recipe makes: a world item or a compendium item. A copy of it goes to the crafter's character sheet. |
-| `name` | no | Name shown in the recipe books. Defaults to the result item's name. |
+| `name` | no | Name shown in the recipe books, at most 40 characters (longer text is cut). Defaults to the result item's name. |
 | `categories` | no | A list of group names, each at most 24 characters (longer text is cut). The recipe books list the recipe under each one. A name no recipe uses yet starts a new category; one that matches an existing category apart from case or accents takes that category's spelling. Default none. |
 | `shaped` | no | `true` (default): items must keep their positions. `false`: only which items, not where. Holds for every variant. |
 | `quantity` | no | How many of the result one craft makes, 1 to 10. Default `1`. |
@@ -345,7 +348,7 @@ sheet. It has no variants, no shape, no quantity made and no chance of loss.
 | `requires` | no | As for a crafting recipe: an item the character must carry, never spent. Without it the dismantle is refused with a chat card. |
 | `refund` | no | `true`: an item made at the table breaks back into exactly what was spent on it, as its [receipt](#receipts) says. Default `false`. |
 | `favorite` | no | `{ recipe, variant }`: a crafting recipe's full id, as `getRecipes()` lists it (`"my-module.axe"`), and the id of one of its [variants](#variants). An item with no receipt breaks into that variant's cells, and one dismantle spends as many units as that recipe's `quantity`. Read live, so a change to the variant changes the dismantle. Never checked when registered: the recipe it names may register later. |
-| `name` | no | Defaults to the input item's name. |
+| `name` | no | Defaults to the input item's name. At most 40 characters, as for a crafting recipe. |
 | `categories`, `public`, `discoverable` | no | As for a crafting recipe. |
 
 The fields of a crafting recipe (`cells`, `variants`, `result`, `shaped`, `quantity`,
@@ -644,7 +647,8 @@ Opens the GM's Recipe Book.
 
 ## What the GM can do with your recipes
 
-Your recipes show in the GM's Recipe Book under your package's title. The GM can edit any of them
+Your recipes show in the GM's Recipe Book under your package's title, crafting recipes under its
+**Craft** tab and dismantling recipes under **Dismantle**. The GM can edit any of them
 in place, `public`, `discoverable` and `categories` included, and the recipe keeps its id, so characters who
 learned it keep it.
 
