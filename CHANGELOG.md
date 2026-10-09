@@ -1,3 +1,7 @@
+# 0.0.4
+
+- [Changed] First version listed on foundryvtt.com. It has the same features as 0.0.3; the 0.0.3 notes list everything new since 0.0.2.
+
 # 0.0.3
 
 - [Added] Dismantling recipes: break one item into the parts the recipe names, at the same table with a switch on the book. If the sheet has no room for every part, nothing is spent.
