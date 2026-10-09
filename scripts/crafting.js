@@ -79,9 +79,44 @@ export function hasRequiredItem(holder, actor) {
     || actor.items.some(i => ((getQuantity(i) ?? 1) > 0) && refMatches(holder.requires, toItemRef(i)));
 }
 
+/** @returns {string} why a user with no actor to craft or dismantle for can do neither */
+export function noActorMessage() {
+  return game.i18n.localize(game.user.isGM ? "GRIDCRAFTER.Errors.NoActorGM" : "GRIDCRAFTER.Errors.NoActor");
+}
+
 /** @returns {CraftError} the refusal for a user with no actor to craft or dismantle for */
 function noActorError() {
-  return new CraftError(game.i18n.localize(game.user.isGM ? "GRIDCRAFTER.Errors.NoActorGM" : "GRIDCRAFTER.Errors.NoActor"));
+  return new CraftError(noActorMessage());
+}
+
+/**
+ * Why an item from another actor's sheet can't be used, in terms the user can act on. A GM is told which
+ * actor the table works for. When the item sits on a world actor whose selected token isn't linked to it,
+ * the GM is told the token carries its own copy, since the two sheets look the same from the outside.
+ * @param {Item} item   an item on an actor other than the crafting actor
+ * @param {Actor} actor   the crafting actor
+ * @returns {string}
+ */
+export function wrongActorMessage(item, actor) {
+  const nameOf = a => a.token?.name ?? a.name;
+  const data = { name: item.name, owner: nameOf(item.parent), actor: nameOf(actor) };
+  if ( !game.user.isGM ) return game.i18n.localize("GRIDCRAFTER.Errors.NotYourCharacter", data);
+  if ( actor.isToken && (actor.token.baseActor?.uuid === item.parent.uuid) ) {
+    return game.i18n.localize("GRIDCRAFTER.Errors.UnlinkedToken", data);
+  }
+  return game.i18n.localize("GRIDCRAFTER.Errors.NotCraftingActor", data);
+}
+
+/**
+ * The dismantling recipe that takes an item apart for an actor: one it knows, or one it could discover.
+ * @param {Actor} actor
+ * @param {import("./helpers.js").ItemRef} item
+ * @returns {import("./recipes.js").Recipe|null}
+ */
+export function findDismantleRecipe(actor, item) {
+  const known = new Set(getKnownRecipeIds(actor));
+  return getAllRecipes().find(r => (r.kind === "dismantle") && (known.has(r.id) || isDiscoverable(r))
+    && refMatches(r.input, item)) ?? null;
 }
 
 /**
@@ -106,9 +141,7 @@ export async function craft(slots) {
   for ( const doc of docs ) {
     if ( !doc ) continue;
     const origin = itemOrigin(doc);
-    if ( (origin === "actor") && (doc.parent.uuid !== actor.uuid) ) {
-      throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotYourCharacter", { name: doc.name }));
-    }
+    if ( (origin === "actor") && (doc.parent.uuid !== actor.uuid) ) throw new CraftError(wrongActorMessage(doc, actor));
     if ( (origin === "actor") && !doc.isOwner ) {
       throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotOwner", { name: doc.name }));
     }
@@ -214,22 +247,21 @@ export async function dismantle(ref) {
   // Only the crafting actor's own items, for a GM too: breaking a directory or compendium item would
   // make parts out of nothing.
   const origin = itemOrigin(doc);
-  if ( origin !== "actor" ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotFromInventory", { name: doc.name }));
-  if ( doc.parent.uuid !== actor.uuid ) {
-    throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotYourCharacter", { name: doc.name }));
-  }
+  if ( origin !== "actor" ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.DismantleNotCarried", { name: doc.name }));
+  if ( doc.parent.uuid !== actor.uuid ) throw new CraftError(wrongActorMessage(doc, actor));
   if ( !doc.isOwner ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotOwner", { name: doc.name }));
 
   // An item no recipe the actor may use covers is refused for free: no loss, no card, so trying an
   // item gives nothing away.
   const item = toItemRef(doc);
-  const known = new Set(getKnownRecipeIds(actor));
-  const recipe = getAllRecipes().find(r => (r.kind === "dismantle") && (known.has(r.id) || isDiscoverable(r))
-    && refMatches(r.input, item));
+  const recipe = findDismantleRecipe(actor, item);
   if ( !recipe ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.CannotDismantle", { name: doc.name }));
 
   const plan = planDismantle(recipe, doc, actor, getAllRecipes());
-  if ( !plan ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.NotEnough", { name: doc.name }));
+  if ( !plan ) {
+    throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.DismantleNotEnough",
+      { name: doc.name, count: dismantleGrid(recipe, getAllRecipes()).units }));
+  }
   const { usage, cells, receipt } = plan;
 
   // Refs now: the spend below may delete the documents they describe.
@@ -252,7 +284,7 @@ export async function dismantle(ref) {
   const veto = { reason: "" };
   if ( Hooks.call(`${MODULE_ID}.preDismantle`, actor, foundry.utils.deepClone(recipe), doc, veto, salvage) === false ) {
     const reason = (typeof veto.reason === "string") && veto.reason.trim();
-    throw new CraftError(reason || game.i18n.localize("GRIDCRAFTER.Errors.Vetoed"));
+    throw new CraftError(reason || game.i18n.localize("GRIDCRAFTER.Errors.DismantleVetoed"));
   }
 
   // A listener's list is checked like any input: entries it broke are dropped, and a part that doesn't
@@ -262,7 +294,7 @@ export async function dismantle(ref) {
     .filter(p => (typeof p?.uuid === "string") && Number.isInteger(p.quantity) && (p.quantity > 0));
   const sources = await Promise.all(parts.map(p => fromUuid(p.uuid).catch(() => null)));
   const gone = parts.find((p, i) => !(sources[i] instanceof foundry.documents.Item));
-  if ( gone ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.ResultGone", { name: gone.name ?? gone.uuid }));
+  if ( gone ) throw new CraftError(game.i18n.localize("GRIDCRAFTER.Errors.PartGone", { name: doc.name, part: gone.name ?? gone.uuid }));
   // One cell per unit, for the grid and the flight; past nine, units are still delivered.
   given.parts = parts.flatMap((p, i) => Array(p.quantity).fill(toItemRef(sources[i])))
     .concat(Array(CELL_COUNT).fill(null)).slice(0, CELL_COUNT);

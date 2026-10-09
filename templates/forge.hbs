@@ -139,7 +139,7 @@
 
       <div class="gc-result-column">
       {{#if dismantling}}
-      <div class="gc-result-slot gc-input-slot {{#if input}}gc-filled{{/if}}" {{#if input}}data-tooltip="{{input.name}}"{{/if}}>
+      <div class="gc-result-slot gc-input-slot {{#if input}}gc-filled{{/if}}" data-tooltip="{{inputTip}}">
         {{#if input}}
         <img src="{{input.img}}" alt="{{input.name}}" draggable="false">
         <button type="button" class="gc-cell-clear" data-action="clearInput" aria-label="{{localize "GRIDCRAFTER.Forge.Remove"}}"><i class="fa-solid fa-xmark" inert></i></button>

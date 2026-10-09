@@ -12,7 +12,8 @@ import {
   isTypeAllowed, itemDragData, itemOrigin, readCaret, recipeSearchText, refMatches, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
 import {
-  CraftError, craft, dismantle, fillFromInventory, getKnownRecipeIds, getLearnedRecipeIds, hasRequiredItem, planDismantle
+  CraftError, craft, dismantle, fillFromInventory, findDismantleRecipe, getKnownRecipeIds, getLearnedRecipeIds, hasRequiredItem,
+  noActorMessage, planDismantle, wrongActorMessage
 } from "../crafting.js";
 import { dismantleGrid, findRecipe, getAllRecipes, isDiscoverable, recipeFace } from "../recipes.js";
 import { BELLOWS_PERIOD, CraftFX, animate, runeGlyphs, wait } from "../effects.js";
@@ -190,6 +191,14 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       ? all.find(r => (r.kind === "dismantle") && known.has(r.id) && refMatches(r.input, this.inputRef)) : null;
     const doc = recipe ? foundry.utils.fromUuidSync(this.inputRef.uuid) : null;
     const ghost = doc ? (planDismantle(recipe, doc, actor, all)?.cells ?? dismantleGrid(recipe, all).cells) : null;
+    // Empty, the circle says what goes in it. Holding an item the actor has never taken apart, it says why
+    // the grid stays empty: dismantling it is how the actor finds out.
+    let inputTip = null;
+    if ( dismantling ) {
+      if ( !this.inputRef ) inputTip = game.i18n.localize("GRIDCRAFTER.Forge.DropInputHint");
+      else if ( !recipe ) inputTip = `${this.inputRef.name}<br>${game.i18n.localize("GRIDCRAFTER.Forge.UntriedHint")}`;
+      else inputTip = this.inputRef.name;
+    }
     // The item the board's recipe requires, under the circle, so a missing tool is plain before the click.
     // Only for a recipe the actor knows: a grid it could only discover shows nothing, like the ghost.
     let benchRequires = null;
@@ -214,6 +223,7 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       noActorKey: game.user.isGM ? "GRIDCRAFTER.Errors.NoActorGM" : "GRIDCRAFTER.Errors.NoActor",
       slots: this.slots.map((s, index) => ({ index, item: s, ghost: (!s && ghost?.[index]) || null })),
       input: dismantling ? this.inputRef : null,
+      inputTip,
       book: [...byCategory.values()].flat(),
       groups,
       query: this.#query,
@@ -271,6 +281,10 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         this.#setInput(null);
       });
       result.addEventListener("dblclick", () => this.#openSheet(this.inputRef?.uuid));
+      // The book takes a drop too: it lists what can be dismantled, so it is where an item is first tried.
+      const book = this.element.querySelector(".gc-book");
+      book.addEventListener("dragover", ev => ev.preventDefault());
+      book.addEventListener("drop", this.#onDropInput.bind(this));
     }
     else {
       result.addEventListener("dragstart", this.#onDragResult.bind(this));
@@ -359,6 +373,13 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // Still needed: assigning the user a different character changes the crafting actor.
     this.#hooks.push(["updateUser", Hooks.on("updateUser", user => (user === game.user) && !this.busy && this.render())]);
     this.#hooks.push(["controlToken", Hooks.on("controlToken", () => game.user.isGM && !this.busy && this.render())]);
+    // While something is dragged over the window, the empty circle lights to say where an item to dismantle
+    // goes. On the window, not a part, so a render mid-drag keeps it.
+    const dragging = on => this.element.classList.toggle("gc-dragging", on);
+    this.element.addEventListener("dragenter", () => dragging(true));
+    this.element.addEventListener("dragleave", ev => !this.element.contains(ev.relatedTarget) && dragging(false));
+    this.element.addEventListener("drop", () => dragging(false));
+    this.element.addEventListener("dragend", () => dragging(false));
   }
 
   /** @override */
@@ -443,16 +464,21 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
       return;
     }
     const warn = key => ui.notifications.warn(game.i18n.localize(`GRIDCRAFTER.Errors.${key}`, { name: item.name }));
-    if ( !isTypeAllowed(item.type) ) return warn("TypeNotAllowed");
+    if ( !isTypeAllowed(item.type) ) {
+      return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.TypeNotAllowed",
+        { name: item.name, type: game.i18n.localize(CONFIG.Item.typeLabels[item.type] ?? item.type) }));
+    }
     const origin = itemOrigin(item);
-    if ( (origin === "actor") && (item.parent.uuid !== getCraftingActor()?.uuid) ) return warn("NotYourCharacter");
+    const actor = getCraftingActor();
+    if ( (origin === "actor") && !actor ) return ui.notifications.warn(noActorMessage());
+    if ( (origin === "actor") && (item.parent.uuid !== actor.uuid) ) return ui.notifications.warn(wrongActorMessage(item, actor));
     if ( (origin === "actor") && !item.isOwner ) return warn("NotOwner");
     // Directory and compendium items are spent by nobody, so only a GM may put them on the grid.
     if ( (origin !== "actor") && !game.user.isGM ) return warn("NotFromInventory");
     // A stack fills as many cells as it has units; an item without a quantity fills one.
     if ( origin === "actor" ) {
       const used = this.slots.filter((s, i) => (i !== index) && (s?.uuid === item.uuid)).length;
-      if ( used >= (getQuantity(item) ?? 1) ) return warn("NotEnough");
+      if ( used >= (getQuantity(item) ?? 1) ) return warn("AllOnGrid");
     }
     this.#setSlot(index, toItemRef(item));
   }
@@ -479,7 +505,9 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
   /**
    * Put a dropped item in the circle: an item of the crafting actor's, or a part already on the grid.
    * The same origin and owner checks as the grid, for a GM too: only the actor's own items can be broken.
-   * No item-type check: what may be dismantled is for the recipes to say.
+   * No item-type check: what may be dismantled is for the recipes to say. An item no recipe the actor may
+   * use covers is refused here rather than on Dismantle: that click is free and says the same, so telling
+   * now gives nothing away.
    * @param {object} data
    */
   async #handleInputDrop(data) {
@@ -493,11 +521,14 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     if ( !item ) return;
     const warn = key => ui.notifications.warn(game.i18n.localize(`GRIDCRAFTER.Errors.${key}`, { name: item.name }));
-    const origin = itemOrigin(item);
-    if ( origin !== "actor" ) return warn("NotFromInventory");
-    if ( item.parent.uuid !== getCraftingActor()?.uuid ) return warn("NotYourCharacter");
+    if ( itemOrigin(item) !== "actor" ) return warn("DismantleNotCarried");
+    const actor = getCraftingActor();
+    if ( !actor ) return ui.notifications.warn(noActorMessage());
+    if ( item.parent.uuid !== actor.uuid ) return ui.notifications.warn(wrongActorMessage(item, actor));
     if ( !item.isOwner ) return warn("NotOwner");
-    this.#setInput(toItemRef(item));
+    const ref = toItemRef(item);
+    if ( !findDismantleRecipe(actor, ref) ) return warn("CannotDismantle");
+    this.#setInput(ref);
   }
 
   /* -------------------------------------------- */
@@ -515,7 +546,8 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const recipe = getAllRecipes().find(r => r.id === target.dataset.recipeId);
     const variant = recipe?.variants[Number(target.dataset.variant)];
     const actor = getCraftingActor();
-    const filled = variant && actor ? fillFromInventory(variant, actor) : null;
+    if ( !actor ) return ui.notifications.warn(noActorMessage());
+    const filled = variant ? fillFromInventory(variant, actor) : null;
     if ( !filled ) {
       return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.MissingIngredients", { name: recipe?.name ?? "" }));
     }
@@ -531,7 +563,8 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( this.busy ) return;
     const recipe = getAllRecipes().find(r => r.id === target.dataset.recipeId);
     const actor = getCraftingActor();
-    if ( !recipe || !actor ) return;
+    if ( !actor ) return ui.notifications.warn(noActorMessage());
+    if ( !recipe ) return;
     const item = actor.items.find(i => ((getQuantity(i) ?? 1) > 0) && refMatches(recipe.input, toItemRef(i)));
     if ( !item ) return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.NotCarried", { name: recipe.input.name }));
     this.#setInput(toItemRef(item));

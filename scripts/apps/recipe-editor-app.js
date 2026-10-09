@@ -492,7 +492,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     else {
       if ( !isTypeAllowed(item.type) ) {
-        return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.TypeNotAllowed", { name: item.name }));
+        return ui.notifications.warn(game.i18n.localize("GRIDCRAFTER.Errors.TypeNotAllowed",
+          { name: item.name, type: game.i18n.localize(CONFIG.Item.typeLabels[item.type] ?? item.type) }));
       }
       this.#cells[Number(target.dataset.index)] = toItemRef(item);
     }
