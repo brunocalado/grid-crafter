@@ -91,15 +91,14 @@ export function confirmDialog({ title, content }) {
 }
 
 /**
- * The actor a craft is for: the user's linked character. A GM without one crafts for the actor of the
- * token they control, so recipes can be tested without assigning a character.
+ * The actor a craft is for. A player crafts for their assigned character. A GM crafts for the actor of
+ * the token they control, and for their own character only when no token is selected: selecting a token
+ * is the choice of the moment, an assigned character a standing one.
  * @returns {Actor|null}
  */
 export function getCraftingActor() {
-  const actor = game.user.character;
-  if ( actor ) return actor;
-  if ( game.user.isGM ) return canvas.tokens?.controlled[0]?.actor ?? null;
-  return null;
+  if ( game.user.isGM ) return canvas.tokens?.controlled[0]?.actor ?? game.user.character ?? null;
+  return game.user.character ?? null;
 }
 
 /**

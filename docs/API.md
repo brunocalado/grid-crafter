@@ -509,8 +509,8 @@ objects are copies; changing them changes nothing.
 
 Ids of the recipes an actor knows: what its recipe book shows. That is the recipes it learned
 (by crafting them, being taught, or Learn) plus every public recipe. `target` is the actor, one of
-its tokens, or the uuid of either. Defaults to the current user's crafting actor — their assigned
-character, or for a GM the first selected token.
+its tokens, or the uuid of either. Defaults to the current user's crafting actor — a player's
+assigned character, or for a GM the first selected token, then their own character.
 
 ### `setRecipePublic(id, value)` → `Promise<boolean>` *(GM only)*
 
