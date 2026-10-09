@@ -169,7 +169,7 @@
       "CannotDismantle": "{name} can't be dismantled: the character knows no way to take it apart.",
       "ResultGone": "The item this recipe makes ({name}) no longer exists. Ask the GM to fix the recipe.",
       "PartGone": "Dismantling {name} would give {part}, which no longer exists. Nothing was spent. Ask the GM to fix the dismantling recipe.",
-      "TypeNotAllowed": "{name} can't be used: {type} items aren't crafting materials in this world. The GM chooses which types are in the module settings.",
+      "TypeNotAllowed": "{name} can't be used: {type} items aren't crafting materials in this world. The GM picks the allowed types in the module settings.",
       "NotOwner": "You do not own {name}.",
       "NotYourCharacter": "{name} belongs to {owner}. Only items on your own character's sheet can be used.",
       "NotCraftingActor": "{name} belongs to {owner}, but the table is working for {actor}. Select {owner}'s token to use it.",
