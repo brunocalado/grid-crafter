@@ -197,8 +197,7 @@ table below is the crafting recipe.
 | `shaped` | no | `true` (default): items must keep their positions. `false`: only which items, not where. Holds for every variant. |
 | `quantity` | no | How many of the result one craft makes, 1 to 10. Default `1`. |
 | `failLossChance` | no | Percent chance (0–100) that a failed attempt destroys the materials. Leave it out to use the GM's world setting. |
-| `public` | no | `true`: every character knows the recipe until the GM makes it private. Default `false`. |
-| `discoverable` | no | Whether a character who doesn't know the recipe can make it by laying out its ingredients. `true` or `false` overrides the GM's world setting; leave it out to follow that setting. |
+| `access` | no | How characters come to know the recipe. `"public"`: every character knows it. `"discover"`: a character who doesn't know it can make it by laying out its ingredients, and learns it by doing so. `"taught"`: only teaching or Learn gives it. Leave it out to follow the GM's world setting for crafting recipes. Any other value is ignored. |
 | `requires` | no | The uuid of one item the character must carry to make the recipe: a tool, a feature, a proficiency, any type. It is never placed on the grid and never spent. A copy on the sheet counts, matched by its source or by name and type. Without it the craft is refused with a chat card. An unresolvable uuid drops the variant it belongs to. |
 
 ### Shaped recipes
@@ -263,8 +262,8 @@ recipe instead of two recipes:
 ```
 
 A recipe has 1 to 4 variants. Each brings its own `cells` and its own `requires`; everything else
-(the name, the result, `quantity`, `categories`, `shaped`, `failLossChance`, `public`,
-`discoverable`) belongs to the recipe and holds for every variant.
+(the name, the result, `quantity`, `categories`, `shaped`, `failLossChance`, `access`) belongs to
+the recipe and holds for every variant.
 
 Knowing the recipe is knowing all its variants. Forging any of them, being taught or Learn adds the
 whole recipe to a character's book, and the book shows each variant as a row under the recipe's
@@ -349,7 +348,8 @@ sheet. It has no variants, no shape, no quantity made and no chance of loss.
 | `refund` | no | `true`: an item made at the table breaks back into exactly what was spent on it, as its [receipt](#receipts) says. Default `false`. |
 | `favorite` | no | `{ recipe, variant }`: a crafting recipe's full id, as `getRecipes()` lists it (`"my-module.axe"`), and the id of one of its [variants](#variants). An item with no receipt breaks into that variant's cells, and one dismantle spends as many units as that recipe's `quantity`. Read live, so a change to the variant changes the dismantle. Never checked when registered: the recipe it names may register later. |
 | `name` | no | Defaults to the input item's name. At most 40 characters, as for a crafting recipe. |
-| `categories`, `public`, `discoverable` | no | As for a crafting recipe. |
+| `categories` | no | As for a crafting recipe. |
+| `access` | no | As for a crafting recipe, where `"discover"` means dismantling the item teaches it. Leave it out to follow the GM's world setting for dismantling recipes. |
 
 The fields of a crafting recipe (`cells`, `variants`, `result`, `shaped`, `quantity`,
 `failLossChance`) are ignored on a dismantling recipe.
@@ -497,13 +497,13 @@ A crafting recipe has `id`, `kind`,
 entries that are `{ uuid, name, img, type, sources }` or `null`, and `requires`, the required item
 as the same object or `null`), `result`, `quantity`, `failLossChance` (`null` when it follows the
 world setting), `source`
-(`"world"` or the package id), `public` (whether every character knows it) and `discoverable`
-(`null` when it follows the world setting).
+(`"world"` or the package id) and `access` (`"public"`, `"discover"` or `"taught"`, `null` when it
+follows the world setting for its kind; `getRecipeAccess` gives the value in force).
 
 A dismantling recipe has `id`, `kind`, `name`, `categories`, `input` (the item it breaks, as
 `{ uuid, name, img, type, sources }`), `inputQuantity`, `requires` (the same object or `null`),
 `outputs` (9 entries, a part as that object or `null`), `favorite` (`{ recipe, variant }` or `null`),
-`refund`, `source`, `public` and `discoverable`.
+`refund`, `source` and `access`.
 
 A package recipe the GM edited carries `edited: true`, and its fields are the GM's version. The
 objects are copies; changing them changes nothing.
@@ -515,23 +515,28 @@ Ids of the recipes an actor knows: what its recipe book shows. That is the recip
 its tokens, or the uuid of either. Defaults to the current user's crafting actor — a player's
 assigned character, or for a GM the first selected token, then their own character.
 
-### `setRecipePublic(id, value)` → `Promise<boolean>` *(GM only)*
+### `setRecipeAccess(id, value)` → `Promise<boolean>` *(GM only)*
 
-Makes a recipe public, so every character knows it, or private again. Nothing is written to the
-actors: a character who learned the recipe keeps it either way, and one who only knew it because
-it was public loses it from its recipe book when it turns private.
+Sets how characters come to know a recipe. Nothing is written to the actors: a character who
+learned the recipe keeps it either way, and one who only knew it because it was public loses it
+from its recipe book when it stops being public.
 
 - `id` *(string)*: the recipe's id, as `getRecipes()` lists it. An unknown id is refused with a
   warning.
-- `value` *(boolean, optional)*: `true` (default) for public, `false` for private.
+- `value` *(string | null)*: `"public"` (every character knows it), `"discover"` (laying out its
+  ingredients, or dismantling its item, teaches it), `"taught"` (only teaching or Learn gives it),
+  or `null` to follow the GM's world setting for the recipe's kind. Any other value is refused
+  with a warning.
 
-On a package recipe this is an edit like any other: the recipe is marked edited, stops following
-the package's updates, and Restore in the Recipe Book brings back the package's `public` with the
-rest of it. Resolves `true` once it is saved, `false` when the call was refused.
+On a package recipe this is an edit like any other, even with `null`: the recipe is marked edited,
+stops following the package's updates, and Restore in the Recipe Book brings back the package's
+`access` with the rest of it. A package recipe nobody touched follows a change of the world setting
+without becoming an edit. Resolves `true` once it is saved, `false` when the call was refused.
 
-### `isRecipePublic(id)` → `boolean`
+### `getRecipeAccess(id)` → `string | null`
 
-Whether every character knows the recipe right now. `false` for an unknown id.
+How characters come to know the recipe right now, with the world setting applied: `"public"`,
+`"discover"` or `"taught"`. `null` for an unknown id.
 
 ### `getCategories()` → `string[]`
 
@@ -548,7 +553,7 @@ Replaces the categories a recipe is listed under.
   not in use yet starts a new category; `[]` leaves the recipe uncategorised. Anything but a list
   of strings is refused with a warning.
 
-On a package recipe this is an edit like any other, as with `setRecipePublic`. Resolves `true`
+On a package recipe this is an edit like any other, as with `setRecipeAccess`. Resolves `true`
 once it is saved, `false` when the call was refused.
 
 ### `teachRecipe(target, id)` → `Promise<boolean>`
@@ -649,7 +654,7 @@ Opens the GM's Recipe Book.
 
 Your recipes show in the GM's Recipe Book under your package's title, crafting recipes under its
 **Craft** tab and dismantling recipes under **Dismantle**. The GM can edit any of them
-in place, `public`, `discoverable` and `categories` included, and the recipe keeps its id, so characters who
+in place, `access` and `categories` included, and the recipe keeps its id, so characters who
 learned it keep it.
 
 Because your recipes are registered fresh each session, updating your module updates them

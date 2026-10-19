@@ -57,9 +57,11 @@ come together, and if the GM wants, they can be lost in the attempt.
   sheet, ready to craft with. Characters know, learn and discover dismantling recipes the same way
   as any other, and every dismantle is reported in chat. If the parts don't fit on the sheet,
   nothing is spent.
-- A character can make a recipe they don't know by laying out its ingredients, and learns it by
-  doing so. The GM can turn this discovery off for the whole world or for single recipes, and then
-  only recipes a character already knows can be crafted.
+- Each recipe is Public, Discoverable or Taught only. A public recipe is in every character's book.
+  A discoverable one can be made by a character who doesn't know it, by laying out its ingredients
+  or dismantling its item, and they learn it by doing so. A taught-only recipe comes only from the
+  GM. In the module settings the GM picks a default for crafting recipes and another for dismantling
+  recipes, and any single recipe can be set apart from its default.
 - From the GM's Recipe Book, **Share** shows a recipe to the players you choose: its pattern lights
   up cell by cell, then what it makes appears. Each of them can **Learn** it into their own
   character's recipe book.
@@ -98,8 +100,9 @@ come together, and if the GM wants, they can be lost in the attempt.
    four.
 4. Choose **Shaped** or **Shapeless** (it applies to every variant), how many items one craft
    **Makes**, and whether a failure uses the world's chance to lose materials or a chance of its
-   own. Switch on **Public** if every character should know the recipe, and set **Discovery** if
-   this recipe should not follow the world setting. Hover the **?** icons for a quick explanation.
+   own. **Knowledge** says how characters come to know the recipe: with **World default** on it
+   follows the module setting, and with it off you pick Public, Discoverable or Taught only for this
+   recipe. Hover the **?** icons for a quick explanation.
 5. Optionally, give it one or more **Categories** to group it with similar recipes. A recipe
    with two categories shows up in both groups of the character's book.
 6. Click **Save**. It refuses a variant with no ingredients, and a layout that another recipe
@@ -152,7 +155,9 @@ recipe book, with a whispered message in chat.
 learn the recipe and press **Teach**; those who learned get a whispered message in chat.
 **Forget** lists only those who learned it: switch on who should forget it and press **Forget**.
 To teach or forget several recipes at once, click **Select recipes** next to the search, pick the
-recipes (or whole groups), and press **Teach** or **Forget**.
+recipes (or whole groups), and press **Teach** or **Forget**. A public recipe is already in every
+book, so **Teach** is off for it and leaves it out of a selection, and players see it as known
+instead of being offered **Learn**.
 
 ### For the GM: set it up once
 
@@ -166,7 +171,8 @@ All settings are in **Game Settings → Configure Settings → Grid Crafter**:
 | Visual Theme | Forge or Arcane, for everyone at the table. |
 | Quantity Path | Where your system keeps an item's quantity, such as `system.quantity`. Items without a number there are used up whole. |
 | Failure: Chance to Lose Materials | The world-wide default; each recipe can override it. |
-| Discover Recipes by Experiment | Whether characters can make a recipe they don't know by laying out its ingredients, and learn it. On by default; each recipe can override it. |
+| Crafting Recipes: Knowledge | How characters come to know a crafting recipe: Public (everyone knows it), Discoverable (laying out its ingredients makes it and teaches it) or Taught only. Discoverable by default; each recipe can override it. |
+| Dismantling Recipes: Knowledge | The same choice for dismantling recipes, where Discoverable means dismantling the item teaches it. Discoverable by default; each recipe can override it. |
 
 ### For the players: forge something
 
