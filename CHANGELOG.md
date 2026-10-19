@@ -1,6 +1,6 @@
-# Unreleased
+# 0.1.1
 
-- [Changed] The forge's recipe book no longer marks public recipes, so long names have the whole row to wrap in. The recipe editor still shows the marker.
+- [Fixed] The forge's recipe book no longer marks public recipes, so long names have the whole row to wrap in. The recipe editor still shows the marker.
 
 # 0.1.0
 
