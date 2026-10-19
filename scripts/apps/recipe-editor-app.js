@@ -16,7 +16,7 @@ import {
 import {
   blankDismantle, blankRecipe, blankVariant, deleteRecipe, dismantleGrid, findInputTaken, findOverlap, getAccess, getAllRecipes,
   getCategories, getHiddenIds, getRecipe, getWorldRecipes, normalizeCategories, recipeFace, restoreRecipe, saveRecipe, setRecipeHidden,
-  waysToMake
+  waysToMake, worldAccess
 } from "../recipes.js";
 import { ShareRecipeApp } from "./share-recipe-app.js";
 import { ForgetRecipeApp, TeachRecipeApp } from "./teach-recipe-app.js";
@@ -162,7 +162,9 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( selected ) for ( const id of selected ) if ( !all.some(r => r.id === id) ) selected.delete(id);
     // While selecting, a lit row means "selected" and nothing else: the draft's row is lit only if picked.
     const toEntry = r => ({ id: r.id, name: recipeFace(r).name || "—", img: recipeFace(r).img,
-      active: selected ? selected.has(r.id) : r.id === draft.id, search: recipeSearchText(r), public: getAccess(r) === "public",
+      active: selected ? selected.has(r.id) : r.id === draft.id, search: recipeSearchText(r),
+      // Only an exception: when its whole kind is public, a marker on every row would say nothing.
+      public: (getAccess(r) === "public") && (worldAccess(r.kind) !== "public"),
       edited: !!r.edited,
       variantsTip: (r.variants?.length > 1) ? game.i18n.localize("GRIDCRAFTER.Editor.VariantsMarker", { count: r.variants.length }) : "" });
     const groups = Object.entries(Object.groupBy(shown, r => r.source)).map(([source, recipes]) => {
@@ -227,6 +229,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isPackage: !!draft.source && (draft.source !== "world"),
       // As saved, so Restore is offered only for an edit that still exists.
       edited: !!all.find(r => r.id === draft.id)?.edited,
+      // Teach acts on what is saved, like Restore: a recipe every character knows has no one to teach.
+      everyoneKnows: !isNew && (getAccess(all.find(r => r.id === draft.id)) === "public"),
       // The footer button names the first category and counts the rest; its tooltip lists them all.
       categories: draft.categories.length ? {
         first: draft.categories[0], more: draft.categories.length - 1, all: draft.categories.join(", ")
@@ -234,6 +238,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       dirty: this.dirty,
       selecting: !!selected,
       picked: selected?.size ?? 0,
+      teachable: selected ? this.#teachable([...selected]).length : 0,
       cells: this.#cells.map((item, index) => ({ index, item })),
       // Following a way, the grid is that way's and can't be edited here.
       linked: !!way,
@@ -402,9 +407,14 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       counter.textContent = `${picked}/${entries.length}`;
       group.classList.toggle("gc-all-picked", visible.length > 0 && visible.every(isPicked));
     }
+    // Teach counts only what someone could still be taught; Forget counts every pick, since a learned copy
+    // of a public recipe is still there to forget.
+    const teachable = this.#teachable([...selected]).length;
     for ( const count of this.element.querySelectorAll(".gc-picked-count") ) {
-      count.textContent = String(selected.size);
-      count.closest("button").disabled = !selected.size;
+      const button = count.closest("button");
+      const n = (button.dataset.action === "teachRecipe") ? teachable : selected.size;
+      count.textContent = String(n);
+      button.disabled = !n;
     }
   }
 
@@ -799,8 +809,19 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
    * @this {RecipeEditorApp}
    */
   static async #onTeach() {
+    const ids = this.#teachable(this.#targets);
+    if ( !ids.length ) return;
     await foundry.applications.instances.get(`${MODULE_ID}-teach`)?.close();
-    new TeachRecipeApp(this.#targets).render({ force: true });
+    new TeachRecipeApp(ids).render({ force: true });
+  }
+
+  /**
+   * The recipes among these that someone could still be taught: every character already knows a public one.
+   * @param {string[]} ids   saved recipes
+   * @returns {string[]}
+   */
+  #teachable(ids) {
+    return ids.filter(id => getAccess(getRecipe(id)) !== "public");
   }
 
   /**

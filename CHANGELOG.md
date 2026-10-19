@@ -1,6 +1,7 @@
 # Unreleased
 
 - [Breaking][Changed] Public and Discovery become one Knowledge choice per recipe (Public, Discoverable or Taught only), with a world default for crafting and one for dismantling. The API's setRecipePublic and isRecipePublic become setRecipeAccess and getRecipeAccess, and package recipes take access instead of public and discoverable.
+- [Changed] Teach and Learn are off for a recipe every character already knows, and the public marker shows only on a recipe that is public when its kind's default isn't.
 
 # 0.0.4
 

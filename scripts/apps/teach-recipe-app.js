@@ -81,8 +81,7 @@ export class TeachRecipeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.#listed.clear();
     // One row per actor: two linked tokens of Thorin, or two users sharing a character, are one row.
     for ( const actor of new Map(actors.map(a => [a.uuid, a])).values() ) {
-      // Real learning only: a public recipe the actor never learned counts as missing, and teaching
-      // it is what keeps it once the recipe stops being public.
+      // Real learning only: what the actor's flag holds, never what it knows because a recipe is public.
       const learned = getLearnedRecipeIds(actor);
       const k = this.recipeIds.filter(id => learned.includes(id)).length;
       // Forget lists only who has something to forget. Teach lists everyone, and who already learned

@@ -85,6 +85,7 @@
       "ShareHint": "Show this recipe to the players you choose. They can learn it from there.",
       "Teach": "Teach",
       "TeachHint": "Teach this recipe to the characters you choose.",
+      "TeachPublicHint": "Every character already knows this recipe.",
       "Forget": "Forget",
       "ForgetHint": "Remove this recipe from the characters you choose.",
       "Select": "Select recipes",
