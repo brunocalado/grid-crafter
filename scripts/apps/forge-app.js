@@ -12,10 +12,10 @@ import {
   isTypeAllowed, itemDragData, itemOrigin, readCaret, recipeSearchText, refMatches, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
 import {
-  CraftError, craft, dismantle, fillFromInventory, findDismantleRecipe, getKnownRecipeIds, getLearnedRecipeIds, hasRequiredItem,
+  CraftError, craft, dismantle, fillFromInventory, findDismantleRecipe, getKnownRecipeIds, hasRequiredItem,
   noActorMessage, planDismantle, wrongActorMessage
 } from "../crafting.js";
-import { dismantleGrid, findRecipe, getAccess, getAllRecipes, recipeFace, worldAccess } from "../recipes.js";
+import { dismantleGrid, findRecipe, getAccess, getAllRecipes, recipeFace } from "../recipes.js";
 import { BELLOWS_PERIOD, CraftFX, animate, runeGlyphs, wait } from "../effects.js";
 import { playCue } from "../sound.js";
 
@@ -126,7 +126,6 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const theme = getTheme();
     // A player with no character still sees the public recipes; crafting is what needs the character.
     const known = new Set(getKnownRecipeIds(actor));
-    const learned = new Set(getLearnedRecipeIds(actor));
     const all = getAllRecipes();
     this.#canDismantle = all.some(r => (r.kind === "dismantle") && (known.has(r.id) || (getAccess(r) === "discover")));
     const dismantling = this.#dismantling;
@@ -161,9 +160,6 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
         search: recipeSearchText(r),
         // Any variant that can be made now: it sorts and filters the recipe.
         ready: rows.some(row => row.ready),
-        // Known only because it is public, while its kind isn't: the marker flags an exception, and goes
-        // away when every recipe of the kind is public. Learned recipes carry none: no marker means "yours".
-        public: !learned.has(r.id) && (worldAccess(r.kind) !== "public"),
         rows
       };
     });

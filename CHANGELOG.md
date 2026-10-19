@@ -1,3 +1,7 @@
+# Unreleased
+
+- [Changed] The forge's recipe book no longer marks public recipes, so long names have the whole row to wrap in. The recipe editor still shows the marker.
+
 # 0.1.0
 
 - [Breaking][Changed] Public and Discovery become one Knowledge choice per recipe (Public, Discoverable or Taught only), with a world default for crafting and one for dismantling. The API's setRecipePublic and isRecipePublic become setRecipeAccess and getRecipeAccess, and package recipes take access instead of public and discoverable.

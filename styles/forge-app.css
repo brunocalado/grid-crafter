@@ -91,31 +91,6 @@
     list-style: none;
   }
 
-  .gc-book-list > li {
-    position: relative;
-  }
-
-  /* A sibling of the entry, not inside it: Foundry turns off pointer events on a button's children,
-     so an icon inside would never show its own tooltip. It follows the entry's hover shift. */
-  .gc-public-marker {
-    position: absolute;
-    top: 7px;
-    right: 8px;
-    color: var(--gc-text-dim);
-    font-size: var(--font-size-11);
-    transition: color 150ms, transform 150ms;
-  }
-
-  .gc-book-list > li:hover .gc-public-marker {
-    color: var(--gc-trim-hi);
-    transform: translateX(2px);
-  }
-
-  /* Fades with a recipe the inventory can't make in any way, since it sits outside its entries. */
-  .gc-book-list > li:not([data-ready]) .gc-public-marker {
-    opacity: 0.55;
-  }
-
   /* Icon, ingredients and name side by side: the icon matches the mini grid's height (3 cells of
      14px plus two 1px gaps), so the entry is only as tall as the grid, and the name takes the
      column on the right that used to be empty. */
@@ -140,9 +115,7 @@
     text-align: left;
     transition: border-color 150ms, box-shadow 150ms, transform 150ms;
 
-    /* Through the row as well, so pointing at the public marker doesn't drop the entry's hover. */
-    &:hover,
-    li:not(.gc-book-many):hover > & {
+    &:hover {
       border-color: var(--gc-glow);
       box-shadow: 0 0 10px rgba(var(--gc-glow-rgb), 0.4);
       transform: translateX(2px);
@@ -166,10 +139,6 @@
 
     &:hover {
       transform: translateX(2px);
-
-      .gc-public-marker {
-        transform: none;
-      }
     }
 
     > .gc-book-entry {
@@ -266,11 +235,6 @@
   .gc-book-count {
     color: var(--gc-trim-hi);
     font-weight: normal;
-  }
-
-  /* A long name wraps before it runs under the marker. */
-  .gc-book-list > li:has(.gc-public-marker) .gc-book-name {
-    padding-right: 14px;
   }
 
   .gc-mini-grid {
