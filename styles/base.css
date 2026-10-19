@@ -398,6 +398,42 @@
     }
   }
 
+  /* Icon buttons joined into one control; the lit one is the option in force: the forge's mode, a
+     recipe's Knowledge. */
+  .gc-mode-switch {
+    display: flex;
+    flex: none;
+
+    .gc-icon-button {
+      height: 30px;
+
+      &:not(:last-child) {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+
+      & + .gc-icon-button {
+        margin-left: -1px;
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+      }
+
+      /* Over its neighbour, so its whole border lights. */
+      &.gc-active,
+      &:hover {
+        position: relative;
+        z-index: 1;
+      }
+
+      /* Disabled, the lit one still says which option is in force (an inherited default), only quieter
+         than one the GM can change. */
+      &.gc-active:disabled {
+        opacity: 0.7;
+        box-shadow: none;
+      }
+    }
+  }
+
   /* A recipe list's search: a recessed field, like a grid cell. It has no legend: the magnifier says
      what it is. */
   .gc-search {

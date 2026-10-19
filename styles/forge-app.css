@@ -45,34 +45,6 @@
     }
   }
 
-  /* Two icon buttons joined into one control; the lit one is the table's mode. */
-  .gc-mode-switch {
-    display: flex;
-    flex: none;
-
-    .gc-icon-button {
-      height: 30px;
-
-      &:first-child {
-        border-top-right-radius: 0;
-        border-bottom-right-radius: 0;
-      }
-
-      & + .gc-icon-button {
-        margin-left: -1px;
-        border-top-left-radius: 0;
-        border-bottom-left-radius: 0;
-      }
-
-      /* Over its neighbour, so its whole border lights. */
-      &.gc-active,
-      &:hover {
-        position: relative;
-        z-index: 1;
-      }
-    }
-  }
-
   .gc-book-tools {
     display: flex;
     align-items: center;

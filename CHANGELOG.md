@@ -1,3 +1,7 @@
+# Unreleased
+
+- [Breaking][Changed] Public and Discovery become one Knowledge choice per recipe (Public, Discoverable or Taught only), with a world default for crafting and one for dismantling. The API's setRecipePublic and isRecipePublic become setRecipeAccess and getRecipeAccess, and package recipes take access instead of public and discoverable.
+
 # 0.0.4
 
 - [Changed] First version listed on foundryvtt.com. It has the same features as 0.0.3; the 0.0.3 notes list everything new since 0.0.2.

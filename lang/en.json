@@ -30,16 +30,18 @@
       "Shape": "Shape",
       "Shaped": "Shaped",
       "Shapeless": "Shapeless",
-      "Public": "Public",
       "Refund": "Refund",
       "Quantity": "Makes",
       "Consumes": "Consumes",
       "FailLoss": "Failure: chance to lose materials",
       "Inherit": "World default",
-      "Discovery": "Discovery",
-      "Requires": "Requires {name}",
-      "Yes": "Yes",
-      "No": "No"
+      "Knowledge": "Knowledge",
+      "Requires": "Requires {name}"
+    },
+    "Access": {
+      "public": "Public",
+      "discover": "Discoverable",
+      "taught": "Taught only"
     },
     "Editor": {
       "Title": "Recipe Book (GM)",
@@ -58,8 +60,11 @@
       "DropRequires": "Drop an item the character must carry. It is never spent; any type counts.",
       "ShapedHint": "Items must keep these positions. The pattern may sit anywhere on the grid.",
       "ShapelessHint": "Only the items count, not where they are placed.",
-      "PublicHint": "Every character knows a public recipe. Characters who learned it keep it if it stops being public.",
-      "DiscoveryHint": "Can a character who doesn't know this recipe make it by laying out its ingredients? Making it teaches it. World default follows the module setting.",
+      "KnowledgeHint": {
+        "public": "Every character knows it. A character who learned it keeps it if this changes.",
+        "discover": "A character who doesn't know it can still make it by laying out its ingredients, or dismantle its item, and learns it by doing so.",
+        "taught": "Only the GM teaching it, or Learn on a shared recipe, gives it. World default follows the module setting for this kind of recipe."
+      },
       "PublicMarker": "Public",
       "EditedMarker": "Edited",
       "VariantsMarker": "{count} variants",
@@ -194,7 +199,8 @@
       "SaveBeforeSharing": "Save the recipe before sharing it.",
       "ShareMissed": "The recipe could not be shown to {names}.",
       "UserIdsNotList": "Pass the players as a list of user ids.",
-      "CategoriesNotList": "Pass the categories as a list of names."
+      "CategoriesNotList": "Pass the categories as a list of names.",
+      "AccessNotValid": "{value} is not a recipe knowledge. Use \"public\", \"discover\", \"taught\" or null."
     },
     "Settings": {
       "RecipeEditor": {
@@ -220,9 +226,13 @@
         "Name": "Failure: Chance to Lose Materials",
         "Hint": "Percent chance that a failed craft destroys the materials. 0 means failure has no consequences. Each recipe can override it."
       },
-      "Discovery": {
-        "Name": "Discover Recipes by Experiment",
-        "Hint": "Characters can make a recipe they don't know by laying out its ingredients (in its shape, if it has one), and learn it. Each recipe can override this."
+      "AccessCraft": {
+        "Name": "Crafting Recipes: Knowledge",
+        "Hint": "How characters come to know a crafting recipe. Public: everyone knows it. Discoverable: laying out its ingredients (in its shape, if it has one) makes it and teaches it. Taught only: the GM teaches it. Each recipe can override this."
+      },
+      "AccessDismantle": {
+        "Name": "Dismantling Recipes: Knowledge",
+        "Hint": "How characters come to know what an item breaks into. Public: everyone knows it. Discoverable: dismantling the item teaches it. Taught only: the GM teaches it. Each recipe can override this."
       },
       "SoundVolume": {
         "Name": "Base volume"

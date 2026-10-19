@@ -11,7 +11,7 @@ import {
 } from "./constants.js";
 import { getCraftingActor, getQuantity, getTheme, itemOrigin, refMatches, toItemRef } from "./helpers.js";
 import { addReceipt, getReceipts, receiptKey } from "./receipts.js";
-import { dismantleGrid, findNearRecipe, findRecipe, getAllRecipes, isDiscoverable, recipeFace } from "./recipes.js";
+import { dismantleGrid, findNearRecipe, findRecipe, getAccess, getAllRecipes, recipeFace } from "./recipes.js";
 
 /**
  * @typedef {object} CraftOutcome
@@ -56,14 +56,14 @@ export function getLearnedRecipeIds(actor) {
 
 /**
  * What the actor's recipe book shows: what it learned, plus every public recipe. Public knowledge is
- * never written to the actor, so making a recipe private again takes it back from everyone who
- * didn't learn it.
+ * never written to the actor, so a recipe that stops being public, or a kind whose default stops being
+ * public, is taken back from everyone who didn't learn it.
  * @param {Actor|null} actor
  * @returns {string[]}
  */
 export function getKnownRecipeIds(actor) {
   const ids = new Set(getLearnedRecipeIds(actor));
-  for ( const r of getAllRecipes() ) if ( r.public ) ids.add(r.id);
+  for ( const r of getAllRecipes() ) if ( getAccess(r) === "public" ) ids.add(r.id);
   return [...ids];
 }
 
@@ -115,7 +115,7 @@ export function wrongActorMessage(item, actor) {
  */
 export function findDismantleRecipe(actor, item) {
   const known = new Set(getKnownRecipeIds(actor));
-  return getAllRecipes().find(r => (r.kind === "dismantle") && (known.has(r.id) || isDiscoverable(r))
+  return getAllRecipes().find(r => (r.kind === "dismantle") && (known.has(r.id) || (getAccess(r) === "discover"))
     && refMatches(r.input, item)) ?? null;
 }
 
@@ -162,7 +162,7 @@ export async function craft(slots) {
   // A recipe the actor doesn't know is out of reach unless it can be discovered: the grid then fails
   // like any wrong layout, so it gives away nothing.
   const known = new Set(getKnownRecipeIds(actor));
-  const usable = getAllRecipes().filter(r => (r.kind !== "dismantle") && (known.has(r.id) || isDiscoverable(r)));
+  const usable = getAllRecipes().filter(r => (r.kind !== "dismantle") && (known.has(r.id) || (getAccess(r) === "discover")));
   const found = findRecipe(cells, usable);
   const recipe = found?.recipe ?? null;
   // Several variants may fit one grid with different tools: take one the actor can make.

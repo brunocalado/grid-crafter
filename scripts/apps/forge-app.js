@@ -15,7 +15,7 @@ import {
   CraftError, craft, dismantle, fillFromInventory, findDismantleRecipe, getKnownRecipeIds, getLearnedRecipeIds, hasRequiredItem,
   noActorMessage, planDismantle, wrongActorMessage
 } from "../crafting.js";
-import { dismantleGrid, findRecipe, getAllRecipes, isDiscoverable, recipeFace } from "../recipes.js";
+import { dismantleGrid, findRecipe, getAccess, getAllRecipes, recipeFace } from "../recipes.js";
 import { BELLOWS_PERIOD, CraftFX, animate, runeGlyphs, wait } from "../effects.js";
 import { playCue } from "../sound.js";
 
@@ -128,7 +128,7 @@ export class ForgeApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const known = new Set(getKnownRecipeIds(actor));
     const learned = new Set(getLearnedRecipeIds(actor));
     const all = getAllRecipes();
-    this.#canDismantle = all.some(r => (r.kind === "dismantle") && (known.has(r.id) || isDiscoverable(r)));
+    this.#canDismantle = all.some(r => (r.kind === "dismantle") && (known.has(r.id) || (getAccess(r) === "discover")));
     const dismantling = this.#dismantling;
     const requires = holder => (holder.requires
       ? { name: holder.requires.name, img: holder.requires.img, has: !!actor && hasRequiredItem(holder, actor) } : null);

@@ -6,14 +6,16 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { CATEGORY_MAX, MODULE_ID, RECIPE_NAME_MAX, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH, VARIANT_MAX } from "../constants.js";
+import {
+  CATEGORY_MAX, MODULE_ID, RECIPE_ACCESS, RECIPE_NAME_MAX, SETTING_FAIL_LOSS_CHANCE, TEMPLATE_PATH, VARIANT_MAX
+} from "../constants.js";
 import {
   bindSearch, confirmDialog, filterGroups, getCollapsed, getDropData, getTheme, groupByCategory, isTypeAllowed, itemOrigin, readCaret,
   recipeSearchText, restoreCaret, setCollapsed, toItemRef
 } from "../helpers.js";
 import {
-  blankDismantle, blankRecipe, blankVariant, deleteRecipe, dismantleGrid, findInputTaken, findOverlap, getAllRecipes, getCategories,
-  getHiddenIds, getRecipe, getWorldRecipes, isDiscoverable, normalizeCategories, recipeFace, restoreRecipe, saveRecipe, setRecipeHidden,
+  blankDismantle, blankRecipe, blankVariant, deleteRecipe, dismantleGrid, findInputTaken, findOverlap, getAccess, getAllRecipes,
+  getCategories, getHiddenIds, getRecipe, getWorldRecipes, normalizeCategories, recipeFace, restoreRecipe, saveRecipe, setRecipeHidden,
   waysToMake
 } from "../recipes.js";
 import { ShareRecipeApp } from "./share-recipe-app.js";
@@ -33,6 +35,12 @@ function sourceLabel(source) {
 
 /** The list key of the Recipe Book's Hidden group. */
 const HIDDEN_GROUP = "::hidden";
+
+/**
+ * The Knowledge field's segments. Each icon is one the module already shows for that idea: the public
+ * marker, an experiment, and Teach.
+ */
+const ACCESS_ICONS = { public: "fa-people-group", discover: "fa-flask", taught: "fa-graduation-cap" };
 
 /** Where the Recipe Book remembers which kind of recipe its list shows. */
 const MODE_KEY = `${MODULE_ID}.editor.mode`;
@@ -59,7 +67,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       icon: "fa-solid fa-scroll-old",
       resizable: false
     },
-    // Wide enough for Failure, Discovery and Makes side by side with a usable loss slider.
+    // Wide enough for Failure, Knowledge and Makes side by side with a usable loss slider.
     position: { width: 1120, height: "auto" },
     actions: {
       setMode: RecipeEditorApp.#onSetMode,
@@ -84,7 +92,8 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       addVariant: RecipeEditorApp.#onAddVariant,
       removeVariant: RecipeEditorApp.#onRemoveVariant,
       selectWay: RecipeEditorApp.#onSelectWay,
-      selectOwnParts: RecipeEditorApp.#onSelectOwnParts
+      selectOwnParts: RecipeEditorApp.#onSelectOwnParts,
+      setAccess: RecipeEditorApp.#onSetAccess
     }
   };
 
@@ -153,7 +162,7 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     if ( selected ) for ( const id of selected ) if ( !all.some(r => r.id === id) ) selected.delete(id);
     // While selecting, a lit row means "selected" and nothing else: the draft's row is lit only if picked.
     const toEntry = r => ({ id: r.id, name: recipeFace(r).name || "—", img: recipeFace(r).img,
-      active: selected ? selected.has(r.id) : r.id === draft.id, search: recipeSearchText(r), public: r.public,
+      active: selected ? selected.has(r.id) : r.id === draft.id, search: recipeSearchText(r), public: getAccess(r) === "public",
       edited: !!r.edited,
       variantsTip: (r.variants?.length > 1) ? game.i18n.localize("GRIDCRAFTER.Editor.VariantsMarker", { count: r.variants.length }) : "" });
     const groups = Object.entries(Object.groupBy(shown, r => r.source)).map(([source, recipes]) => {
@@ -218,7 +227,6 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isPackage: !!draft.source && (draft.source !== "world"),
       // As saved, so Restore is offered only for an edit that still exists.
       edited: !!all.find(r => r.id === draft.id)?.edited,
-      isPublic: draft.public,
       // The footer button names the first category and counts the rest; its tooltip lists them all.
       categories: draft.categories.length ? {
         first: draft.categories[0], more: draft.categories.length - 1, all: draft.categories.join(", ")
@@ -245,16 +253,17 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       },
       inherit: draft.failLossChance === null,
       lossChance: draft.failLossChance ?? game.settings.get(MODULE_ID, SETTING_FAIL_LOSS_CHANCE),
-      discoverInherit: draft.discoverable === null,
-      discoverable: isDiscoverable(draft),
+      // On the world default the segments are disabled but the inherited one stays lit: the row reads
+      // out the default without a hover.
+      accessInherit: draft.access === null,
+      accessOptions: RECIPE_ACCESS.map(value => ({ value, icon: ACCESS_ICONS[value],
+        label: game.i18n.localize(`GRIDCRAFTER.Access.${value}`), active: getAccess(draft) === value })),
       shapeHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Shaped")}</strong><br>`
         + `${game.i18n.localize("GRIDCRAFTER.Editor.ShapedHint")}</p>`
         + `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Shapeless")}</strong><br>`
         + `${game.i18n.localize("GRIDCRAFTER.Editor.ShapelessHint")}</p>`,
-      publicHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Public")}</strong><br>`
-        + `${game.i18n.localize("GRIDCRAFTER.Editor.PublicHint")}</p>`,
-      discoveryHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Discovery")}</strong><br>`
-        + `${game.i18n.localize("GRIDCRAFTER.Editor.DiscoveryHint")}</p>`,
+      knowledgeHelp: RECIPE_ACCESS.map(value => `<p><strong>${game.i18n.localize(`GRIDCRAFTER.Access.${value}`)}</strong><br>`
+        + `${game.i18n.localize(`GRIDCRAFTER.Editor.KnowledgeHint.${value}`)}</p>`).join(""),
       quantityHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Quantity")}</strong><br>`
         + `${game.i18n.localize("GRIDCRAFTER.Editor.QuantityHint")}</p>`,
       consumesHelp: `<p><strong>${game.i18n.localize("GRIDCRAFTER.Recipe.Consumes")}</strong><br>`
@@ -425,17 +434,10 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       case "inherit":
         draft.failLossChance = input.checked ? null : game.settings.get(MODULE_ID, SETTING_FAIL_LOSS_CHANCE);
         return this.#markDirty(true);
-      case "public":
-        draft.public = input.checked;
-        break;
-      case "discoverInherit":
-        draft.discoverable = input.checked ? null : isDiscoverable(draft);
+      // Off the default, the segments start from what the default was showing.
+      case "accessInherit":
+        draft.access = input.checked ? null : getAccess(draft);
         return this.#markDirty(true);
-      case "discoverable":
-        draft.discoverable = input.checked;
-        this.element.querySelector(".gc-discovery-value").textContent =
-          game.i18n.localize(input.checked ? "GRIDCRAFTER.Recipe.Yes" : "GRIDCRAFTER.Recipe.No");
-        break;
       case "refund":
         draft.refund = input.checked;
         break;
@@ -1011,6 +1013,21 @@ export class RecipeEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.dirty = true;
     this.#switched = true;
     this.render();
+  }
+
+  /**
+   * Pick how characters come to know the recipe. The segments are re-lit in place: a render under the
+   * cursor eats the next click.
+   * @this {RecipeEditorApp}
+   */
+  static #onSetAccess(event, target) {
+    this.draft.access = target.dataset.access;
+    for ( const button of target.parentElement.querySelectorAll("[data-access]") ) {
+      const on = button === target;
+      button.classList.toggle("gc-active", on);
+      button.setAttribute("aria-checked", String(on));
+    }
+    this.#markDirty(false);
   }
 
   /**

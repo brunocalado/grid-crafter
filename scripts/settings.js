@@ -7,8 +7,8 @@
  */
 
 import {
-  MODULE_ID, SETTING_ALLOWED_TYPES, SETTING_DISCOVERY, SETTING_FAIL_LOSS_CHANCE, SETTING_HIDDEN_RECIPES, SETTING_QUANTITY_PATH,
-  SETTING_RECIPE_EDITS, SETTING_RECIPES,
+  MODULE_ID, SETTING_ACCESS_CRAFT, SETTING_ACCESS_DISMANTLE, SETTING_ALLOWED_TYPES, SETTING_FAIL_LOSS_CHANCE, SETTING_HIDDEN_RECIPES,
+  SETTING_QUANTITY_PATH, SETTING_RECIPE_EDITS, SETTING_RECIPES,
   SETTING_SOUND_CRAFT, SETTING_SOUND_FAILURE, SETTING_SOUND_SHARE, SETTING_SOUND_SUCCESS, SETTING_SOUND_VOLUME,
   SETTING_THEME
 } from "./constants.js";
@@ -152,13 +152,33 @@ export function registerSettings() {
     default: 0
   });
 
-  game.settings.register(MODULE_ID, SETTING_DISCOVERY, {
-    name: "GRIDCRAFTER.Settings.Discovery.Name",
-    hint: "GRIDCRAFTER.Settings.Discovery.Hint",
+  // One default per kind: a table may open crafting to everyone and keep dismantling a discovery.
+  // Players' books and the editor follow a change at once.
+  const accessChoices = {
+    public: "GRIDCRAFTER.Access.public",
+    discover: "GRIDCRAFTER.Access.discover",
+    taught: "GRIDCRAFTER.Access.taught"
+  };
+  game.settings.register(MODULE_ID, SETTING_ACCESS_CRAFT, {
+    name: "GRIDCRAFTER.Settings.AccessCraft.Name",
+    hint: "GRIDCRAFTER.Settings.AccessCraft.Hint",
     scope: "world",
     config: true,
-    type: Boolean,
-    default: true
+    type: String,
+    choices: accessChoices,
+    default: "discover",
+    onChange: rerenderRecipeViews
+  });
+
+  game.settings.register(MODULE_ID, SETTING_ACCESS_DISMANTLE, {
+    name: "GRIDCRAFTER.Settings.AccessDismantle.Name",
+    hint: "GRIDCRAFTER.Settings.AccessDismantle.Hint",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: accessChoices,
+    default: "discover",
+    onChange: rerenderRecipeViews
   });
 
   // The base loudness of the cues for the whole table. Each user still scales it with their own

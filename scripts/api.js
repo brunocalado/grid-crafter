@@ -8,12 +8,13 @@
 
 import { ForgeApp } from "./apps/forge-app.js";
 import { RecipeEditorApp } from "./apps/recipe-editor-app.js";
-import { CELL_COUNT, FLAG_RECEIPTS, MODULE_ID } from "./constants.js";
+import { CELL_COUNT, FLAG_RECEIPTS, MODULE_ID, RECIPE_ACCESS } from "./constants.js";
 import { forgetRecipes, getKnownRecipeIds, learnRecipes } from "./crafting.js";
 import { getCraftingActor, toActor } from "./helpers.js";
 import { getReceipts, trimReceipts, unitsOf } from "./receipts.js";
 import {
-  getAllRecipes, getCategories, getRecipe, normalizeCategories, refFromUuid, registerRecipes, saveRecipe, unregisterRecipes
+  getAccess, getAllRecipes, getCategories, getRecipe, normalizeCategories, refFromUuid, registerRecipes, saveRecipe,
+  unregisterRecipes
 } from "./recipes.js";
 import { shareRecipe } from "./share.js";
 
@@ -94,26 +95,33 @@ export const api = {
   getRecipes: () => getAllRecipes().map(r => foundry.utils.deepClone(r)),
 
   /**
-   * Make a recipe public (every character knows it) or private again. GM only. On a package recipe
-   * this is an edit like any other: the recipe stops following the package until the GM restores
-   * it. Characters who learned it keep it either way.
+   * Set how characters come to know a recipe: "public" (every character knows it), "discover" (found
+   * by laying out its ingredients or breaking its item), "taught" (only teaching gives it), or null to
+   * follow the world default for its kind. GM only. On a package recipe this is an edit like any other:
+   * the recipe stops following the package until the GM restores it. Characters who learned it keep it
+   * either way.
    * @param {string} id
-   * @param {boolean} [value=true]
+   * @param {"public"|"discover"|"taught"|null} value
    * @returns {Promise<boolean>} false when the call was refused (with a warning)
    */
-  setRecipePublic: async (id, value = true) => {
+  setRecipeAccess: async (id, value) => {
     if ( !game.user.isGM ) return warn("GMOnly");
     const recipe = getRecipe(id);
     if ( !recipe ) return warn("UnknownRecipe", { id });
-    await saveRecipe({ ...recipe, public: !!value });
+    if ( (value !== null) && !RECIPE_ACCESS.includes(value) ) return warn("AccessNotValid", { value });
+    await saveRecipe({ ...recipe, access: value });
     return true;
   },
 
   /**
    * @param {string} id
-   * @returns {boolean} whether every character knows the recipe; false for an unknown id
+   * @returns {"public"|"discover"|"taught"|null} how characters come to know the recipe now, the world
+   *   default applied; null for an unknown id
    */
-  isRecipePublic: id => !!getRecipe(id)?.public,
+  getRecipeAccess: id => {
+    const recipe = getRecipe(id);
+    return recipe ? getAccess(recipe) : null;
+  },
 
   /** @returns {string[]} every category some recipe uses, alphabetically */
   getCategories,
@@ -121,7 +129,7 @@ export const api = {
   /**
    * Replace the categories a recipe is listed under. A name not in use yet starts a new category;
    * an empty list leaves the recipe uncategorised. GM only. On a package recipe this is an edit like
-   * any other, as with setRecipePublic.
+   * any other, as with setRecipeAccess.
    * @param {string} id
    * @param {string[]} categories
    * @returns {Promise<boolean>} false when the call was refused (with a warning)

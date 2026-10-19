@@ -18,7 +18,8 @@ export const SETTING_HIDDEN_RECIPES = "hiddenRecipes";
 export const SETTING_ALLOWED_TYPES = "allowedTypes";
 export const SETTING_QUANTITY_PATH = "quantityPath";
 export const SETTING_FAIL_LOSS_CHANCE = "failLossChance";
-export const SETTING_DISCOVERY = "discovery";
+export const SETTING_ACCESS_CRAFT = "accessCraft";
+export const SETTING_ACCESS_DISMANTLE = "accessDismantle";
 export const SETTING_THEME = "theme";
 export const SETTING_SOUND_VOLUME = "soundVolume";
 export const SETTING_SOUND_CRAFT = "soundCraft";
@@ -31,6 +32,9 @@ export const FLAG_KNOWN_RECIPES = "knownRecipes";
 
 // Item flags
 export const FLAG_RECEIPTS = "receipts";
+
+// How a character comes to know a recipe: everyone knows it, it can be found by experiment, or only teaching gives it.
+export const RECIPE_ACCESS = ["public", "discover", "taught"];
 
 export const CATEGORY_MAX = 24;
 

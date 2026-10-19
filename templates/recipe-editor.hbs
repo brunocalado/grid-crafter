@@ -81,12 +81,6 @@
           <legend>{{#if dismantling}}<i class="fa-solid {{#if isArcane}}fa-burst{{else}}fa-pickaxe{{/if}}" inert></i> {{localize "GRIDCRAFTER.Recipe.NameDismantle"}}{{else}}<i class="fa-solid {{#if isArcane}}fa-wand-sparkles{{else}}fa-hammer{{/if}}" inert></i> {{localize "GRIDCRAFTER.Recipe.NameCraft"}}{{/if}}</legend>
           <input type="text" name="name" value="{{draft.name}}" placeholder="{{circle.item.name}}" maxlength="{{nameMax}}">
         </fieldset>
-        <fieldset class="gc-field gc-public">
-          <legend>{{localize "GRIDCRAFTER.Recipe.Public"}}</legend>
-          <input type="checkbox" class="gc-toggle" name="public" {{#if isPublic}}checked{{/if}}>
-          <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{publicHelp}}"
-             data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="UP"></i>
-        </fieldset>
         {{#if dismantling}}
         <fieldset class="gc-field gc-refund">
           <legend>{{localize "GRIDCRAFTER.Recipe.Refund"}}</legend>
@@ -118,18 +112,20 @@
           <output class="gc-loss-value">{{lossChance}}%</output>
         </fieldset>
         {{/unless}}
-        <fieldset class="gc-field gc-discovery">
-          <legend>{{localize "GRIDCRAFTER.Recipe.Discovery"}}</legend>
+        <fieldset class="gc-field gc-knowledge-field">
+          <legend>{{localize "GRIDCRAFTER.Recipe.Knowledge"}}</legend>
           <label class="gc-inherit">
-            <input type="checkbox" class="gc-toggle" name="discoverInherit" {{#if discoverInherit}}checked{{/if}}>
+            <input type="checkbox" class="gc-toggle" name="accessInherit" {{#if accessInherit}}checked{{/if}}>
             <span>{{localize "GRIDCRAFTER.Recipe.Inherit"}}</span>
           </label>
-          {{#unless discoverInherit}}
-          <input type="checkbox" class="gc-toggle" name="discoverable" {{#if discoverable}}checked{{/if}}
-                 aria-label="{{localize "GRIDCRAFTER.Recipe.Discovery"}}">
-          {{/unless}}
-          <output class="gc-discovery-value">{{#if discoverable}}{{localize "GRIDCRAFTER.Recipe.Yes"}}{{else}}{{localize "GRIDCRAFTER.Recipe.No"}}{{/if}}</output>
-          <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{discoveryHelp}}"
+          <div class="gc-mode-switch gc-access" role="radiogroup" aria-label="{{localize "GRIDCRAFTER.Recipe.Knowledge"}}">
+            {{#each accessOptions}}
+            <button type="button" class="gc-icon-button {{#if active}}gc-active{{/if}}" data-action="setAccess" data-access="{{value}}"
+                    role="radio" aria-checked="{{active}}" aria-label="{{label}}" data-tooltip="{{label}}"
+                    {{#if ../accessInherit}}disabled{{/if}}><i class="fa-solid {{icon}}" inert></i></button>
+            {{/each}}
+          </div>
+          <i class="fa-solid fa-circle-question gc-help" data-tooltip-html="{{knowledgeHelp}}"
              data-tooltip-class="grid-crafter gc-tooltip gc-theme-{{theme}}" data-tooltip-direction="UP"></i>
         </fieldset>
         {{#if dismantling}}

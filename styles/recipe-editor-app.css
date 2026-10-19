@@ -255,9 +255,9 @@
   }
 
   /* Two rows of the same width, so their right edges line up. The top one gives the name whatever
-     Public and Shape leave. The bottom one has fixed shares, not "auto": an inherit toggle that
-     reveals a control would otherwise resize its neighbours. Failure's share keeps its slider at
-     least 120px wide with both inherit toggles off. */
+     Shape leaves. The bottom one has fixed shares, not "auto": an inherit toggle that reveals a
+     control would otherwise resize its neighbours. Failure's share keeps its slider at least 120px
+     wide with its inherit toggle off. */
   .gc-recipe-fields {
     display: flex;
     flex-direction: column;
@@ -270,19 +270,18 @@
     }
 
     .gc-fields-top {
-      grid-template-columns: 1fr auto auto;
+      grid-template-columns: 1fr auto;
     }
 
-    /* A dismantling recipe has no Shape, Failure or Makes: Name takes Shape's room, and Discovery and
+    /* A dismantling recipe has no Shape, Failure or Makes: Refund takes Shape's slot, and Knowledge and
        Consumes share their row. The rows keep their heights, so the window doesn't jump between kinds. */
     &.gc-dismantling {
       .gc-fields-row {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       }
 
-      /* Name, Public, Refund: Refund takes the slot a crafting recipe gives to Shape. */
       .gc-fields-top {
-        grid-template-columns: 1fr auto auto;
+        grid-template-columns: 1fr auto;
       }
     }
 
@@ -300,7 +299,7 @@
 
     .gc-shape label,
     .gc-loss label,
-    .gc-discovery label {
+    .gc-knowledge-field label {
       display: flex;
       align-items: center;
       gap: 6px;
@@ -310,8 +309,7 @@
     }
 
     .gc-loss-value,
-    .gc-quantity-value,
-    .gc-discovery-value {
+    .gc-quantity-value {
       margin-left: auto;
       min-width: 2.4em;
       color: var(--gc-trim-hi);
@@ -320,8 +318,16 @@
       text-align: right;
     }
 
-    .gc-quantity .gc-help,
-    .gc-discovery .gc-help {
+    .gc-quantity .gc-help {
+      margin-left: 0;
+    }
+
+    /* The segments sit at the right edge, beside the help, where the Yes/No readout used to be. */
+    .gc-access {
+      margin-left: auto;
+    }
+
+    .gc-knowledge-field .gc-help {
       margin-left: 0;
     }
   }
