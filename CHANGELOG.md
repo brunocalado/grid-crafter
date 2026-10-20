@@ -1,3 +1,7 @@
+# Unreleased
+
+- [Added] Modules and systems can suggest which item types count as crafting materials with registerItemTypes. The GM's choice in Craftable Item Types still wins.
+
 # 0.1.1
 
 - [Fixed] The forge's recipe book no longer marks public recipes, so long names have the whole row to wrap in. The recipe editor still shows the marker.

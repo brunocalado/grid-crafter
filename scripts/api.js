@@ -10,7 +10,7 @@ import { ForgeApp } from "./apps/forge-app.js";
 import { RecipeEditorApp } from "./apps/recipe-editor-app.js";
 import { CELL_COUNT, FLAG_RECEIPTS, MODULE_ID, RECIPE_ACCESS } from "./constants.js";
 import { forgetRecipes, getKnownRecipeIds, learnRecipes } from "./crafting.js";
-import { getCraftingActor, toActor } from "./helpers.js";
+import { getCraftingActor, registerItemTypes, toActor, unregisterItemTypes } from "./helpers.js";
 import { getReceipts, trimReceipts, unitsOf } from "./receipts.js";
 import {
   getAccess, getAllRecipes, getCategories, getRecipe, normalizeCategories, refFromUuid, registerRecipes, saveRecipe,
@@ -90,6 +90,8 @@ export const api = {
 
   registerRecipes,
   unregisterRecipes,
+  registerItemTypes,
+  unregisterItemTypes,
 
   /** @returns {object[]} every recipe: the world's, then those registered by packages */
   getRecipes: () => getAllRecipes().map(r => foundry.utils.deepClone(r)),

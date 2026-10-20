@@ -7,7 +7,7 @@
  */
 
 import { MODULE_ID, SETTING_ALLOWED_TYPES, TEMPLATE_PATH } from "../constants.js";
-import { getTheme } from "../helpers.js";
+import { getAllowedTypes, getTheme } from "../helpers.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -37,7 +37,8 @@ export class ItemTypesConfig extends HandlebarsApplicationMixin(ApplicationV2) {
 
   /** @override */
   async _prepareContext(options) {
-    const allowed = game.settings.get(MODULE_ID, SETTING_ALLOWED_TYPES);
+    // What the forge enforces, so suggested types show checked before the GM ever saves.
+    const allowed = getAllowedTypes();
     const types = game.documentTypes.Item.filter(t => t !== CONST.BASE_DOCUMENT_TYPE);
     // Systems can keep legacy types without a label; show those by their id.
     const choices = types.map(type => {

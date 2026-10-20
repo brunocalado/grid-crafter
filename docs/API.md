@@ -59,8 +59,11 @@ Grid Crafter also fires a hook once its own `ready` work is done, and passes the
 // At the top level of your script (or in "init"), so the listener exists before the hook fires.
 Hooks.once("grid-crafter.ready", api => {
   api.registerRecipes("my-module", MY_RECIPES);
+  api.registerItemTypes("my-module", ["loot", "consumable"]);
 });
 ```
+
+Suggested item types follow the same rule: in memory, on every client, from `ready`.
 
 Either way works. The hook only fires when Grid Crafter is active, so you don't need to check.
 
@@ -451,10 +454,11 @@ grid; only the GM can. An item on the grid counts as an ingredient when:
 So recipes keep working for items a GM created by hand, as long as the name and type match. Point
 your recipes at the same compendium items you hand out to players, and matching is exact.
 
-The GM's **Craftable Item Types** setting still applies: an item whose type the GM has not
-allowed can't be dragged onto the grid, even when your recipe uses it. Pick ingredient types a
-GM would allow (materials, loot, consumables), not classes or features. The setting doesn't apply
-to an item put in the circle to be dismantled, nor to the parts it gives.
+The GM's **Craftable Item Types** setting still applies: an item whose type isn't allowed can't
+be dragged onto the grid, even when your recipe uses it. Register your ingredient types with
+[`registerItemTypes`](#registeritemtypespackageid-types--number) so they are allowed until the GM
+makes their own choice, and keep to materials, loot or consumables, not classes or features. The
+setting doesn't apply to an item put in the circle to be dismantled, nor to the parts it gives.
 
 ---
 
@@ -486,6 +490,24 @@ Registering an `id` you already registered replaces that recipe.
 ### `unregisterRecipes(packageId)`
 
 Removes every recipe your package registered, on this client.
+
+### `registerItemTypes(packageId, types)` → `number`
+
+Suggests which item types count as crafting materials, and returns how many were accepted. Until
+the GM saves **Craftable Item Types**, only the suggested types can go on the crafting grid, and
+the window opens with them checked.
+
+- `packageId` *(string)*: your module's or system's id.
+- `types` *(string[])*: item type ids, as in `game.documentTypes.Item`.
+
+A type this world doesn't have is skipped with a warning in the console. Calling again replaces
+your package's suggestion. Suggestions from several packages add up, whatever order they load
+in; a package can only add types, never remove one another package suggested. Once the GM saves
+Craftable Item Types, their choice overrides every suggestion.
+
+### `unregisterItemTypes(packageId)`
+
+Removes your package's suggestion, on this client.
 
 ### `getRecipes()` → `object[]`
 

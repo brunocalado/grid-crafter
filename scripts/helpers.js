@@ -58,13 +58,68 @@ export function getQuantity(item) {
   return Number.isFinite(value) ? value : null;
 }
 
+/** Item types each package suggests as crafting materials, by package id. In memory only. */
+const suggestedTypes = new Map();
+
 /**
- * Item types players may place on the forge grid. An empty list allows every type.
+ * Suggest the item types that count as crafting materials. Used until the GM saves Craftable Item
+ * Types. Calling again replaces this package's suggestion; packages' suggestions add up.
+ * @param {string} packageId
+ * @param {string[]} types
+ * @returns {number} how many types were accepted
+ */
+export function registerItemTypes(packageId, types) {
+  if ( (typeof packageId !== "string") || !packageId ) throw new Error(`${MODULE_ID} | registerItemTypes needs a package id.`);
+  if ( !Array.isArray(types) ) throw new Error(`${MODULE_ID} | registerItemTypes needs an array of item types.`);
+  const known = game.documentTypes.Item.filter(t => t !== CONST.BASE_DOCUMENT_TYPE);
+  const accepted = new Set();
+  for ( const type of types ) {
+    if ( known.includes(type) ) accepted.add(type);
+    else console.warn(`${MODULE_ID} | Item type "${type}" from ${packageId} skipped: this world has no such type.`);
+  }
+  suggestedTypes.set(packageId, accepted);
+  return accepted.size;
+}
+
+/** @param {string} packageId */
+export function unregisterItemTypes(packageId) {
+  suggestedTypes.delete(packageId);
+}
+
+/**
+ * The packages that suggest each type, for the settings window.
+ * @returns {Map<string, string[]>} type → package ids
+ */
+export function getTypeSuggestions() {
+  const byType = new Map();
+  for ( const [packageId, types] of suggestedTypes ) {
+    for ( const type of types ) {
+      if ( !byType.has(type) ) byType.set(type, []);
+      byType.get(type).push(packageId);
+    }
+  }
+  return byType;
+}
+
+/**
+ * The item types players may place on the forge grid: the GM's saved choice, otherwise every
+ * package's suggestion. An empty list allows every type.
+ * @returns {string[]}
+ */
+export function getAllowedTypes() {
+  // An unsaved world setting comes back as a Setting with no id, so "the GM chose none" ([] saved)
+  // and "the GM never chose" stay different.
+  const doc = game.settings.get(MODULE_ID, SETTING_ALLOWED_TYPES, { document: true });
+  if ( doc.id ) return doc.value;
+  return [...new Set([...suggestedTypes.values()].flatMap(s => [...s]))];
+}
+
+/**
  * @param {string} type
  * @returns {boolean}
  */
 export function isTypeAllowed(type) {
-  const allowed = game.settings.get(MODULE_ID, SETTING_ALLOWED_TYPES);
+  const allowed = getAllowedTypes();
   return !allowed.length || allowed.includes(type);
 }
 
