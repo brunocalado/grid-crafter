@@ -1,3 +1,7 @@
+# Unreleased
+
+- [Changed] Saving Craftable Item Types with exactly the suggested types checked keeps following the suggestions, so a package that later suggests more types still counts.
+
 # 0.2.0
 
 - [Added] Modules and systems can suggest which item types count as crafting materials with registerItemTypes. The GM's choice in Craftable Item Types still wins.

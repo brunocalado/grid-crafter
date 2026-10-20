@@ -77,6 +77,14 @@ export class ItemTypesConfig extends HandlebarsApplicationMixin(ApplicationV2) {
    */
   static async #onSubmit(event, form, formData) {
     const types = [...form.querySelectorAll("input[name='types']:checked")].map(i => i.value);
+    // Saving exactly the suggestions keeps following them, so a press of Save without changes
+    // doesn't freeze out what a package suggests later. Only a different choice is stored.
+    const suggested = new Set(getTypeSuggestions().keys());
+    if ( (types.length === suggested.size) && types.every(t => suggested.has(t)) ) {
+      const doc = game.settings.get(MODULE_ID, SETTING_ALLOWED_TYPES, { document: true });
+      if ( doc.id ) await doc.delete();
+      return;
+    }
     await game.settings.set(MODULE_ID, SETTING_ALLOWED_TYPES, types);
   }
 

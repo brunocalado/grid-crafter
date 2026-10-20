@@ -494,8 +494,9 @@ Removes every recipe your package registered, on this client.
 ### `registerItemTypes(packageId, types)` → `number`
 
 Suggests which item types count as crafting materials, and returns how many were accepted. Until
-the GM saves **Craftable Item Types**, only the suggested types can go on the crafting grid, and
-the window opens with them checked.
+the GM saves a different choice in **Craftable Item Types**, only the suggested types can go on
+the crafting grid, and the window opens with them checked. Saving the window with exactly the
+suggested types checked keeps following the suggestions.
 
 - `packageId` *(string)*: your module's or system's id.
 - `types` *(string[])*: item type ids, as in `game.documentTypes.Item`.
@@ -503,7 +504,7 @@ the window opens with them checked.
 A type this world doesn't have is skipped with a warning in the console. Calling again replaces
 your package's suggestion. Suggestions from several packages add up, whatever order they load
 in; a package can only add types, never remove one another package suggested. Once the GM saves
-Craftable Item Types, their choice overrides every suggestion.
+a different choice in Craftable Item Types, it overrides every suggestion.
 
 ### `unregisterItemTypes(packageId)`
 
