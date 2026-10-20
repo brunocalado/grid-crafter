@@ -182,7 +182,7 @@ export const api = {
   },
 
   /**
-   * Show a recipe's pattern to players online, without its result, and to the calling GM. GM only.
+   * Show a recipe's pattern and what it makes to players online, and to the calling GM. GM only.
    * @param {string} id
    * @param {string[]} [userIds]   defaults to every player online
    * @returns {Promise<false|undefined>} false when the call was refused (with a warning); otherwise settles
