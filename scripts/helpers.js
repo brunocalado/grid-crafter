@@ -58,7 +58,12 @@ export function getQuantity(item) {
   return Number.isFinite(value) ? value : null;
 }
 
-/** Item types each package suggests as crafting materials, by package id. In memory only. */
+/**
+ * Item types each package suggests as crafting materials, by package id. In memory only: a package
+ * writing the world setting itself would need a GM and would overwrite the GM's choice on every load.
+ * Suggestions are a union, never "last one wins" or a removal, so module load order can't decide
+ * the result; the GM unchecks what they don't want.
+ */
 const suggestedTypes = new Map();
 
 /**
@@ -112,6 +117,17 @@ export function getAllowedTypes() {
   const doc = game.settings.get(MODULE_ID, SETTING_ALLOWED_TYPES, { document: true });
   if ( doc.id ) return doc.value;
   return [...new Set([...suggestedTypes.values()].flatMap(s => [...s]))];
+}
+
+/**
+ * What the GM calls a recipe's or a suggestion's source: the world, or the title of the package
+ * that registered it.
+ * @param {string} source
+ * @returns {string}
+ */
+export function sourceLabel(source) {
+  if ( source === "world" ) return game.i18n.localize("GRIDCRAFTER.Editor.WorldRecipes");
+  return game.modules.get(source)?.title ?? ((game.system.id === source) ? game.system.title : source);
 }
 
 /**

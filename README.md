@@ -166,7 +166,7 @@ All settings are in **Game Settings → Configure Settings → Grid Crafter**:
 | Setting | What it does |
 |---|---|
 | Recipes | Opens the Recipe Book. |
-| Craftable Item Types | Which kinds of items can go on the grid. With none selected, every type is allowed. |
+| Craftable Item Types | Which kinds of items can go on the grid. With none selected, every type is allowed. Installed modules can suggest a starting selection, marked in the window, and **Use Suggested** goes back to it. |
 | Crafting Sounds | The base volume and the sound for crafting, success, failure and shared recipes. Leave a sound empty to use the theme's own. |
 | Visual Theme | Forge or Arcane, for everyone at the table. |
 | Quantity Path | Where your system keeps an item's quantity, such as `system.quantity`. Items without a number there are used up whole. |

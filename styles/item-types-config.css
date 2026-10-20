@@ -36,8 +36,15 @@
     color: var(--gc-text);
   }
 
+  /* The suggestion is a footnote to the label, not a second control: dim and unboxed. */
+  .gc-suggested {
+    color: var(--gc-text-dim);
+    font-size: 0.85em;
+  }
+
   footer {
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
   }
 }

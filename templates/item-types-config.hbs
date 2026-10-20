@@ -5,10 +5,14 @@
     <label class="gc-type">
       <input type="checkbox" class="gc-toggle" name="types" value="{{type}}" {{#if checked}}checked{{/if}}>
       <span>{{label}}</span>
+      {{#if suggestedBy}}<i class="fa-solid fa-box-open gc-suggested" data-tooltip="{{suggestedBy}}" aria-label="{{suggestedBy}}"></i>{{/if}}
     </label>
     {{/each}}
   </div>
   <footer>
+    {{#if canRestore}}
+    <button type="button" class="gc-button" data-action="restore"><i class="fa-solid fa-rotate-left" inert></i> {{localize "GRIDCRAFTER.Settings.ItemTypes.Restore"}}</button>
+    {{/if}}
     <button type="submit" class="gc-button"><i class="fa-solid fa-floppy-disk" inert></i> {{localize "GRIDCRAFTER.Editor.Save"}}</button>
   </footer>
 </div>

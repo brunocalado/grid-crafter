@@ -11,7 +11,7 @@ import {
 } from "../constants.js";
 import {
   bindSearch, confirmDialog, filterGroups, getCollapsed, getDropData, getTheme, groupByCategory, isTypeAllowed, itemOrigin, readCaret,
-  recipeSearchText, restoreCaret, setCollapsed, toItemRef
+  recipeSearchText, restoreCaret, setCollapsed, sourceLabel, toItemRef
 } from "../helpers.js";
 import {
   blankDismantle, blankRecipe, blankVariant, deleteRecipe, dismantleGrid, findInputTaken, findOverlap, getAccess, getAllRecipes,
@@ -22,16 +22,6 @@ import { ShareRecipeApp } from "./share-recipe-app.js";
 import { ForgetRecipeApp, TeachRecipeApp } from "./teach-recipe-app.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
-
-/**
- * What the GM calls a recipe's source: the world, or the title of the package that registered it.
- * @param {string} source
- * @returns {string}
- */
-function sourceLabel(source) {
-  if ( source === "world" ) return game.i18n.localize("GRIDCRAFTER.Editor.WorldRecipes");
-  return game.modules.get(source)?.title ?? ((game.system.id === source) ? game.system.title : source);
-}
 
 /** The list key of the Recipe Book's Hidden group. */
 const HIDDEN_GROUP = "::hidden";

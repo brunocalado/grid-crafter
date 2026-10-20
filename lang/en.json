@@ -212,7 +212,9 @@
         "Name": "Craftable Item Types",
         "Label": "Choose Item Types",
         "Hint": "Which item types can be placed on a crafting grid.",
-        "Explain": "Only checked item types can be used as crafting materials. With none checked, every type is allowed."
+        "Explain": "Only checked item types can be used as crafting materials. With none checked, every type is allowed.",
+        "SuggestedBy": "Suggested by {sources}",
+        "Restore": "Use Suggested"
       },
       "Theme": {
         "Name": "Visual Theme",

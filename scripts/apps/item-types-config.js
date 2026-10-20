@@ -7,7 +7,7 @@
  */
 
 import { MODULE_ID, SETTING_ALLOWED_TYPES, TEMPLATE_PATH } from "../constants.js";
-import { getAllowedTypes, getTheme } from "../helpers.js";
+import { getAllowedTypes, getTheme, getTypeSuggestions, sourceLabel } from "../helpers.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -28,6 +28,9 @@ export class ItemTypesConfig extends HandlebarsApplicationMixin(ApplicationV2) {
     form: {
       handler: ItemTypesConfig.#onSubmit,
       closeOnSubmit: true
+    },
+    actions: {
+      restore: ItemTypesConfig.#onRestore
     }
   };
 
@@ -39,13 +42,24 @@ export class ItemTypesConfig extends HandlebarsApplicationMixin(ApplicationV2) {
   async _prepareContext(options) {
     // What the forge enforces, so suggested types show checked before the GM ever saves.
     const allowed = getAllowedTypes();
+    const suggestions = getTypeSuggestions();
+    const saved = !!game.settings.get(MODULE_ID, SETTING_ALLOWED_TYPES, { document: true }).id;
+    const list = game.i18n.getListFormatter();
     const types = game.documentTypes.Item.filter(t => t !== CONST.BASE_DOCUMENT_TYPE);
     // Systems can keep legacy types without a label; show those by their id.
     const choices = types.map(type => {
       const key = CONFIG.Item.typeLabels?.[type];
-      return { type, label: (key && game.i18n.has(key)) ? game.i18n.localize(key) : type, checked: allowed.includes(type) };
+      // The marker shows the suggestion and the toggle the decision, so a type the GM turned off keeps it.
+      const sources = suggestions.get(type);
+      return {
+        type,
+        label: (key && game.i18n.has(key)) ? game.i18n.localize(key) : type,
+        checked: allowed.includes(type),
+        suggestedBy: sources ? game.i18n.localize("GRIDCRAFTER.Settings.ItemTypes.SuggestedBy",
+          { sources: list.format(sources.map(sourceLabel)) }) : ""
+      };
     });
-    return { types: game.i18n.sortObjects(choices, "label") };
+    return { types: game.i18n.sortObjects(choices, "label"), canRestore: saved && (suggestions.size > 0) };
   }
 
   /** @override */
@@ -64,5 +78,14 @@ export class ItemTypesConfig extends HandlebarsApplicationMixin(ApplicationV2) {
   static async #onSubmit(event, form, formData) {
     const types = [...form.querySelectorAll("input[name='types']:checked")].map(i => i.value);
     await game.settings.set(MODULE_ID, SETTING_ALLOWED_TYPES, types);
+  }
+
+  /**
+   * Forget the GM's saved choice so the suggestions apply again. The window stays open to show them.
+   * @this {ItemTypesConfig}
+   */
+  static async #onRestore() {
+    await game.settings.get(MODULE_ID, SETTING_ALLOWED_TYPES, { document: true }).delete();
+    this.render();
   }
 }
