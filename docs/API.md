@@ -15,8 +15,6 @@ The API is available as `GridCrafter` and as `game.modules.get("grid-crafter").a
 - [What the GM can do with your recipes](#what-the-gm-can-do-with-your-recipes)
 - [Full example: a module with its own compendium](#full-example-a-module-with-its-own-compendium)
 
----
-
 ## Quick start
 
 ```js
@@ -42,8 +40,6 @@ Hooks.once("ready", () => {
 That's all. A player who puts two iron ingots over a stick, anywhere on the 3×3 grid, forges an
 Iron Sword.
 
----
-
 ## When to register
 
 Register from a **`ready`** hook. By then compendium indexes are loaded, which the API needs to
@@ -66,8 +62,6 @@ Hooks.once("grid-crafter.ready", api => {
 Suggested item types follow the same rule: in memory, on every client, from `ready`.
 
 Either way works. The hook only fires when Grid Crafter is active, so you don't need to check.
-
----
 
 ## Hooks
 
@@ -176,11 +170,9 @@ A listener changes what comes back, never what is spent, and it can't pick anoth
 | `"incomplete"` | The item was spent, the parts never arrived, and it could not be put back. |
 | `"missing"` | The character doesn't carry the item the recipe `requires`. Nothing was spent and nothing was learned. |
 
-All four hooks fire **only on the client of the user who pressed Craft or Dismantle**, not on the
+All four hooks fire only on the client of the user who pressed **Craft** or **Dismantle**, not on the
 GM's or anyone else's. That user owns the actor (Grid Crafter refuses items they don't own), so a
 listener can update the actor directly.
-
----
 
 ## Recipe format
 
@@ -438,8 +430,6 @@ actor's sheet; the system has already duplicated the item itself). Read, set and
 [`clearReceipts`](#clearreceiptsitem--promise), for a shop, a trade or anything else that knows
 which units changed hands.
 
----
-
 ## How items are matched
 
 A player crafts with the items on their own character's sheet, which are copies, not your
@@ -459,8 +449,6 @@ be dragged onto the grid, even when your recipe uses it. Register your ingredien
 [`registerItemTypes`](#registeritemtypespackageid-types--number) so they are allowed until the GM
 makes their own choice, and keep to materials, loot or consumables, not classes or features. The
 setting doesn't apply to an item put in the circle to be dismantled, nor to the parts it gives.
-
----
 
 ## Reference
 
@@ -535,7 +523,7 @@ objects are copies; changing them changes nothing.
 
 Ids of the recipes an actor knows: what its recipe book shows. That is the recipes it learned
 (by crafting them, being taught, or Learn) plus every public recipe. `target` is the actor, one of
-its tokens, or the uuid of either. Defaults to the current user's crafting actor — a player's
+its tokens, or the uuid of either. Defaults to the current user's crafting actor: a player's
 assigned character, or for a GM the first selected token, then their own character.
 
 ### `setRecipeAccess(id, value)` → `Promise<boolean>` *(GM only)*
@@ -593,7 +581,7 @@ character, for instance from a macro on a scroll item.
 
 ```js
 // Teach every selected token
-for ( const token of canvas.tokens.controlled ) await GridCrafter.teachRecipe(token, "iron-sword");
+for ( const token of canvas.tokens.controlled ) await GridCrafter.teachRecipe(token, "smithing-pack.iron-sword");
 ```
 
 ### `forgetRecipe(target, id)` → `Promise<boolean>`
@@ -606,7 +594,7 @@ who owns the actor can make it forget.
 
 ### `shareRecipe(id, userIds)` → `Promise` *(GM only)*
 
-Shows a recipe to players online — its name, its pattern and what it makes — as the editor's
+Shows a recipe to players online, with its name, its pattern and what it makes, as the editor's
 **Share** button does. A player with a character can **Learn** it from that window, which
 adds it to their character's recipe book. The GM who calls it sees the same window, without Learn.
 
@@ -671,8 +659,6 @@ Opens the crafting table for the current user.
 
 Opens the GM's Recipe Book.
 
----
-
 ## What the GM can do with your recipes
 
 Your recipes show in the GM's Recipe Book under your package's title, crafting recipes under its
@@ -694,8 +680,6 @@ the bottom of the list. That only affects the GM's list: the recipe still works 
 
 When your package is disabled, its recipes leave the world, the GM's edits of them included. The
 edits come back with your package; world duplicates never left.
-
----
 
 ## Full example: a module with its own compendium
 
