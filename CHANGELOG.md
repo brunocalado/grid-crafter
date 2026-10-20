@@ -1,6 +1,6 @@
-# Unreleased
+# 0.2.1
 
-- [Changed] Saving Craftable Item Types with exactly the suggested types checked keeps following the suggestions, so a package that later suggests more types still counts.
+- [Fixed] Saving Craftable Item Types with exactly the suggested types checked keeps following the suggestions, so a package that later suggests more types still counts.
 
 # 0.2.0
 
